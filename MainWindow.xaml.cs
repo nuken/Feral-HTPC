@@ -11,6 +11,8 @@ using System.Windows.Navigation;
 using LibVLCSharp.Shared;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Net;
+using System.Net.Sockets;
 
 namespace ChannelsNativeTest
 {
@@ -68,15 +70,75 @@ namespace ChannelsNativeTest
             base.OnClosed(e);
         }
 
+        private bool IsPortAvailable(int port)
+        {
+            try
+            {
+                // Attempting to start a TcpListener is the most reliable way 
+                // to see if Windows is still locking the port from a previous run.
+                using (var tcpListener = new TcpListener(IPAddress.Loopback, port))
+                {
+                    tcpListener.Start();
+                    tcpListener.Stop();
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private int GetAvailablePort(int startPort = 12345, int endPort = 12445)
+        {
+            for (int port = startPort; port <= endPort; port++)
+            {
+                if (IsPortAvailable(port))
+                {
+                    return port;
+                }
+            }
+            throw new Exception($"No available ports found in the range {startPort}-{endPort}.");
+        }
+
         private void StartWebServer()
         {
             Task.Run(async () =>
             {
                 try
                 {
+                    var settings = SettingsManager.Load();
+                    int portToUse = settings.WebServerPort;
+
+                    if (portToUse == 0)
+                    {
+                        // First run ever: find an initial available port in the range
+                        portToUse = GetAvailablePort(12345, 12445);
+                        settings.WebServerPort = portToUse;
+                        SettingsManager.Save(settings);
+                    }
+                    else
+                    {
+                        // The user has a saved port. If Windows is currently locking it 
+                        // (e.g., TIME_WAIT state from a recent restart), wait and retry.
+                        int maxRetries = 30; // Max 30 seconds of waiting
+                        int currentTry = 0;
+                        
+                        while (!IsPortAvailable(portToUse) && currentTry < maxRetries)
+                        {
+                            await Task.Delay(1000); // Wait 1 second before polling again
+                            currentTry++;
+                        }
+                        
+                        // Once the loop breaks, the port is either free, or we hit the timeout 
+                        // and will let the builder throw its natural binding exception.
+                    }
+
                     var options = new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory };
                     var builder = WebApplication.CreateBuilder(options);
-                    builder.WebHost.UseUrls("http://*:12345");
+                    
+                    // Bind to the dynamically verified port
+                    builder.WebHost.UseUrls($"http://*:{portToUse}");
 
                     builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(opt => 
                     {
@@ -94,38 +156,11 @@ namespace ChannelsNativeTest
                     });
 
                     // --- DELEGATE DATA TO THE ACTIVE PAGE ---
-
-                    _webHost.MapGet("/api/remote/collections", () => 
-                    {
-                        var names = new List<string> { "All Channels" };
-                        Application.Current.Dispatcher.Invoke(() => 
-                        {
-                            if (MainFrame.Content is GuidePage guide) names = guide.GetCollections();
-                        });
-                        return Results.Json(names);
-                    });
-
-                    _webHost.MapGet("/api/remote/guide", (string? collection, string? search) => 
-                    {
-                        object mobileData = new List<object>();
-                        Application.Current.Dispatcher.Invoke(() => 
-                        {
-                            if (MainFrame.Content is GuidePage guide) mobileData = guide.GetMobileGuideData(collection, search);
-                        });
-                        return Results.Json(mobileData);
-                    });
-
-                    _webHost.MapPost("/api/remote/play/{channelNumber}", (string channelNumber) =>
-                    {
-                        Application.Current.Dispatcher.Invoke(() => 
-                        {
-                            if (MainFrame.Content is GuidePage guide) guide.RemotePlayChannel(channelNumber);
-                        });
-                        return Results.Ok(new { status = "playing", channel = channelNumber });
-                    });
+                    _webHost.MapGet("/api/remote/collections", () => { /* ... existing code ... */ });
+                    _webHost.MapGet("/api/remote/guide", (string? collection, string? search) => { /* ... existing code ... */ });
+                    _webHost.MapPost("/api/remote/play/{channelNumber}", (string channelNumber) => { /* ... existing code ... */ });
 
                     // --- GLOBAL COMMANDS ---
-
                     _webHost.MapPost("/api/remote/home", () => 
                     { 
                         Application.Current.Dispatcher.Invoke(() => 
@@ -135,8 +170,12 @@ namespace ChannelsNativeTest
                         }); 
                         return Results.Ok(); 
                     });
-					_webHost.MapPost("/api/remote/stop", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.Close()); return Results.Ok(); });
-                    _webHost.MapPost("/api/remote/pip", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.TogglePiP()); return Results.Ok(); });
+                    
+                    _webHost.MapPost("/api/remote/stop", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.Close()); return Results.Ok(); });
+                    
+                    // Picture In Picture toggle mapped to your requested endpoint
+                    _webHost.MapPost("/api/toggle_pip", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.TogglePiP()); return Results.Ok(); });
+                    
                     _webHost.MapPost("/api/remote/volup", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeUp()); return Results.Ok(); });
                     _webHost.MapPost("/api/remote/voldown", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeDown()); return Results.Ok(); });
                     _webHost.MapPost("/api/remote/mute", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleMute()); return Results.Ok(); });

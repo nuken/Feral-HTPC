@@ -21,7 +21,7 @@ namespace ChannelsNativeTest
         public string LastServerAddress { get; set; } = ""; 
         public string LastCollection { get; set; } = "All Channels";
 		public bool StartPlayersFullscreen { get; set; } = false;
-
+        public int WebServerPort { get; set; } = 0;
         // --- NEW: The saved list of external streams ---
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
     }

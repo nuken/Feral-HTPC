@@ -6,6 +6,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using System.Threading.Tasks;
+using System.Net;
+using System.Net.Sockets;
 
 namespace ChannelsNativeTest
 {
@@ -22,11 +24,40 @@ namespace ChannelsNativeTest
             ServerIpTextBox.Text = _settings.LastServerAddress;
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
-            
-            // NEW: Load the Fullscreen preference
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
 
+            // --- NEW: Display the formatted Mobile Remote URL ---
+            string localIp = GetLocalIPAddress();
+            LocalRemoteUrlBox.Text = $"http://{localIp}:{_settings.WebServerPort}";
+
             this.Loaded += Page_Loaded;
+        }
+
+        // --- NEW: Helper to find the physical network IP ---
+        private string GetLocalIPAddress()
+        {
+            try
+            {
+                // Create a dummy UDP socket. It doesn't actually connect over the network, 
+                // but it forces Windows to reveal the primary local network adapter's IP.
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                {
+                    socket.Connect("8.8.8.8", 65530);
+                    IPEndPoint? endPoint = socket.LocalEndPoint as IPEndPoint;
+                    
+                    if (endPoint != null)
+                    {
+                        return endPoint.Address.ToString();
+                    }
+                }
+            }
+            catch 
+            {
+                // Silently swallow errors if the PC is completely offline
+            }
+            
+            // Fallback if the socket trick fails
+            return "127.0.0.1"; 
         }
 
         private void Page_Loaded(object sender, RoutedEventArgs e)

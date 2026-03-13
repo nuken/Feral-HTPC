@@ -156,6 +156,9 @@
 
         <StackPanel Grid.Row="1" HorizontalAlignment="Left" Width="600">
             
+            <TextBlock Text="Mobile Remote Control URL" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
+            <TextBox x:Name="LocalRemoteUrlBox" FontSize="18" Padding="10" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource StatusConnecting}" BorderBrush="Transparent" BorderThickness="0" Margin="0,0,0,30" IsReadOnly="True"/>
+            
             <TextBlock Text="DVR Server IP Address (Optional)" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
             <TextBox x:Name="ServerIpTextBox" FontSize="18" Padding="10" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2" Margin="0,0,0,30"/>
 
