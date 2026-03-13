@@ -64,6 +64,15 @@ namespace ChannelsNativeTest
             this.Loaded += PlayerWindow_Loaded;
             this.Closed += PlayerWindow_Closed;
 			this.PreviewKeyUp += Window_PreviewKeyUp;
+			// If the user wants full screen, take over the monitor immediately!
+            if (_settings.StartPlayersFullscreen)
+            {
+                this.WindowState = WindowState.Maximized;
+                this.WindowStyle = WindowStyle.None;
+                this.ResizeMode = ResizeMode.NoResize;
+                this.Topmost = true; // Keeps it above the Windows taskbar
+                _isFullscreen = true; // Syncs with your existing toggle logic
+            }
         }
 
         // --- NEW CONSTRUCTOR: Movie Mode! ---
@@ -96,6 +105,15 @@ namespace ChannelsNativeTest
             this.Loaded += PlayerWindow_Loaded;
             this.Closed += PlayerWindow_Closed;
 			this.PreviewKeyUp += Window_PreviewKeyUp;
+			// If the user wants full screen, take over the monitor immediately!
+            if (_settings.StartPlayersFullscreen)
+            {
+                this.WindowState = WindowState.Maximized;
+                this.WindowStyle = WindowStyle.None;
+                this.ResizeMode = ResizeMode.NoResize;
+                this.Topmost = true; // Keeps it above the Windows taskbar
+                _isFullscreen = true; // Syncs with your existing toggle logic
+            }
         }
 
         private void MediaPlayer_TimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
@@ -541,9 +559,7 @@ namespace ChannelsNativeTest
         }
 
         private bool _isFullscreen = false;
-        private WindowState _previousWindowState;
-        private WindowStyle _previousWindowStyle;
-
+       
         // --- NEW: Direct Remote Control Gateway ---
         public bool HandleRemoteKey(string key)
         {
@@ -583,8 +599,6 @@ namespace ChannelsNativeTest
         {
             if (!_isFullscreen)
             {
-                _previousWindowState = this.WindowState;
-                _previousWindowStyle = this.WindowStyle;
                 this.WindowStyle = WindowStyle.None; 
                 this.ResizeMode = ResizeMode.NoResize; 
                 this.WindowState = WindowState.Maximized;
@@ -594,9 +608,12 @@ namespace ChannelsNativeTest
             else
             {
                 this.Topmost = false;
-                this.WindowStyle = _previousWindowStyle;
+                
+                // FIXED: Explicitly force the standard Windows title bar to reappear!
+                this.WindowStyle = WindowStyle.SingleBorderWindow;
                 this.ResizeMode = ResizeMode.CanResize;
-                this.WindowState = _previousWindowState;
+                this.WindowState = WindowState.Normal;
+                
                 _isFullscreen = false;
             }
         }

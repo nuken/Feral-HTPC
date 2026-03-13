@@ -45,8 +45,15 @@ namespace ChannelsNativeTest
                 btn.Background = GetBrandColor(stream.Service);
 
                 var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                stack.Children.Add(new TextBlock { Text = stream.Service.ToUpper(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0,0,0,5) });
-                stack.Children.Add(new TextBlock { Text = stream.Title, FontSize = 22, FontWeight = FontWeights.Black, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center });
+                
+                // Keep the subtext semi-transparent white
+                var serviceText = new TextBlock { Text = stream.Service.ToUpper(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0,0,0,5) };
+                
+                // FIXED: Explicitly force the title to be White so Light Mode doesn't make it dark gray over the brand colors!
+                var titleText = new TextBlock { Text = stream.Title, FontSize = 22, FontWeight = FontWeights.Black, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Foreground = Brushes.White };
+
+                stack.Children.Add(serviceText);
+                stack.Children.Add(titleText);
 
                 btn.Content = stack;
                 btn.Click += Stream_Click;

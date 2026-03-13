@@ -20,6 +20,7 @@ namespace ChannelsNativeTest
         public bool IsLightTheme { get; set; } = false; 
         public string LastServerAddress { get; set; } = ""; 
         public string LastCollection { get; set; } = "All Channels";
+		public bool StartPlayersFullscreen { get; set; } = false;
 
         // --- NEW: The saved list of external streams ---
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();

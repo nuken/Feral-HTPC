@@ -22,6 +22,9 @@ namespace ChannelsNativeTest
             ServerIpTextBox.Text = _settings.LastServerAddress;
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
+            
+            // NEW: Load the Fullscreen preference
+            FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
 
             this.Loaded += Page_Loaded;
         }
@@ -29,10 +32,10 @@ namespace ChannelsNativeTest
         private void Page_Loaded(object sender, RoutedEventArgs e)
         {
             ServerIpTextBox.Focus();
-            RefreshStreamsList(); // Draw the saved links when the page loads!
+            RefreshStreamsList(); 
         }
 
-        // --- NEW: EXTERNAL STREAM LOGIC ---
+        // --- EXTERNAL STREAM LOGIC ---
 
         private void RefreshStreamsList()
         {
@@ -40,22 +43,34 @@ namespace ChannelsNativeTest
 
             if (_settings.ExternalStreams.Count == 0)
             {
-                SavedStreamsList.Children.Add(new TextBlock { Text = "No external streams added yet.", Foreground = Brushes.Gray, FontStyle = FontStyles.Italic, Margin = new Thickness(5) });
+                var emptyText = new TextBlock { Text = "No external streams added yet.", FontStyle = FontStyles.Italic, Margin = new Thickness(5) };
+                emptyText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+                SavedStreamsList.Children.Add(emptyText);
                 return;
             }
 
             foreach (var stream in _settings.ExternalStreams)
             {
-                var border = new Border { Background = new SolidColorBrush(Color.FromRgb(40, 40, 40)), CornerRadius = new CornerRadius(6), Padding = new Thickness(15, 10, 15, 10), Margin = new Thickness(0, 0, 0, 8) };
+                var border = new Border { CornerRadius = new CornerRadius(6), Padding = new Thickness(15, 10, 15, 10), Margin = new Thickness(0, 0, 0, 8) };
+                border.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+
                 var grid = new Grid();
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-                textStack.Children.Add(new TextBlock { Text = stream.Title, Foreground = Brushes.White, FontSize = 16, FontWeight = FontWeights.Bold });
-                textStack.Children.Add(new TextBlock { Text = $"{stream.Service}  •  {stream.StreamId}", Foreground = Brushes.Gray, FontSize = 12 });
+                
+                var titleText = new TextBlock { Text = stream.Title, FontSize = 16, FontWeight = FontWeights.Bold };
+                titleText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimary");
+                
+                var subText = new TextBlock { Text = $"{stream.Service}  •  {stream.StreamId}", FontSize = 12 };
+                subText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+                
+                textStack.Children.Add(titleText);
+                textStack.Children.Add(subText);
 
-                var delBtn = new Button { Content = "❌", Background = Brushes.Transparent, Foreground = Brushes.Red, BorderThickness = new Thickness(0), FontSize = 16, Cursor = Cursors.Hand, Tag = stream.Id };
+                var delBtn = new Button { Content = "❌", Background = Brushes.Transparent, BorderThickness = new Thickness(0), FontSize = 16, Cursor = Cursors.Hand, Tag = stream.Id };
+                delBtn.SetResourceReference(Button.ForegroundProperty, "StatusError");
                 delBtn.Click += DeleteStream_Click;
 
                 Grid.SetColumn(textStack, 0);
@@ -84,9 +99,8 @@ namespace ChannelsNativeTest
             };
 
             _settings.ExternalStreams.Add(newStream);
-            SettingsManager.Save(_settings); // Save to JSON immediately
+            SettingsManager.Save(_settings); 
             
-            // Clear the form
             StreamTitleBox.Text = "";
             StreamIdBox.Text = "";
             
@@ -119,6 +133,9 @@ namespace ChannelsNativeTest
             _settings.LastServerAddress = ServerIpTextBox.Text.Trim();
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
+            
+            // NEW: Save the Fullscreen preference
+            _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
 
             SettingsManager.Save(_settings);
             ApplyTheme(_settings.IsLightTheme);

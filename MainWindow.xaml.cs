@@ -353,6 +353,45 @@ namespace ChannelsNativeTest
                         return Results.NotFound();
                     });
 					
+					// --- NEW: EXTERNAL APPS ROUTES ---
+                    _webHost.MapGet("/api/remote/apps", () => 
+                    {
+                        var settings = SettingsManager.Load();
+                        return Results.Json(settings.ExternalStreams);
+                    });
+
+                    _webHost.MapPost("/api/remote/playapp/{id}", (string id) =>
+                    {
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            var settings = SettingsManager.Load();
+                            var stream = settings.ExternalStreams.FirstOrDefault(s => s.Id == id);
+                            if (stream != null)
+                            {
+                                try
+                                {
+                                    if (stream.Service.ToLower() == "netflix")
+                                    {
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app=https://www.netflix.com/watch/{stream.StreamId.Trim()}", UseShellExecute = true });
+                                    }
+                                    else
+                                    {
+                                        string uri = stream.Service.ToLower() switch
+                                        {
+                                            "disney+" => $"disneyplus://video/{stream.StreamId.Trim()}",
+                                            "hulu" => $"hulu://w/{stream.StreamId.Trim()}",
+                                            "prime video" => $"primevideo://watch?asin={stream.StreamId.Trim()}",
+                                            _ => stream.StreamId.Trim()
+                                        };
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
+                                    }
+                                }
+                                catch { }
+                            }
+                        });
+                        return Results.Ok();
+                    });
+					
 					await _webHost.RunAsync();
                 }
                 catch (Exception ex)

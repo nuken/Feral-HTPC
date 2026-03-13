@@ -14,7 +14,7 @@ namespace ChannelsNativeTest
     public partial class ShowsPage : Page
     {
         private List<Episode> _allEpisodes = new List<Episode>();
-        private List<TvShow> _allShows = new List<TvShow>(); // <-- NEW!
+        private List<TvShow> _allShows = new List<TvShow>(); 
         private string _baseUrl = "";
 
         public ShowsPage()
@@ -49,7 +49,6 @@ namespace ChannelsNativeTest
                 return;
             }
 
-            // Dynamically build the Genre Dropdown based on what's in your library!
             var genres = _allShows.Where(s => s.Genres != null)
                                   .SelectMany(s => s.Genres!)
                                   .Distinct()
@@ -59,7 +58,7 @@ namespace ChannelsNativeTest
             GenreBox.Items.Add(new ComboBoxItem { Content = "All Genres", IsSelected = true });
             foreach (var g in genres) GenreBox.Items.Add(new ComboBoxItem { Content = g });
 
-            ApplyFilters(); // Draws the grid initially
+            ApplyFilters(); 
             LoadingText.Visibility = Visibility.Collapsed;
         }
 		
@@ -77,14 +76,12 @@ namespace ChannelsNativeTest
             else
             {
                 FilterBar.Visibility = Visibility.Visible;
-                SearchBox.Focus(); // Automatically puts the cursor in the search box!
+                SearchBox.Focus(); 
             }
         }
 
         private void ApplyAndClose_Click(object sender, RoutedEventArgs e)
         {
-            // The grid is already actively filtering in the background as you change drop-downs, 
-            // so all this button has to do is hide the menu and return control to the D-Pad!
             FilterBar.Visibility = Visibility.Collapsed;
             
             if (ShowsWrapPanel.Children.Count > 0)
@@ -97,23 +94,19 @@ namespace ChannelsNativeTest
 
             var filtered = _allShows.AsEnumerable();
 
-            // 1. Text Search
             string search = SearchBox.Text.ToLower().Trim();
             if (!string.IsNullOrEmpty(search))
                 filtered = filtered.Where(s => s.Name.ToLower().Contains(search));
 
-            // 2. Genre Filter
             if (GenreBox.SelectedIndex > 0 && GenreBox.SelectedItem is ComboBoxItem gi)
             {
                 string genre = gi.Content.ToString() ?? "";
                 filtered = filtered.Where(s => s.Genres != null && s.Genres.Contains(genre));
             }
 
-            // 3. Watched Status
-            if (WatchedBox.SelectedIndex == 1) filtered = filtered.Where(s => !s.IsWatched); // Unwatched
-            if (WatchedBox.SelectedIndex == 2) filtered = filtered.Where(s => s.IsWatched);  // Watched
+            if (WatchedBox.SelectedIndex == 1) filtered = filtered.Where(s => !s.IsWatched); 
+            if (WatchedBox.SelectedIndex == 2) filtered = filtered.Where(s => s.IsWatched);  
 
-            // 4. Sorting
             if (SortBox.SelectedIndex == 0) filtered = filtered.OrderBy(s => s.Name);
             else if (SortBox.SelectedIndex == 1) filtered = filtered.OrderByDescending(s => s.CreatedAt);
             else if (SortBox.SelectedIndex == 2) filtered = filtered.OrderByDescending(s => s.ReleaseYear);
@@ -136,10 +129,12 @@ namespace ChannelsNativeTest
                 var img = new Image { Stretch = Stretch.UniformToFill };
                 try { if (!string.IsNullOrWhiteSpace(show.ImageUrl)) img.Source = new BitmapImage(new Uri(show.ImageUrl)); } catch { }
 
+                // FIXED: Explicitly forcing a dark background and white/gray text so it doesn't break in Light Mode!
                 var textBorder = new Border { Background = new SolidColorBrush(Color.FromRgb(30, 30, 30)), Padding = new Thickness(10) };
                 var textPanel = new StackPanel();
-                textPanel.Children.Add(new TextBlock { Text = show.Name, FontWeight = FontWeights.Bold, FontSize = 16, TextWrapping = TextWrapping.Wrap, MaxHeight = 45, TextTrimming = TextTrimming.CharacterEllipsis });
-                textPanel.Children.Add(new TextBlock { Text = $"{show.EpisodeCount} Episodes", Foreground = Brushes.Gray, FontSize = 12, Margin = new Thickness(0, 5, 0, 0) });
+                
+                textPanel.Children.Add(new TextBlock { Text = show.Name, FontWeight = FontWeights.Bold, FontSize = 16, TextWrapping = TextWrapping.Wrap, MaxHeight = 45, TextTrimming = TextTrimming.CharacterEllipsis, Foreground = Brushes.White });
+                textPanel.Children.Add(new TextBlock { Text = $"{show.EpisodeCount} Episodes", Foreground = Brushes.LightGray, FontSize = 12, Margin = new Thickness(0, 5, 0, 0) });
                 
                 textBorder.Child = textPanel;
                 Grid.SetRow(img, 0);
@@ -185,7 +180,6 @@ namespace ChannelsNativeTest
 
             EpisodesStackPanel.Children.Clear();
 
-            // Filter to this show, sort by Newest Season & Episode
             var showEpisodes = _allEpisodes.Where(ep => ep.ShowId == show.Id)
                                            .OrderByDescending(ep => ep.SeasonNumber)
                                            .ThenByDescending(ep => ep.EpisodeNumber).ToList();
@@ -199,8 +193,17 @@ namespace ChannelsNativeTest
                 };
 
                 var sp = new StackPanel();
-                sp.Children.Add(new TextBlock { Text = $"Season {ep.SeasonNumber} • Episode {ep.EpisodeNumber}", Foreground = new SolidColorBrush(Color.FromRgb(0, 122, 204)), FontWeight = FontWeights.Bold, FontSize = 14 });
-                sp.Children.Add(new TextBlock { Text = ep.EpisodeTitle, FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 5, 0, 0), TextWrapping = TextWrapping.Wrap });
+                
+                // NEW: Bind the subtext to the master theme blue!
+                var seasonText = new TextBlock { Text = $"Season {ep.SeasonNumber} • Episode {ep.EpisodeNumber}", FontWeight = FontWeights.Bold, FontSize = 14 };
+                seasonText.SetResourceReference(TextBlock.ForegroundProperty, "LiveBorder");
+                
+                // NEW: Bind the episode title to the master theme text color!
+                var titleText = new TextBlock { Text = ep.EpisodeTitle, FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 5, 0, 0), TextWrapping = TextWrapping.Wrap };
+                titleText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimary");
+
+                sp.Children.Add(seasonText);
+                sp.Children.Add(titleText);
 
                 btn.Content = sp;
                 btn.Click += Episode_Click;
@@ -218,12 +221,10 @@ namespace ChannelsNativeTest
                 string streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{ep.Id}/hls/master.m3u8?vcodec=copy&acodec=copy";
                 string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
 
-                // Safely grab the MainWindow reference to manage the player
                 if (Application.Current.MainWindow is MainWindow mainWin)
                 {
                     if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
 
-                    // Instantiating with the VOD/Movie constructor to get timeline and commercial skipping!
                     mainWin.ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
                     mainWin.ActivePlayerWindow.Closed += (s, args) => mainWin.ActivePlayerWindow = null;
                     mainWin.ActivePlayerWindow.Show();
@@ -235,7 +236,6 @@ namespace ChannelsNativeTest
         {
             if (EpisodesView.Visibility == Visibility.Visible)
             {
-                // Go back to the Posters grid
                 EpisodesView.Visibility = Visibility.Collapsed;
 				FilterBar.Visibility = Visibility.Collapsed;
                 ShowsScrollViewer.Visibility = Visibility.Visible;
@@ -248,14 +248,12 @@ namespace ChannelsNativeTest
             }
             else
             {
-                // Go back to the Start Page
                 NavigationService?.GoBack();
             }
         }
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // Allow 'Escape' or 'Backspace' on the keyboard/remote to go backward natively
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
                 BackButton_Click(null!, null!);
