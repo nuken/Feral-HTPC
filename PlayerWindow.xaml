@@ -1,0 +1,104 @@
+<Window x:Class="ChannelsNativeTest.PlayerWindow"
+        Icon="Assets/appicon.ico"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+        Title="Now Playing" Height="720" Width="1280" Background="Black" 
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    
+    <Grid>
+        <vlc:VideoView x:Name="VlcVideoView">
+            
+            <Grid Background="#01000000" 
+                  MouseRightButtonUp="Overlay_MouseRightButtonUp" 
+                  MouseMove="Overlay_MouseMove"
+                  MouseLeftButtonDown="Overlay_MouseLeftButtonDown">
+                
+                <Grid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="📊 Toggle Stats for Nerds" Click="ToggleStats_Click" FontSize="14" Padding="10,5"/>
+                        <MenuItem Header="Toggle Fullscreen" Click="ToggleFullscreen_Click" />
+                        <MenuItem Header="Close Player" Click="Close_Click" />
+                    </ContextMenu>
+                </Grid.ContextMenu>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/> 
+                    <RowDefinition Height="Auto"/> 
+                </Grid.RowDefinitions>
+
+                <Border x:Name="StatsOverlay" Grid.Row="0" HorizontalAlignment="Left" VerticalAlignment="Top" 
+                        Background="#CC000000" Padding="15" Margin="20" CornerRadius="8" Visibility="Collapsed">
+                    <TextBlock x:Name="StatsText" Foreground="#00FF00" FontFamily="Consolas" FontSize="13" LineHeight="20"/>
+                </Border>
+
+                <TextBlock x:Name="ActionOverlayText" Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center"
+                           Foreground="White" FontSize="64" FontWeight="Bold" Opacity="0" IsHitTestVisible="False">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="4"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+
+                <Border x:Name="ControlBar" Grid.Row="1" Background="#CC000000" Padding="20">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <RowDefinition Height="Auto"/> </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <Image x:Name="UiChannelLogo" Width="60" Height="60" Margin="0,0,15,0" Stretch="Uniform"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="UiChannelNumber" Text="CH --" Foreground="#AAAAAA" FontSize="14" FontWeight="Bold"/>
+                                    <TextBlock x:Name="UiShowTitle" Text="Loading..." Foreground="White" FontSize="20" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Button Content="&#x23EA;" ToolTip="Rewind (-10s)" Foreground="White" FontSize="24" Background="Transparent" BorderThickness="0" Margin="0,0,20,0" Cursor="Hand" Click="Rewind_Click"/>
+                                <Button x:Name="BtnPlayPause" Content="&#x23F8;" Foreground="White" FontSize="28" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="PlayPause_Click"/>
+                                <Button Content="&#x23E9;" ToolTip="Fast Forward (+30s)" Foreground="White" FontSize="24" Background="Transparent" BorderThickness="0" Margin="20,0,0,0" Cursor="Hand" Click="FastForward_Click"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock Text="&#x1F50A;" Foreground="White" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <Slider x:Name="VolumeSlider" Width="100" Minimum="0" Maximum="100" Value="100" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged"/>
+                                
+                                <StackPanel Margin="20,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <Button Content="&#x25B2; CH UP" Foreground="#888888" FontSize="11" FontWeight="Bold" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="ChUp_Click"/>
+                                    <Button Content="&#x25BC; CH DN" Foreground="#888888" FontSize="11" FontWeight="Bold" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="ChDn_Click" Margin="0,5,0,0"/>
+                                </StackPanel>
+
+                                <Button Content="&#x26F6;" ToolTip="Fullscreen" Foreground="White" Background="Transparent" BorderThickness="0" FontSize="22" Margin="25,0,0,0" Cursor="Hand" Click="ToggleFullscreen_Click"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,0">
+                            <TextBlock x:Name="CurrentTimeText" Text="0:00:00" Foreground="White" FontSize="14" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                            
+                            <Slider x:Name="TimelineSlider" Width="600" VerticalAlignment="Center" 
+                                    IsMoveToPointEnabled="True" Cursor="Hand"
+                                    PreviewMouseLeftButtonDown="TimelineSlider_PreviewMouseLeftButtonDown"
+                                    PreviewMouseLeftButtonUp="TimelineSlider_PreviewMouseLeftButtonUp"
+                                    ValueChanged="TimelineSlider_ValueChanged">
+                                <Slider.Resources>
+                                    <SolidColorBrush x:Key="SliderThumb.Static.Background" Color="#FFD700"/>
+                                    <SolidColorBrush x:Key="SliderTrack.Active.Background" Color="#007ACC"/>
+                                </Slider.Resources>
+                            </Slider>
+                            
+                            <TextBlock x:Name="TotalTimeText" Text="0:00:00" Foreground="#AAAAAA" FontSize="14" VerticalAlignment="Center" Margin="15,0,0,0"/>
+                        </StackPanel>
+
+                    </Grid>
+                </Border>
+            </Grid>
+        </vlc:VideoView>
+    </Grid>
+</Window>
