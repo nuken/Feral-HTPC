@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <title>Channels Remote</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --accent-color: #007ACC;
+            --live-color: #CC0000;
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            padding-top: 115px; 
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background-color: var(--card-bg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .header h1 { font-size: 20px; margin: 0; font-weight: 600; }
+
+        .open-remote-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .tab-bar { display: flex; background: #1e1e1e; padding: 10px; position: fixed; top: 60px; left: 0; right: 0; z-index: 999; border-bottom: 2px solid #333; }
+        .tab-btn { flex: 1; padding: 12px; font-size: 16px; font-weight: bold; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; }
+        .tab-btn.active { color: #FFD700; border-bottom: 3px solid #FFD700; }
+        
+        .movie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; padding: 15px; padding-top: 10px; }
+        .movie-card { text-align: center; cursor: pointer; border-radius: 8px; overflow: hidden; background: #1e1e1e; padding-bottom: 8px; }
+        .movie-card img { width: 100%; height: 165px; object-fit: cover; display: block; }
+        .movie-card .title { font-size: 12px; font-weight: bold; margin-top: 8px; padding: 0 5px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .top-bar {
+            position: fixed;
+            top: 115px;
+            left: 0;
+            right: 0;
+            background-color: #252526;
+            padding: 10px 15px;
+            z-index: 998;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            gap: 10px;
+        }
+
+        .collection-select, .search-input {
+            flex: 1;
+            padding: 10px;
+            background-color: #333;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 6px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .remote-overlay {
+            position: fixed;
+            bottom: -100%; 
+            left: 0;
+            right: 0;
+            height: 75vh;
+            background-color: #252526;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            transition: bottom 0.3s ease-in-out;
+            z-index: 2000;
+            box-shadow: 0 -10px 25px rgba(0,0,0,0.6);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .remote-overlay.open { bottom: 0; } 
+
+        .remote-header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            align-items: center;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .remote-header h3 { margin: 0; color: var(--text-primary); }
+        .close-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
+        
+        .remote-buttons-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            width: 100%;
+            justify-content: center;
+        }
+        .remote-buttons-row button {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 12px 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            flex: 1;
+        }
+        .remote-buttons-row button:active { background-color: #555; }
+        .pip-btn { background-color: #ff9800 !important; }
+
+        .dpad-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .dpad-row {
+            display: flex;
+            gap: 10px;
+        }
+        .dpad-btn {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            background-color: #444;
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .dpad-btn:active { background-color: var(--accent-color); transform: scale(0.95); }
+        .enter-btn { background-color: var(--accent-color); font-size: 18px; font-weight: bold; }
+
+        .guide-container { padding: 10px; display: flex; flex-direction: column; gap: 10px; margin-top: 60px; }
+        .channel-card { background-color: var(--card-bg); border-radius: 10px; display: flex; padding: 12px; align-items: center; border: 1px solid #333; }
+        .channel-logo { width: 60px; height: 45px; object-fit: contain; margin-right: 15px; background-color: white; border-radius: 4px; padding: 2px; }
+        .channel-info { flex-grow: 1; overflow: hidden; }
+        .channel-number { font-size: 12px; color: var(--accent-color); font-weight: bold; margin-bottom: 2px; }
+        .show-title { font-size: 16px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 2px 0; }
+        .channel-name { font-size: 13px; color: var(--text-secondary); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    
+    <div class="header">
+        <h1>📱 Control</h1>
+        <div>
+            <button class="open-remote-btn" onclick="goHome()" style="background: #333; margin-right: 10px;">🏠</button>
+            <button class="open-remote-btn" onclick="openRemote()">🎛️ Remote</button>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <button id="tab-tv" class="tab-btn active" onclick="switchTab('tv')">📺 Live</button>
+        <button id="tab-shows" class="tab-btn" onclick="switchTab('shows')">🍿 Shows</button>
+        <button id="tab-movies" class="tab-btn" onclick="switchTab('movies')">🎬 Movies</button>
+        <button id="tab-pc" class="tab-btn" onclick="switchTab('pc')">💻 PC</button>
+    </div>
+
+    <div id="view-tv">
+        <div class="top-bar">
+            <select class="collection-select" id="collectionDropdown" onchange="loadGuide()">
+                <option>All Channels</option>
+            </select>
+            <input class="search-input" type="text" id="searchInput" placeholder="Search..." onkeyup="loadGuide()" />
+        </div>
+        <div class="guide-container" id="guide">
+            <div class="loading">Loading Channels...</div>
+        </div>
+    </div>
+
+    <div id="view-movies" style="display: none;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 15px 5px 15px; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333;">
+            <input type="text" id="movieSearch" placeholder="🔍 Search Movies..." style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 16px;" onkeyup="applyMovieFilters()">
+            <select id="movieGenre" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyMovieFilters()"><option value="All">All Genres</option></select>
+            <select id="movieWatched" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyMovieFilters()">
+                <option value="All">All Statuses</option><option value="Unwatched">Unwatched Only</option><option value="Watched">Watched Only</option>
+            </select>
+            <select id="movieSort" style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyMovieFilters()">
+                <option value="AZ">A-Z (Alphabetical)</option><option value="Newest">Newest Added</option><option value="Year">Release Year</option>
+            </select>
+        </div>
+
+        <div class="movie-grid" id="movieGrid">
+            <div class="loading">Loading Movies...</div>
+        </div>
+    </div>
+    
+    <div id="view-shows" style="display: none;">
+        <div id="shows-main">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 15px 5px 15px; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333;">
+                <input type="text" id="showSearch" placeholder="🔍 Search Shows..." style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 16px;" onkeyup="applyShowFilters()">
+                <select id="showGenre" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyShowFilters()"><option value="All">All Genres</option></select>
+                <select id="showWatched" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyShowFilters()">
+                    <option value="All">All Statuses</option><option value="Unwatched">Unwatched Only</option><option value="Watched">Watched Only</option>
+                </select>
+                <select id="showSort" style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyShowFilters()">
+                    <option value="AZ">A-Z (Alphabetical)</option><option value="Newest">Newest Added</option><option value="Year">Release Year</option>
+                </select>
+            </div>
+
+            <div class="movie-grid" id="showGrid">
+                <div class="loading">Loading TV Shows...</div>
+            </div>
+        </div>
+
+        <div id="episodes-view" style="display: none; padding: 15px; padding-top: 25px;">
+            <button onclick="backToShows()" style="background: #333; color: white; padding: 12px; border: none; border-radius: 8px; margin-bottom: 20px; font-weight: bold; width: 100%; cursor: pointer;">🔙 Back to Shows</button>
+            <h2 id="episodes-title" style="margin-top: 0; margin-bottom: 15px;">Episodes</h2>
+            <div id="episodeList" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
+    </div>
+    
+    <div id="view-pc" style="display: none; height: calc(100vh - 160px); padding: 15px; flex-direction: column; box-sizing: border-box;">
+        
+        <div id="trackpad" style="flex: 1; background: #2a2a2a; border-radius: 15px; border: 2px solid #444; touch-action: none; display: flex; align-items: center; justify-content: center;">
+            <span style="color: #666; font-size: 24px; pointer-events: none;">👆 Trackpad</span>
+        </div>
+        
+        <div style="display: flex; gap: 15px; margin-top: 15px; height: 70px; flex-shrink: 0;">
+            <button onclick="sysClick('left')" style="flex: 1; background: #333; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer;">Left Click</button>
+            <button onclick="sysClick('right')" style="flex: 1; background: #333; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer;">Right Click</button>
+        </div>
+    </div>
+
+    <div id="remoteOverlay" class="remote-overlay">
+        <div class="remote-header">
+            <h3>🎛️ Control Center</h3>
+            <button class="close-btn" onclick="closeRemote()">❌</button>
+        </div>
+        
+       <div class="remote-buttons-row">
+         <button onclick="toggleView()">🔄 Swap</button>
+         <button onclick="toggleFullscreen()">⛶ FS</button>
+         <button class="pip-btn" onclick="togglePiP()">🗔 PiP</button>
+         <button onclick="toggleStats()">📊 Stats</button>
+     </div>
+
+        <div class="remote-buttons-row">
+            <button onclick="volDown()">🔉 Vol -</button>
+            <button onclick="toggleMute()">🔇 Mute</button>
+            <button onclick="volUp()">🔊 Vol +</button>
+        </div>
+
+        <div class="dpad-container">
+            <div class="dpad-row">
+                <button class="dpad-btn" onclick="sendKey('up')">▲</button>
+            </div>
+            <div class="dpad-row">
+                <button class="dpad-btn" 
+                        onpointerdown="startScrub('left')" onpointerup="endScrub('left')" onpointerleave="endScrub('left')">◀</button>
+                
+                <button class="dpad-btn enter-btn" onclick="sendKey('enter')">OK</button>
+                
+                <button class="dpad-btn" 
+                        onpointerdown="startScrub('right')" onpointerup="endScrub('right')" onpointerleave="endScrub('right')">▶</button>
+            </div>
+            <div class="dpad-row">
+                <button class="dpad-btn" onclick="sendKey('down')">▼</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- MASTER DATA ARRAYS ---
+        let allMovies = [];
+        let allShows = [];
+
+        // --- Press & Hold Scrubbing Logic ---
+        let scrubTimeout;
+        let isScrubbing = false;
+
+        function startScrub(direction) {
+            scrubTimeout = setTimeout(() => {
+                isScrubbing = true;
+                if (navigator.vibrate) navigator.vibrate(20);
+                fetch(`/api/remote/scrub/start/${direction}`, { method: 'POST' });
+            }, 300); 
+        }
+
+        function endScrub(direction) {
+            clearTimeout(scrubTimeout);
+            if (isScrubbing) {
+                isScrubbing = false;
+                fetch(`/api/remote/scrub/stop`, { method: 'POST' });
+            } else {
+                sendKey(direction);
+            }
+        }
+        
+        // --- Tab Logic ---
+        function switchTab(tabName) {
+            document.getElementById('view-tv').style.display = tabName === 'tv' ? 'block' : 'none';
+            document.getElementById('view-movies').style.display = tabName === 'movies' ? 'block' : 'none';
+            document.getElementById('view-shows').style.display = tabName === 'shows' ? 'block' : 'none';
+            document.getElementById('view-pc').style.display = tabName === 'pc' ? 'flex' : 'none'; 
+            
+            document.getElementById('tab-tv').className = tabName === 'tv' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('tab-movies').className = tabName === 'movies' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('tab-shows').className = tabName === 'shows' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('tab-pc').className = tabName === 'pc' ? 'tab-btn active' : 'tab-btn';
+
+            if (tabName === 'movies' && document.getElementById('movieGrid').innerHTML.includes('Loading')) loadMovies();
+            if (tabName === 'shows' && document.getElementById('showGrid').innerHTML.includes('Loading')) loadShows();
+        }
+
+        // ==========================================
+        // MOVIES LOGIC
+        // ==========================================
+        async function loadMovies() {
+            try {
+                const response = await fetch('/api/remote/movies');
+                allMovies = await response.json();
+                
+                const genres = [...new Set(allMovies.flatMap(m => m.genres || []))].sort();
+                const genreSelect = document.getElementById('movieGenre');
+                genreSelect.innerHTML = '<option value="All">All Genres</option>';
+                genres.forEach(g => genreSelect.innerHTML += `<option value="${g}">${g}</option>`);
+
+                applyMovieFilters();
+            } catch (error) { document.getElementById('movieGrid').innerHTML = '<div class="loading">Error loading movies.</div>'; }
+        }
+
+        function applyMovieFilters() {
+            const search = document.getElementById('movieSearch').value.toLowerCase();
+            const genre = document.getElementById('movieGenre').value;
+            const watched = document.getElementById('movieWatched').value;
+            const sort = document.getElementById('movieSort').value;
+
+            let filtered = allMovies.filter(m => {
+                if (search && !(m.title || '').toLowerCase().includes(search)) return false;
+                if (genre !== 'All' && !(m.genres || []).includes(genre)) return false;
+                if (watched === 'Unwatched' && m.watched) return false;
+                if (watched === 'Watched' && !m.watched) return false;
+                return true;
+            });
+
+            if (sort === 'AZ') filtered.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+            else if (sort === 'Newest') filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+            else if (sort === 'Year') filtered.sort((a, b) => (b.release_year || 0) - (a.release_year || 0));
+
+            renderMovies(filtered);
+        }
+
+        function renderMovies(moviesToRender) {
+            const grid = document.getElementById('movieGrid');
+            if (moviesToRender.length === 0) {
+                grid.innerHTML = '<div class="loading">No movies match your filters.</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            moviesToRender.forEach(movie => {
+                const posterUrl = movie.posterUrl ? movie.posterUrl : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                const card = document.createElement('div');
+                card.className = 'movie-card';
+                card.onclick = () => playMovie(movie.id);
+                
+                // Convert duration to 1h 45m style for the mobile app
+                let durationStr = "";
+                if (movie.duration) {
+                    const hours = Math.floor(movie.duration / 3600);
+                    const minutes = Math.floor((movie.duration % 3600) / 60);
+                    durationStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                }
+
+                card.innerHTML = `
+                    <img src="${posterUrl}" onerror="this.style.opacity='0.2'" />
+                    <div class="title">${movie.title}</div>
+                    <div style="font-size: 10px; color: #888; margin-top: 2px;">${durationStr}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        async function playMovie(id) {
+            if (navigator.vibrate) navigator.vibrate(50);
+            await fetch(`/api/remote/playmovie/${id}`, { method: 'POST' });
+        }
+        
+        // ==========================================
+        // TV SHOWS LOGIC
+        // ==========================================
+        async function loadShows() {
+            try {
+                const response = await fetch('/api/remote/shows');
+                allShows = await response.json();
+                
+                const genres = [...new Set(allShows.flatMap(s => s.genres || []))].sort();
+                const genreSelect = document.getElementById('showGenre');
+                genreSelect.innerHTML = '<option value="All">All Genres</option>';
+                genres.forEach(g => genreSelect.innerHTML += `<option value="${g}">${g}</option>`);
+
+                applyShowFilters();
+            } catch (error) { document.getElementById('showGrid').innerHTML = '<div class="loading">Error loading shows.</div>'; }
+        }
+
+        function applyShowFilters() {
+            const search = document.getElementById('showSearch').value.toLowerCase();
+            const genre = document.getElementById('showGenre').value;
+            const watched = document.getElementById('showWatched').value;
+            const sort = document.getElementById('showSort').value;
+
+            let filtered = allShows.filter(s => {
+                if (search && !(s.name || '').toLowerCase().includes(search)) return false;
+                if (genre !== 'All' && !(s.genres || []).includes(genre)) return false;
+                
+                const isWatched = s.number_unwatched === 0;
+                if (watched === 'Unwatched' && isWatched) return false;
+                if (watched === 'Watched' && !isWatched) return false;
+                return true;
+            });
+
+            if (sort === 'AZ') filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            else if (sort === 'Newest') filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+            else if (sort === 'Year') filtered.sort((a, b) => (b.release_year || 0) - (a.release_year || 0));
+
+            renderShows(filtered);
+        }
+
+        function renderShows(showsToRender) {
+            const grid = document.getElementById('showGrid');
+            if (showsToRender.length === 0) {
+                grid.innerHTML = '<div class="loading">No shows match your filters.</div>';
+                return;
+            }
+
+            grid.innerHTML = '';
+            showsToRender.forEach(show => {
+                const posterUrl = show.image_url ? show.image_url : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                const card = document.createElement('div');
+                card.className = 'movie-card';
+                card.onclick = () => openEpisodes(show.id, show.name);
+                
+                card.innerHTML = `
+                    <img src="${posterUrl}" onerror="this.style.opacity='0.2'" />
+                    <div class="title">${show.name}</div>
+                    <div style="font-size: 10px; color: #888; margin-top: 2px;">${show.episode_count} Episodes</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        async function openEpisodes(showId, showName) {
+            document.getElementById('shows-main').style.display = 'none';
+            document.getElementById('episodes-view').style.display = 'block';
+            document.getElementById('episodes-title').innerText = showName;
+            
+            const list = document.getElementById('episodeList');
+            list.innerHTML = '<div class="loading">Loading episodes...</div>';
+
+            try {
+                const response = await fetch(`/api/remote/episodes/${showId}`);
+                const episodes = await response.json();
+                
+                list.innerHTML = '';
+                episodes.forEach(ep => {
+                    const epCard = document.createElement('div');
+                    epCard.style = "background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between;";
+                    
+                    epCard.innerHTML = `
+                        <div style="flex: 1; overflow: hidden; padding-right: 15px;">
+                            <div style="color: #007ACC; font-weight: bold; font-size: 12px; margin-bottom: 4px;">S${String(ep.season_number).padStart(2, '0')} E${String(ep.episode_number).padStart(2, '0')}</div>
+                            <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ep.episode_title}</div>
+                        </div>
+                        <button onclick="playEpisode('${ep.id}')" style="background: #007ACC; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;">▶ Play</button>
+                    `;
+                    list.appendChild(epCard);
+                });
+            } catch (error) { list.innerHTML = '<div class="loading">Error loading episodes.</div>'; }
+        }
+
+        function backToShows() {
+            document.getElementById('episodes-view').style.display = 'none';
+            document.getElementById('shows-main').style.display = 'block';
+        }
+
+        async function playEpisode(id) {
+            if (navigator.vibrate) navigator.vibrate(50);
+            await fetch(`/api/remote/playepisode/${id}`, { method: 'POST' });
+        }
+
+        // --- Live TV Logic ---
+        async function loadCollections() {
+            try {
+                const response = await fetch('/api/remote/collections');
+                const collections = await response.json();
+                const dropdown = document.getElementById('collectionDropdown');
+                
+                if (collections.length <= 1) {
+                    setTimeout(loadCollections, 2000);
+                    return; 
+                }
+
+                dropdown.innerHTML = '';
+                collections.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.innerText = name;
+                    dropdown.appendChild(option);
+                });
+
+                const savedCollection = localStorage.getItem('lastCollection');
+                if (savedCollection && collections.includes(savedCollection)) {
+                    dropdown.value = savedCollection;
+                    loadGuide(); 
+                }
+
+            } catch (error) { 
+                console.error("Error loading collections:", error); 
+                setTimeout(loadCollections, 5000); 
+            }
+        }
+
+        // --- PC TRACKPAD LOGIC ---
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+
+        const trackpad = document.getElementById('trackpad');
+        if (trackpad) {
+            trackpad.addEventListener('touchstart', (e) => {
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+            });
+
+            trackpad.addEventListener('touchmove', (e) => {
+                e.preventDefault(); 
+                
+                let currentX = e.touches[0].clientX;
+                let currentY = e.touches[0].clientY;
+                
+                let dx = Math.round((currentX - lastTouchX) * 1.5);
+                let dy = Math.round((currentY - lastTouchY) * 1.5);
+                
+                lastTouchX = currentX;
+                lastTouchY = currentY;
+                
+                fetch('/api/system/mouse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dx: dx, dy: dy })
+                });
+            }, { passive: false });
+        }
+
+        function sysClick(type) {
+            if (navigator.vibrate) navigator.vibrate(20);
+            fetch(`/api/system/click/${type}`, { method: 'POST' });
+        }
+        
+        async function loadGuide() {
+            try {
+                const dropdown = document.getElementById('collectionDropdown');
+                let selectedCollection = 'All Channels';
+
+                if (dropdown && dropdown.options.length > 1) {
+                    selectedCollection = dropdown.value;
+                    localStorage.setItem('lastCollection', selectedCollection); 
+                } else {
+                    const saved = localStorage.getItem('lastCollection');
+                    if (saved) selectedCollection = saved;
+                }
+
+                const searchBox = document.getElementById('searchInput');
+                const searchQuery = searchBox ? searchBox.value : '';
+
+                const url = `/api/remote/guide?collection=${encodeURIComponent(selectedCollection)}&search=${encodeURIComponent(searchQuery)}`;
+                const response = await fetch(url);
+                const channels = await response.json();
+                
+                const guideDiv = document.getElementById('guide');
+
+                if (channels.length === 0) {
+                    if (selectedCollection === 'All Channels' && searchQuery === '') {
+                        guideDiv.innerHTML = '<div class="loading" style="margin-top: 40px;">⏳ Waiting for Live TV to open on the HTPC...</div>';
+                        setTimeout(loadGuide, 2000); 
+                    } else {
+                        guideDiv.innerHTML = '<div class="loading">No channels found.</div>';
+                    }
+                    return; 
+                }
+
+                if (dropdown && dropdown.options.length <= 1) {
+                    loadCollections();
+                }
+
+                guideDiv.innerHTML = ''; 
+
+                channels.forEach(channel => {
+                    const chNumber = channel.number || "??";
+                    const chName = channel.name || "Unknown";
+                    const chImage = channel.imageUrl || "";
+                    const currentShow = channel.currentShow || "Unknown Programming";
+                    const logoUrl = chImage ? chImage : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+
+                    const card = document.createElement('div');
+                    card.className = 'channel-card';
+                    card.onclick = () => playChannel(chNumber); 
+
+                    card.innerHTML = `
+                        <img class="channel-logo" src="${logoUrl}" onerror="this.style.visibility='hidden'" />
+                        <div class="channel-info">
+                            <div class="channel-number">CH ${chNumber}</div>
+                            <h2 class="show-title">${currentShow}</h2>
+                            <p class="channel-name">${chName}</p>
+                        </div>
+                    `;
+                    guideDiv.appendChild(card);
+                });
+            } catch (error) {
+                document.getElementById('guide').innerHTML = `<div class="loading">🔌 Connecting to HTPC...</div>`;
+                setTimeout(loadGuide, 5000);
+            }
+        }
+
+        window.onload = async () => {
+            await loadCollections();
+            loadGuide();
+            setInterval(loadGuide, 60000); 
+        };
+
+        // --- OVERLAY LOGIC ---
+        function openRemote() {
+            if (navigator.vibrate) navigator.vibrate(20);
+            document.getElementById('remoteOverlay').classList.add('open');
+        }
+
+        function closeRemote() {
+            if (navigator.vibrate) navigator.vibrate(20);
+            document.getElementById('remoteOverlay').classList.remove('open');
+        }
+
+        // --- COMMAND EXECUTION ---
+        function sendKey(direction) {
+            if (navigator.vibrate) navigator.vibrate(30);
+            fetch(`/api/remote/key/${direction}`, { method: 'POST' });
+        }
+
+        function toggleView() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/toggleview', { method: 'POST' }); }
+        function togglePiP() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/pip', { method: 'POST' }); }
+        function playChannel(number) { if (navigator.vibrate) navigator.vibrate(50); fetch(`/api/remote/play/${number}`, { method: 'POST' }); }
+        function stopPlayer() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/stop', { method: 'POST' }); }
+        function toggleFullscreen() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/fullscreen', { method: 'POST' }); }
+        function volUp() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/volup', { method: 'POST' }); }
+        function toggleStats() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/stats', { method: 'POST' }); }
+        function volDown() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/voldown', { method: 'POST' }); }
+        function toggleMute() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/mute', { method: 'POST' }); }
+        function goHome() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/home', { method: 'POST' }); }
+    </script>
+</body>
+</html>
