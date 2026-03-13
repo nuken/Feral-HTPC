@@ -139,7 +139,7 @@
         </Border>
 
         <ScrollViewer x:Name="ShowsScrollViewer" Grid.Row="2" VerticalScrollBarVisibility="Hidden" Focusable="False">
-            <WrapPanel x:Name="ShowsWrapPanel" HorizontalAlignment="Center"/>
+            <WrapPanel x:Name="ShowsWrapPanel" HorizontalAlignment="Center" KeyboardNavigation.DirectionalNavigation="Cycle" />
         </ScrollViewer>
 
         <Grid x:Name="EpisodesView" Grid.Row="2" Visibility="Collapsed">

@@ -411,15 +411,48 @@ namespace ChannelsNativeTest
                                 {
                                     if (stream.Service.ToLower() == "netflix")
                                     {
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app=https://www.netflix.com/watch/{stream.StreamId.Trim()}", UseShellExecute = true });
+                                        string input = stream.StreamId.Trim();
+                                        string finalUrl = input.StartsWith("http") ? input : $"https://www.netflix.com/watch/{input}";
+                                        
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
+                                        { 
+                                            FileName = "msedge", 
+                                            Arguments = $"--app={finalUrl} --start-fullscreen", 
+                                            UseShellExecute = true 
+                                        });
+                                    }
+                                    else if (stream.Service.ToLower() == "disney+")
+                                    {
+                                        string input = stream.StreamId.Trim();
+                                        string finalUrl = input.StartsWith("http") ? input : $"https://www.disneyplus.com/play/{input}";
+                                        
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
+                                        { 
+                                            FileName = "msedge", 
+                                            Arguments = $"--app={finalUrl} --start-fullscreen", 
+                                            UseShellExecute = true 
+                                        });
+                                    }
+                                    // NEW: Prime Video PWA Launcher
+                                    else if (stream.Service.ToLower() == "prime video")
+                                    {
+                                        string input = stream.StreamId.Trim();
+                                        // FIXED: Ends with a semicolon now, and uses 'input' to be clean!
+                                        string finalUrl = input.StartsWith("http") ? input : $"https://www.primevideo.com/watch/{input}";
+                                        
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
+                                        { 
+                                            FileName = "msedge", 
+                                            Arguments = $"--app={finalUrl} --start-fullscreen", 
+                                            UseShellExecute = true 
+                                        });
                                     }
                                     else
                                     {
                                         string uri = stream.Service.ToLower() switch
                                         {
-                                            "disney+" => $"disneyplus://video/{stream.StreamId.Trim()}",
                                             "hulu" => $"hulu://w/{stream.StreamId.Trim()}",
-                                            "prime video" => $"primevideo://watch?asin={stream.StreamId.Trim()}",
+                                            // Prime video removed from here since it now has its own Edge block above
                                             _ => stream.StreamId.Trim()
                                         };
                                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });

@@ -167,6 +167,16 @@
             
             <CheckBox x:Name="FullscreenCheckBox" Content="Start Players in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
 
+            <TextBlock Text="Guide Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
+            <StackPanel Orientation="Horizontal" Margin="5,0,0,10">
+                <TextBlock Text="Hours of Guide Data to Load:" FontSize="18" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                <ComboBox x:Name="GuideDurationBox" FontSize="18" Width="150" Padding="10,5">
+                    <ComboBoxItem Content="4 Hours" Tag="4"/>
+                    <ComboBoxItem Content="8 Hours" Tag="8"/>
+                    <ComboBoxItem Content="12 Hours" Tag="12"/>
+                </ComboBox>
+            </StackPanel>
+
             <TextBlock Text="Appearance" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
             <CheckBox x:Name="LightModeCheckBox" Content="Enable Light Theme (Global)" Style="{StaticResource BigCheckBox}"/>
 

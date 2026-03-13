@@ -84,7 +84,7 @@ namespace ChannelsNativeTest
             {
                 try
                 {
-                    // Intercept Netflix to force the clean, chromeless PWA window
+                    // Intercept Netflix AND Disney+ to force the clean, chromeless PWA window
                     if (stream.Service.ToLower() == "netflix")
                     {
                         Process.Start(new ProcessStartInfo
@@ -94,9 +94,22 @@ namespace ChannelsNativeTest
                             UseShellExecute = true
                         });
                     }
+                    else if (stream.Service.ToLower() == "disney+")
+                    {
+                        string input = stream.StreamId.Trim();
+                        // If you pasted the full link, use it. Otherwise, build the /play/ URL!
+                        string finalUrl = input.StartsWith("http") ? input : $"https://www.disneyplus.com/play/{input}";
+                        
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "msedge", 
+                            Arguments = $"--app={finalUrl}",
+                            UseShellExecute = true
+                        });
+                    }
                     else
                     {
-                        // Disney+, Hulu, and Prime continue using their native deep links
+                        // Hulu, Prime, and Custom continue using their native deep links
                         string uri = BuildUri(stream);
                         Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
                     }
@@ -116,7 +129,7 @@ namespace ChannelsNativeTest
                 "netflix" => $"https://www.netflix.com/watch/{id}",
                 "disney+" => $"disneyplus://video/{id}",
                 "hulu" => $"hulu://w/{id}",
-                "prime video" => $"primevideo://watch?asin={id}",
+                "prime video" => $"https://www.primevideo.com/watch/{id}",
                 _ => id // If it's a Custom URI, we just pass the raw link they typed in!
             };
         }

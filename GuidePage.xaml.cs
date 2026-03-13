@@ -103,13 +103,18 @@ namespace ChannelsNativeTest
             // (Removed the StartWebServer call from here)
         }
                      
-        private void GenerateTimeHeaders()
+        private void GenerateTimeHeaders(int durationHours)
         {
             var headers = new List<string>();
             DateTime now = DateTime.Now;
             DateTime start = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute >= 30 ? 30 : 0, 0);
 
-            for (int i = 0; i < 8; i++) headers.Add(start.AddMinutes(i * 30).ToString("h:mm tt"));
+            // Calculate how many 30-minute blocks we need based on the hours setting
+            int totalBlocks = (durationHours * 2) + 4;
+            for (int i = 0; i < totalBlocks; i++) 
+            {
+                headers.Add(start.AddMinutes(i * 30).ToString("h:mm tt"));
+            }
             TimeHeadersControl.ItemsSource = headers;
         }
         
@@ -189,12 +194,12 @@ namespace ChannelsNativeTest
 
                 try 
                 {
-                    GenerateTimeHeaders();
+                    GenerateTimeHeaders(_settings.GuideDurationHours); // Update this line!
                     
                     DateTime now = DateTime.Now;
                     _currentGridStart = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute >= 30 ? 30 : 0, 0);
 
-                    var guideBlocks = await _api.GetGuideAsync(baseUrl);
+                    var guideBlocks = await _api.GetGuideAsync(baseUrl, _settings.GuideDurationHours);
                     var validGuideChannels = guideBlocks
                         .Where(g => !string.IsNullOrWhiteSpace(g.ChannelNumber) && g.Airings != null)
                         .ToList();

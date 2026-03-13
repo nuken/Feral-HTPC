@@ -39,7 +39,7 @@
                        Foreground="{DynamicResource TextPrimary}" HorizontalAlignment="Center" Margin="0,0,0,50"
                        FontFamily="Segoe UI"/>
             
-            <WrapPanel HorizontalAlignment="Center" MaxWidth="1000">
+            <WrapPanel HorizontalAlignment="Center" MaxWidth="1000" KeyboardNavigation.DirectionalNavigation="Cycle">
                 <Button Content="📺 Live TV" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="LiveTv_Click"/>
                 <Button Content="🎬 Movies" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Movies_Click"/>
                 <Button Content="📼 TV Shows" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Shows_Click"/>                

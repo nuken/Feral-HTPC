@@ -103,10 +103,12 @@ namespace ChannelsNativeTest
             }
         }
 
-        public async Task<List<GuideData>> GetGuideAsync(string baseUrl)
+        public async Task<List<GuideData>> GetGuideAsync(string baseUrl, int durationHours = 4)
         {
             long unixTime = ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeSeconds();
-            var url = $"{baseUrl}/devices/ANY/guide?time={unixTime}&duration=14400";
+            long durationSeconds = durationHours * 3600; // Convert hours to seconds
+            
+            var url = $"{baseUrl}/devices/ANY/guide?time={unixTime}&duration={durationSeconds}";
             var response = await _http.GetStringAsync(url);
             
             var options = new JsonSerializerOptions

@@ -26,6 +26,11 @@ namespace ChannelsNativeTest
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
 
+            // NEW: Load Guide Duration
+            if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
+            else if (_settings.GuideDurationHours == 12) GuideDurationBox.SelectedIndex = 2;
+            else GuideDurationBox.SelectedIndex = 0; // Default to 4
+
             // --- NEW: Display the formatted Mobile Remote URL ---
             string localIp = GetLocalIPAddress();
             LocalRemoteUrlBox.Text = $"http://{localIp}:{_settings.WebServerPort}";
@@ -164,10 +169,11 @@ namespace ChannelsNativeTest
             _settings.LastServerAddress = ServerIpTextBox.Text.Trim();
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
-            
-            // NEW: Save the Fullscreen preference
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
-
+			if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
+            {
+                _settings.GuideDurationHours = parsedHours;
+            }
             SettingsManager.Save(_settings);
             ApplyTheme(_settings.IsLightTheme);
 

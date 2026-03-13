@@ -131,7 +131,7 @@
             <ItemsControl x:Name="MoviesItemsControl" Focusable="False">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel HorizontalAlignment="Center" />
+                        <WrapPanel HorizontalAlignment="Center"  KeyboardNavigation.DirectionalNavigation="Cycle" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
