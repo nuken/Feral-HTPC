@@ -1,0 +1,34 @@
+name: Build and Package Channels HTPC
+
+on:
+  push:
+    branches: [ "master", "main" ] # Runs automatically when you push code
+  workflow_dispatch: # Allows you to trigger a build manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Publish .NET Application
+      run: dotnet publish ChannelsNativeTest.csproj -c Release -r win-x64
+
+    - name: Compile Inno Setup Installer
+      # The windows-latest runner has Inno Setup pre-installed at this exact path
+      run: |
+        "C:\Program Files (x86)\Inno Setup 6\iscc.exe" ChannelsInstaller.iss
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ChannelsHTPC-Installer
+        # Grabs the compiled setup file from the Output directory we defined in the .iss
+        path: Output/ChannelsHTPC_Alpha_Setup.exe
