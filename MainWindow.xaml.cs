@@ -156,10 +156,67 @@ namespace ChannelsNativeTest
                     });
 
                     // --- DELEGATE DATA TO THE ACTIVE PAGE ---
-                    _webHost.MapGet("/api/remote/collections", () => { /* ... existing code ... */ });
-                    _webHost.MapGet("/api/remote/guide", (string? collection, string? search) => { /* ... existing code ... */ });
-                    _webHost.MapPost("/api/remote/play/{channelNumber}", (string channelNumber) => { /* ... existing code ... */ });
+                   _webHost.MapGet("/api/remote/collections", async () => 
+                    {
+                        var settings = SettingsManager.Load();
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new object[] { });
+                        
+                        try {
+                            var api = new ChannelsApi();
+                            return Results.Json(await api.GetChannelCollectionsAsync(settings.LastServerAddress));
+                        } catch { return Results.Json(new object[] { }); }
+                    });
 
+                    _webHost.MapGet("/api/remote/guide", async (string? collection, string? search) => 
+                    {
+                        var settings = SettingsManager.Load();
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new object[] { });
+                        
+                        try {
+                            var api = new ChannelsApi();
+                            var channels = await api.GetChannelsAsync(settings.LastServerAddress);
+                            
+                            // Apply Collection Filter
+                            if (!string.IsNullOrEmpty(collection) && collection != "All Channels")
+                            {
+                                var collections = await api.GetChannelCollectionsAsync(settings.LastServerAddress);
+                                var selected = collections.FirstOrDefault(c => c.name == collection);
+                                if (selected != null && selected.items != null)
+                                {
+                                    channels = channels.Where(c => selected.items.Any(item => c.HasIdentifier(item))).ToList();
+                                }
+                            }
+
+                            // Apply Search Filter
+                            if (!string.IsNullOrWhiteSpace(search))
+                            {
+                                channels = channels.Where(c => c.HasIdentifier(search)).ToList();
+                            }
+
+                            return Results.Json(channels);
+                        } catch { return Results.Json(new object[] { }); }
+                    });
+
+                    _webHost.MapPost("/api/remote/play/{channelNumber}", async (string channelNumber) => 
+                    {
+                        var settings = SettingsManager.Load();
+                        var api = new ChannelsApi();
+                        var channels = await api.GetChannelsAsync(settings.LastServerAddress);
+                        
+                        // Find the index of the requested channel so the Ch Up / Ch Down buttons still work perfectly!
+                        int startIndex = channels.FindIndex(c => c.Number == channelNumber);
+                        if (startIndex == -1) startIndex = 0;
+
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
+
+                            ActivePlayerWindow = new PlayerWindow(settings.LastServerAddress, channels, startIndex);
+                            ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null;
+                            ActivePlayerWindow.Show();
+                        });
+                        return Results.Ok();
+                    });
                     // --- GLOBAL COMMANDS ---
                     _webHost.MapPost("/api/remote/home", () => 
                     { 
