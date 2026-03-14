@@ -191,7 +191,7 @@
         <button id="tab-tv" class="tab-btn active" onclick="switchTab('tv')">📺 Live</button>
         <button id="tab-shows" class="tab-btn" onclick="switchTab('shows')">🍿 Shows</button>
         <button id="tab-movies" class="tab-btn" onclick="switchTab('movies')">🎬 Movies</button>
-		<button id="tab-apps" class="tab-btn" onclick="switchTab('apps')">🌐 Apps</button>
+        <button id="tab-apps" class="tab-btn" onclick="switchTab('apps')">🌐 Apps</button>
         <button id="tab-pc" class="tab-btn" onclick="switchTab('pc')">💻 PC</button>
     </div>
 
@@ -337,18 +337,18 @@
             document.getElementById('view-tv').style.display = tabName === 'tv' ? 'block' : 'none';
             document.getElementById('view-movies').style.display = tabName === 'movies' ? 'block' : 'none';
             document.getElementById('view-shows').style.display = tabName === 'shows' ? 'block' : 'none';
-            document.getElementById('view-apps').style.display = tabName === 'apps' ? 'block' : 'none'; // NEW
+            document.getElementById('view-apps').style.display = tabName === 'apps' ? 'block' : 'none';
             document.getElementById('view-pc').style.display = tabName === 'pc' ? 'flex' : 'none'; 
             
             document.getElementById('tab-tv').className = tabName === 'tv' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-movies').className = tabName === 'movies' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-shows').className = tabName === 'shows' ? 'tab-btn active' : 'tab-btn';
-            document.getElementById('tab-apps').className = tabName === 'apps' ? 'tab-btn active' : 'tab-btn'; // NEW
+            document.getElementById('tab-apps').className = tabName === 'apps' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-pc').className = tabName === 'pc' ? 'tab-btn active' : 'tab-btn';
 
             if (tabName === 'movies' && document.getElementById('movieGrid').innerHTML.includes('Loading')) loadMovies();
             if (tabName === 'shows' && document.getElementById('showGrid').innerHTML.includes('Loading')) loadShows();
-            if (tabName === 'apps' && document.getElementById('appsGrid').innerHTML.includes('Loading')) loadApps(); // NEW
+            if (tabName === 'apps' && document.getElementById('appsGrid').innerHTML.includes('Loading')) loadApps();
         }
 
         // ==========================================
@@ -359,7 +359,8 @@
                 const response = await fetch('/api/remote/movies');
                 allMovies = await response.json();
                 
-                const genres = [...new Set(allMovies.flatMap(m => m.genres || []))].sort();
+                // FIXED: Support both C# and JS casing!
+                const genres = [...new Set(allMovies.flatMap(m => m.Genres || m.genres || []))].sort();
                 const genreSelect = document.getElementById('movieGenre');
                 genreSelect.innerHTML = '<option value="All">All Genres</option>';
                 genres.forEach(g => genreSelect.innerHTML += `<option value="${g}">${g}</option>`);
@@ -375,16 +376,20 @@
             const sort = document.getElementById('movieSort').value;
 
             let filtered = allMovies.filter(m => {
-                if (search && !(m.title || '').toLowerCase().includes(search)) return false;
-                if (genre !== 'All' && !(m.genres || []).includes(genre)) return false;
-                if (watched === 'Unwatched' && m.watched) return false;
-                if (watched === 'Watched' && !m.watched) return false;
+                const mTitle = m.Title || m.title || '';
+                const mGenres = m.Genres || m.genres || [];
+                const mWatched = m.Watched !== undefined ? m.Watched : m.watched;
+
+                if (search && !mTitle.toLowerCase().includes(search)) return false;
+                if (genre !== 'All' && !mGenres.includes(genre)) return false;
+                if (watched === 'Unwatched' && mWatched) return false;
+                if (watched === 'Watched' && !mWatched) return false;
                 return true;
             });
 
-            if (sort === 'AZ') filtered.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-            else if (sort === 'Newest') filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-            else if (sort === 'Year') filtered.sort((a, b) => (b.release_year || 0) - (a.release_year || 0));
+            if (sort === 'AZ') filtered.sort((a, b) => (a.Title || a.title || '').localeCompare(b.Title || b.title || ''));
+            else if (sort === 'Newest') filtered.sort((a, b) => (b.CreatedAt || b.created_at || 0) - (a.CreatedAt || a.created_at || 0));
+            else if (sort === 'Year') filtered.sort((a, b) => (b.ReleaseYear || b.release_year || 0) - (a.ReleaseYear || a.release_year || 0));
 
             renderMovies(filtered);
         }
@@ -398,22 +403,27 @@
 
             grid.innerHTML = '';
             moviesToRender.forEach(movie => {
-                const posterUrl = movie.posterUrl ? movie.posterUrl : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                // FIXED: Support both C# and JS casing!
+                const rawPoster = movie.PosterUrl || movie.posterUrl || movie.ImageUrl || movie.image_url;
+                const posterUrl = rawPoster ? rawPoster : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                const mTitle = movie.Title || movie.title || 'Unknown Movie';
+                const mDuration = movie.Duration || movie.duration || 0;
+                const mId = movie.Id || movie.id;
+
                 const card = document.createElement('div');
                 card.className = 'movie-card';
-                card.onclick = () => playMovie(movie.id);
+                card.onclick = () => playMovie(mId);
                 
-                // Convert duration to 1h 45m style for the mobile app
                 let durationStr = "";
-                if (movie.duration) {
-                    const hours = Math.floor(movie.duration / 3600);
-                    const minutes = Math.floor((movie.duration % 3600) / 60);
+                if (mDuration > 0) {
+                    const hours = Math.floor(mDuration / 3600);
+                    const minutes = Math.floor((mDuration % 3600) / 60);
                     durationStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
                 }
 
                 card.innerHTML = `
                     <img src="${posterUrl}" onerror="this.style.opacity='0.2'" />
-                    <div class="title">${movie.title}</div>
+                    <div class="title">${mTitle}</div>
                     <div style="font-size: 10px; color: #888; margin-top: 2px;">${durationStr}</div>
                 `;
                 grid.appendChild(card);
@@ -433,7 +443,7 @@
                 const response = await fetch('/api/remote/shows');
                 allShows = await response.json();
                 
-                const genres = [...new Set(allShows.flatMap(s => s.genres || []))].sort();
+                const genres = [...new Set(allShows.flatMap(s => s.Genres || s.genres || []))].sort();
                 const genreSelect = document.getElementById('showGenre');
                 genreSelect.innerHTML = '<option value="All">All Genres</option>';
                 genres.forEach(g => genreSelect.innerHTML += `<option value="${g}">${g}</option>`);
@@ -449,18 +459,22 @@
             const sort = document.getElementById('showSort').value;
 
             let filtered = allShows.filter(s => {
-                if (search && !(s.name || '').toLowerCase().includes(search)) return false;
-                if (genre !== 'All' && !(s.genres || []).includes(genre)) return false;
+                const sName = s.Name || s.name || '';
+                const sGenres = s.Genres || s.genres || [];
+                const sUnwatched = s.NumberUnwatched !== undefined ? s.NumberUnwatched : (s.number_unwatched || 0);
+
+                if (search && !sName.toLowerCase().includes(search)) return false;
+                if (genre !== 'All' && !sGenres.includes(genre)) return false;
                 
-                const isWatched = s.number_unwatched === 0;
+                const isWatched = sUnwatched === 0;
                 if (watched === 'Unwatched' && isWatched) return false;
                 if (watched === 'Watched' && !isWatched) return false;
                 return true;
             });
 
-            if (sort === 'AZ') filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            else if (sort === 'Newest') filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-            else if (sort === 'Year') filtered.sort((a, b) => (b.release_year || 0) - (a.release_year || 0));
+            if (sort === 'AZ') filtered.sort((a, b) => (a.Name || a.name || '').localeCompare(b.Name || b.name || ''));
+            else if (sort === 'Newest') filtered.sort((a, b) => (b.CreatedAt || b.created_at || 0) - (a.CreatedAt || a.created_at || 0));
+            else if (sort === 'Year') filtered.sort((a, b) => (b.ReleaseYear || b.release_year || 0) - (a.ReleaseYear || a.release_year || 0));
 
             renderShows(filtered);
         }
@@ -474,15 +488,21 @@
 
             grid.innerHTML = '';
             showsToRender.forEach(show => {
-                const posterUrl = show.image_url ? show.image_url : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                // FIXED: Support both C# and JS casing!
+                const rawImage = show.ImageUrl || show.imageUrl || show.image_url;
+                const posterUrl = rawImage ? rawImage : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                const sName = show.Name || show.name || 'Unknown Show';
+                const sId = show.Id || show.id;
+                const epCount = show.EpisodeCount || show.episodeCount || show.episode_count || 0;
+
                 const card = document.createElement('div');
                 card.className = 'movie-card';
-                card.onclick = () => openEpisodes(show.id, show.name);
+                card.onclick = () => openEpisodes(sId, sName);
                 
                 card.innerHTML = `
                     <img src="${posterUrl}" onerror="this.style.opacity='0.2'" />
-                    <div class="title">${show.name}</div>
-                    <div style="font-size: 10px; color: #888; margin-top: 2px;">${show.episode_count} Episodes</div>
+                    <div class="title">${sName}</div>
+                    <div style="font-size: 10px; color: #888; margin-top: 2px;">${epCount} Episodes</div>
                 `;
                 grid.appendChild(card);
             });
@@ -502,15 +522,21 @@
                 
                 list.innerHTML = '';
                 episodes.forEach(ep => {
+                    // FIXED: Support both C# and JS casing!
+                    const sNum = String(ep.SeasonNumber || ep.seasonNumber || ep.season_number || 0).padStart(2, '0');
+                    const eNum = String(ep.EpisodeNumber || ep.episodeNumber || ep.episode_number || 0).padStart(2, '0');
+                    const eTitle = ep.EpisodeTitle || ep.episodeTitle || ep.episode_title || ep.Title || ep.title || 'Episode';
+                    const eId = ep.Id || ep.id;
+
                     const epCard = document.createElement('div');
                     epCard.style = "background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between;";
                     
                     epCard.innerHTML = `
                         <div style="flex: 1; overflow: hidden; padding-right: 15px;">
-                            <div style="color: #007ACC; font-weight: bold; font-size: 12px; margin-bottom: 4px;">S${String(ep.season_number).padStart(2, '0')} E${String(ep.episode_number).padStart(2, '0')}</div>
-                            <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ep.episode_title}</div>
+                            <div style="color: #007ACC; font-weight: bold; font-size: 12px; margin-bottom: 4px;">S${sNum} E${eNum}</div>
+                            <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eTitle}</div>
                         </div>
-                        <button onclick="playEpisode('${ep.id}')" style="background: #007ACC; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;">▶ Play</button>
+                        <button onclick="playEpisode('${eId}')" style="background: #007ACC; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;">▶ Play</button>
                     `;
                     list.appendChild(epCard);
                 });
@@ -521,8 +547,8 @@
             document.getElementById('episodes-view').style.display = 'none';
             document.getElementById('shows-main').style.display = 'block';
         }
-		
-		// ==========================================
+        
+        // ==========================================
         // APPS LOGIC
         // ==========================================
         async function loadApps() {
@@ -538,23 +564,27 @@
                 
                 grid.innerHTML = '';
                 apps.forEach(app => {
+                    // FIXED: Support both C# and JS casing!
+                    const aService = app.Service || app.service || 'Unknown';
+                    const aTitle = app.Title || app.title || 'App';
+                    const aId = app.Id || app.id;
+
                     const card = document.createElement('div');
                     card.className = 'movie-card';
                     card.style.padding = '25px 10px';
                     
-                    // Match the brand colors we used on the PC UI!
                     let bgColor = '#333333';
-                    const svc = (app.service || '').toLowerCase();
+                    const svc = aService.toLowerCase();
                     if(svc === 'netflix') bgColor = '#E50914';
                     else if(svc === 'disney+') bgColor = '#113CCF';
                     else if(svc === 'hulu') bgColor = '#1CE783';
                     else if(svc === 'prime video') bgColor = '#00A8E1';
 
                     card.style.background = bgColor;
-                    card.onclick = () => launchApp(app.id);
+                    card.onclick = () => launchApp(aId);
                     card.innerHTML = `
-                        <div style="font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.7); margin-bottom: 8px;">${app.service.toUpperCase()}</div>
-                        <div style="font-size: 16px; font-weight: 900; color: white; line-height: 1.2;">${app.title}</div>
+                        <div style="font-size: 11px; font-weight: bold; color: rgba(255,255,255,0.7); margin-bottom: 8px;">${aService.toUpperCase()}</div>
+                        <div style="font-size: 16px; font-weight: 900; color: white; line-height: 1.2;">${aTitle}</div>
                     `;
                     grid.appendChild(card);
                 });
@@ -678,10 +708,11 @@
                 guideDiv.innerHTML = ''; 
 
                 channels.forEach(channel => {
-                    const chNumber = channel.number || "??";
-                    const chName = channel.name || "Unknown";
-                    const chImage = channel.imageUrl || "";
-                    const currentShow = channel.currentShow || "Unknown Programming";
+                    // FIXED: Support both C# and JS casing!
+                    const chNumber = channel.Number || channel.number || "??";
+                    const chName = channel.Name || channel.name || "Unknown";
+                    const chImage = channel.ImageUrl || channel.imageUrl || channel.image_url || "";
+                    const currentShow = channel.CurrentShow || channel.currentShow || channel.CurrentProgram || "Unknown Programming";
                     const logoUrl = chImage ? chImage : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
                     const card = document.createElement('div');
