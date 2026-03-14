@@ -78,7 +78,7 @@
         </Style>
     </Page.Resources>
 
-    <Grid Margin="20" KeyboardNavigation.DirectionalNavigation="Contained">
+    <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> 
             <RowDefinition Height="Auto"/> 
@@ -180,7 +180,7 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Button Click="AiringBlock_Click" GotFocus="AiringBlock_GotFocus" Tag="{Binding}" FocusVisualStyle="{StaticResource TvGuideFocusStyle}" Margin="{Binding DynamicMargin}" Padding="0" BorderThickness="0" Background="Transparent" Cursor="Hand">
+                                                    <Button Click="AiringBlock_Click" GotFocus="AiringBlock_GotFocus" RequestBringIntoView="AiringBlock_RequestBringIntoView" Tag="{Binding}" FocusVisualStyle="{StaticResource TvGuideFocusStyle}" Margin="{Binding DynamicMargin}" Padding="0" BorderThickness="0" Background="Transparent" Cursor="Hand">
                                                         <Button.Template>
                                                             <ControlTemplate TargetType="Button">
                                                                 <Border x:Name="EpgBorder" MinWidth="150" Width="{Binding BlockWidth}" Height="50" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8,4" Margin="1,0">

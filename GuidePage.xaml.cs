@@ -443,27 +443,51 @@ namespace ChannelsNativeTest
             }
         }
 		
-		private void AiringBlock_GotFocus(object sender, RoutedEventArgs e)
+		private void AiringBlock_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button btn && btn.Tag is Airing airing)
-            {
-                // Force the horizontal TimelineScroller to strictly follow the focused block
-                if (TimelineScroller != null)
-                {
-                    double blockLeftEdge = airing.LeftOffset;
-                    double blockRightEdge = blockLeftEdge + airing.BlockWidth;
+            // MAGIC BULLET: This disables WPF's native spatial scrolling, preventing 
+            // the erratic jumping and "lost focus" when using the D-Pad!
+            e.Handled = true; 
+        }
 
-                    // If the block is off the left side of the screen, snap to it
-                    if (blockLeftEdge < TimelineScroller.HorizontalOffset)
+        private void AiringBlock_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn)
+            {
+                try
+                {
+                    // 1. Gently nudge the Horizontal Timeline Scroller
+                    if (TimelineScroller != null)
                     {
-                        TimelineScroller.ScrollToHorizontalOffset(blockLeftEdge - 20); // 20px padding
+                        // Calculate the EXACT physical pixel position of the button on the screen
+                        var hTransform = btn.TransformToAncestor(TimelineScroller);
+                        var hBounds = hTransform.TransformBounds(new Rect(0, 0, btn.ActualWidth, btn.ActualHeight));
+
+                        if (hBounds.Left < 0)
+                            TimelineScroller.ScrollToHorizontalOffset(TimelineScroller.HorizontalOffset + hBounds.Left - 20);
+                        else if (hBounds.Right > TimelineScroller.ViewportWidth)
+                        {
+                            // If it's a 4-hour movie, prioritize keeping the Left Edge (Title) visible!
+                            if (btn.ActualWidth > TimelineScroller.ViewportWidth)
+                                TimelineScroller.ScrollToHorizontalOffset(TimelineScroller.HorizontalOffset + hBounds.Left - 20);
+                            else
+                                TimelineScroller.ScrollToHorizontalOffset(TimelineScroller.HorizontalOffset + (hBounds.Right - TimelineScroller.ViewportWidth) + 20);
+                        }
                     }
-                    // If the block is off the right side of the screen, snap to the end of it
-                    else if (blockRightEdge > TimelineScroller.HorizontalOffset + TimelineScroller.ViewportWidth)
+
+                    // 2. Gently nudge the Vertical Channels Scroller
+                    if (MainVerticalScroller != null)
                     {
-                        TimelineScroller.ScrollToHorizontalOffset(blockRightEdge - TimelineScroller.ViewportWidth + 20);
+                        var vTransform = btn.TransformToAncestor(MainVerticalScroller);
+                        var vBounds = vTransform.TransformBounds(new Rect(0, 0, btn.ActualWidth, btn.ActualHeight));
+
+                        if (vBounds.Top < 0)
+                            MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset + vBounds.Top - 20);
+                        else if (vBounds.Bottom > MainVerticalScroller.ViewportHeight)
+                            MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset + (vBounds.Bottom - MainVerticalScroller.ViewportHeight) + 20);
                     }
                 }
+                catch { } // Fails safely if the UI layout hasn't fully rendered yet
             }
         }
 
