@@ -35,9 +35,16 @@
     <Grid>
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             
-            <TextBlock Text="CHANNELS HTPC" FontSize="64" FontWeight="Black" 
-                       Foreground="{DynamicResource TextPrimary}" HorizontalAlignment="Center" Margin="0,0,0,50"
-                       FontFamily="Segoe UI"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,50">
+                
+                <Image Source="/wwwroot/android-chrome-512x512.png" Width="72" Height="72" Margin="0,0,20,0" 
+                       RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
+                
+                <TextBlock Text="CHANNELS HTPC" FontSize="62" FontWeight="Light" 
+                           Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"
+                           FontFamily="Segoe UI Light"/>
+                
+            </StackPanel>
             
             <WrapPanel HorizontalAlignment="Center" MaxWidth="1000" KeyboardNavigation.DirectionalNavigation="Cycle">
                 <Button Content="📺 Live TV" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="LiveTv_Click"/>

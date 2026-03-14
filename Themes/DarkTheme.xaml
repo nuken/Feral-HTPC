@@ -16,7 +16,7 @@
     <SolidColorBrush x:Key="LiveBackground" Color="#004A7F"/>
     <SolidColorBrush x:Key="LiveBorder" Color="#0078D7"/>
     <SolidColorBrush x:Key="LiveHover" Color="#0063A6"/>
-	<SolidColorBrush x:Key="StatusConnecting" Color="#FFD700"/> 
+	<SolidColorBrush x:Key="StatusConnecting" Color="#8A9A5B"/> 
 	<SolidColorBrush x:Key="StatusSuccess" Color="#90EE90"/> 
 	<SolidColorBrush x:Key="StatusError" Color="#FF8C00"/> 	
 </ResourceDictionary>
