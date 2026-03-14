@@ -174,7 +174,7 @@ namespace ChannelsNativeTest
                         } catch { return Results.Ok(new string[] { "All Channels" }); }
                     });
 
-                    // --- FIXED GUIDE ROUTE ---
+                    // --- FIXED GUIDE ROUTE (WITH LOGO MAPPING) ---
                     _webHost.MapGet("/api/remote/guide", async (string? collection, string? search) => 
                     {
                         var settings = SettingsManager.Load();
@@ -184,10 +184,34 @@ namespace ChannelsNativeTest
                             var api = new ChannelsApi();
                             var channels = await api.GetChannelsAsync(settings.LastServerAddress);
                             
-                            // NEW: Fetch what is actually playing right now and attach it to the channels!
+                            // NEW: Fetch stations for fallback logos!
+                            var stations = await api.GetStationsAsync(settings.LastServerAddress);
+                            var stationLogoDict = stations
+                                .Where(s => !string.IsNullOrWhiteSpace(s.Id) && !string.IsNullOrWhiteSpace(s.Logo))
+                                .GroupBy(s => s.Id!)
+                                .ToDictionary(g => g.Key, g => g.First().Logo!);
+
                             var guide = await api.GetGuideAsync(settings.LastServerAddress, 1);
+                            
                             foreach (var c in channels)
                             {
+                                // 1. Map missing logos using the station dictionary
+                                string targetId = !string.IsNullOrWhiteSpace(c.StationId) ? c.StationId : c.CallSign;
+                                if (string.IsNullOrWhiteSpace(c.ImageUrl) && !string.IsNullOrWhiteSpace(targetId))
+                                {
+                                    if (stationLogoDict.TryGetValue(targetId, out string? mappedLogo)) c.ImageUrl = mappedLogo;
+                                }
+
+                                // 2. Fix broken relative URL paths so the phone can load them
+                                if (!string.IsNullOrWhiteSpace(c.ImageUrl))
+                                {
+                                    if (c.ImageUrl.StartsWith("/")) 
+                                        c.ImageUrl = $"{settings.LastServerAddress.TrimEnd('/')}{c.ImageUrl}";
+                                    else if (c.ImageUrl.StartsWith("tmsimg://", StringComparison.OrdinalIgnoreCase))
+                                        c.ImageUrl = c.ImageUrl.Replace("tmsimg://", $"{settings.LastServerAddress.TrimEnd('/')}/tmsimg/", StringComparison.OrdinalIgnoreCase);
+                                }
+
+                                // 3. Attach the currently playing show
                                 var match = guide.FirstOrDefault(g => g.ChannelNumber == c.Number);
                                 if (match != null && match.Airings != null) c.CurrentAirings = match.Airings;
                             }
