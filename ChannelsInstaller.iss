@@ -2,6 +2,12 @@
 AppName=Channels HTPC
 AppVersion=0.1.0-alpha
 AppPublisher=Channels HTPC Development
+VersionInfoCompany=Channels HTPC Development
+VersionInfoProductName=Channels HTPC Setup
+VersionInfoProductVersion=0.1.0.0
+VersionInfoProductTextVersion=0.1.0-alpha
+VersionInfoCopyright=Copyright (C) 2026 Channels HTPC Development
+AppPublisherURL=https://github.com/nuken/ChannelsHTPC
 DefaultDirName={autopf}\ChannelsHTPC
 DefaultGroupName=Channels HTPC
 OutputBaseFilename=ChannelsHTPC_Alpha_Setup
