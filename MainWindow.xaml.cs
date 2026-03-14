@@ -184,6 +184,14 @@ namespace ChannelsNativeTest
                             var api = new ChannelsApi();
                             var channels = await api.GetChannelsAsync(settings.LastServerAddress);
                             
+                            // NEW: Fetch what is actually playing right now and attach it to the channels!
+                            var guide = await api.GetGuideAsync(settings.LastServerAddress, 1);
+                            foreach (var c in channels)
+                            {
+                                var match = guide.FirstOrDefault(g => g.ChannelNumber == c.Number);
+                                if (match != null && match.Airings != null) c.CurrentAirings = match.Airings;
+                            }
+                            
                             // Apply Collection Filter
                             if (!string.IsNullOrEmpty(collection) && collection != "All Channels")
                             {

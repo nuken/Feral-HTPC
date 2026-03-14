@@ -217,7 +217,7 @@ namespace ChannelsNativeTest
         [System.Text.Json.Serialization.JsonIgnore]
         public List<Airing>? CurrentAirings { get; set; }
 		
-		[System.Text.Json.Serialization.JsonIgnore]
+		[System.Text.Json.Serialization.JsonPropertyName("CurrentShowTitle")]
         public string CurrentShowTitle => (CurrentAirings != null && CurrentAirings.Count > 0) ? CurrentAirings[0].DisplayTitle : "Unknown Programming";
 
         private string GetValue(params string[] searchKeys)

@@ -708,11 +708,11 @@
                 guideDiv.innerHTML = ''; 
 
                 channels.forEach(channel => {
-                    // FIXED: Support both C# and JS casing!
-                    const chNumber = channel.Number || channel.number || "??";
-                    const chName = channel.Name || channel.name || "Unknown";
-                    const chImage = channel.ImageUrl || channel.imageUrl || channel.image_url || "";
-                    const currentShow = channel.CurrentShow || channel.currentShow || channel.CurrentProgram || "Unknown Programming";
+                    // FIXED: Read the exact "___" properties that C# serializes!
+                    const chNumber = channel.___number || channel.Number || channel.number || "??";
+                    const chName = channel.___name || channel.Name || channel.name || "Unknown";
+                    const chImage = channel.___image || channel.ImageUrl || channel.imageUrl || "";
+                    const currentShow = channel.CurrentShowTitle || channel.currentShowTitle || "Unknown Programming";
                     const logoUrl = chImage ? chImage : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
 
                     const card = document.createElement('div');
