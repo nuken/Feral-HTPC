@@ -1,0 +1,15 @@
+# Visual Studio / .NET Folders
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+
+# Your local app settings (Keep your DVR IP address private!)
+user_settings.json
+
+# Inno Setup Output (Don't upload massive 100MB installers to the code repo)
+Output/
+*.exe
+
+# Mac/OSX junk (Just in case)
+.DS_Store
