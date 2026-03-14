@@ -442,6 +442,30 @@ namespace ChannelsNativeTest
                 else CloseModalButton.Focus();
             }
         }
+		
+		private void AiringBlock_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.Tag is Airing airing)
+            {
+                // Force the horizontal TimelineScroller to strictly follow the focused block
+                if (TimelineScroller != null)
+                {
+                    double blockLeftEdge = airing.LeftOffset;
+                    double blockRightEdge = blockLeftEdge + airing.BlockWidth;
+
+                    // If the block is off the left side of the screen, snap to it
+                    if (blockLeftEdge < TimelineScroller.HorizontalOffset)
+                    {
+                        TimelineScroller.ScrollToHorizontalOffset(blockLeftEdge - 20); // 20px padding
+                    }
+                    // If the block is off the right side of the screen, snap to the end of it
+                    else if (blockRightEdge > TimelineScroller.HorizontalOffset + TimelineScroller.ViewportWidth)
+                    {
+                        TimelineScroller.ScrollToHorizontalOffset(blockRightEdge - TimelineScroller.ViewportWidth + 20);
+                    }
+                }
+            }
+        }
 
         private void CloseModal_Click(object sender, RoutedEventArgs e)
         {
