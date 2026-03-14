@@ -20,12 +20,11 @@ jobs:
 
     - name: Publish .NET Application
       run: dotnet publish ChannelsNativeTest.csproj -c Release -r win-x64
-
+      
     - name: Compile Inno Setup Installer
-      # The windows-latest runner has Inno Setup pre-installed at this exact path
       run: |
-        "C:\Program Files (x86)\Inno Setup 6\iscc.exe" ChannelsInstaller.iss
-
+        & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" ChannelsInstaller.iss
+        
     - name: Upload Installer Artifact
       uses: actions/upload-artifact@v4
       with:
