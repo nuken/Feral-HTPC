@@ -4,6 +4,11 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
 	<AssemblyName>ChannelsHTPC</AssemblyName>
+    <Version>0.1.0</Version>
+    <Authors>Bobby</Authors>
+    <Company>Channels HTPC Development</Company>
+    <Product>Channels HTPC</Product>
+    <Description>A native Windows client for Channels DVR.</Description>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
