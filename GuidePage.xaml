@@ -242,7 +242,7 @@
         </ScrollViewer>
 
         <Border x:Name="ModalOverlay" Grid.RowSpan="3" Background="#CC000000" Visibility="Collapsed">
-            <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Width="750" Height="400" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Width="750" Height="400" VerticalAlignment="Center" HorizontalAlignment="Center" KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle">
                 <Border.Effect>
                     <DropShadowEffect Color="Black" Opacity="0.4" BlurRadius="25" ShadowDepth="8"/>
                 </Border.Effect>
