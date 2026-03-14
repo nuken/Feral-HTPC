@@ -1,0 +1,96 @@
+<Page x:Class="ChannelsNativeTest.MultiviewSetupPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Title="Multiview Setup" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}"
+      PreviewKeyDown="Page_PreviewKeyDown" KeepAlive="True">
+
+    <Grid Margin="40">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,20">
+            <Button Content="🏠 Back" Margin="0,0,20,0" Click="HomeButton_Click" FontSize="16" Padding="15,8" Background="{DynamicResource LiveBorder}" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+            <TextBlock Text="🪟 MULTIVIEW SETUP" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="400"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,20,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/> <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <TextBlock Grid.Row="0" Text="1. Select Live Channels" FontSize="24" FontWeight="Bold" Margin="0,0,0,10"/>
+                    
+                    <Grid Grid.Row="1" Margin="0,0,0,15">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CollectionComboBox" Grid.Column="0" Width="200" FontSize="18" Margin="0,0,10,0" SelectionChanged="CollectionComboBox_SelectionChanged"/>
+                        <TextBox x:Name="SearchTextBox" Grid.Column="1" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2" TextChanged="SearchTextBox_TextChanged" />
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="ChannelsListControl">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Background="Transparent" BorderThickness="0" Cursor="Hand" Click="Channel_Click" Tag="{Binding}" Margin="0,0,0,5" HorizontalContentAlignment="Stretch">
+                                        <Border Background="{DynamicResource CardBackground}" CornerRadius="6" Padding="10">
+                                            
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="60"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                
+                                                <TextBlock Grid.Column="0" Text="{Binding Number}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" Margin="0,0,10,0"/>
+                                                <TextBlock Grid.Column="2" Text="•" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,10,0"/>
+                                                
+                                                <TextBlock Grid.Column="3" Text="{Binding CurrentShowTitle}" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                            </Grid>
+                                            
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15">
+                <StackPanel>
+                    <TextBlock Text="2. Selected Screens" FontSize="24" FontWeight="Bold" Margin="0,0,0,15"/>
+                    
+                    <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,10">
+                        <TextBlock x:Name="Slot1Text" Text="Slot 1: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                    </Border>
+                    <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,10">
+                        <TextBlock x:Name="Slot2Text" Text="Slot 2: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                    </Border>
+                    <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,10">
+                        <TextBlock x:Name="Slot3Text" Text="Slot 3: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                    </Border>
+                    <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,30">
+                        <TextBlock x:Name="Slot4Text" Text="Slot 4: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                    </Border>
+
+                    <Button x:Name="LaunchButton" Content="▶ LAUNCH MULTIVIEW" FontSize="20" FontWeight="Bold" Padding="20" Background="{DynamicResource StatusSuccess}" Foreground="Black" BorderThickness="0" Cursor="Hand" Click="Launch_Click" IsEnabled="False"/>
+                    <Button Content="Clear All" FontSize="16" Margin="0,15,0,0" Padding="10" Background="Transparent" Foreground="{DynamicResource StatusError}" BorderThickness="0" Cursor="Hand" Click="Clear_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Page>

@@ -36,6 +36,11 @@ namespace ChannelsNativeTest
         {
             NavigationService.Navigate(new ExternalStreamsPage());
         }
+		
+		private void Multiview_Click(object sender, RoutedEventArgs e)
+        {
+            NavigationService.Navigate(new MultiviewSetupPage());
+        }
 
         private void Settings_Click(object sender, RoutedEventArgs e)
         {

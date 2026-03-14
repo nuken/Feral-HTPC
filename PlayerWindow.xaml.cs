@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
 using LibVLCSharp.Shared;
+using System.Windows.Controls;
 
 namespace ChannelsNativeTest
 {
@@ -54,6 +55,8 @@ namespace ChannelsNativeTest
             _mediaPlayer = new MediaPlayer(MainWindow.SharedLibVLC);
             VlcVideoView.MediaPlayer = _mediaPlayer;
             _mediaPlayer.EndReached += MediaPlayer_EndReached;
+			_mediaPlayer.Buffering += MediaPlayer_Buffering;
+			_mediaPlayer.Playing += MediaPlayer_Playing;
 
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _uiTimer.Tick += UiTimer_Tick;
@@ -91,6 +94,8 @@ namespace ChannelsNativeTest
             _mediaPlayer = new MediaPlayer(MainWindow.SharedLibVLC);
             VlcVideoView.MediaPlayer = _mediaPlayer;
             _mediaPlayer.EndReached += MediaPlayer_EndReached;
+			_mediaPlayer.Buffering += MediaPlayer_Buffering;
+			_mediaPlayer.Playing += MediaPlayer_Playing;
             
             // Listen to the VLC clock tick for commercial skipping!
             _mediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
@@ -163,6 +168,35 @@ namespace ChannelsNativeTest
             }));
         }
 		
+		// --- NEW: Real-time Buffering Intercept ---
+        private void MediaPlayer_Buffering(object? sender, MediaPlayerBufferingEventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // If the buffer is not full, show the curtain and update the percentage
+                if (e.Cache < 100)
+                {
+                    LoadingOverlay.Visibility = Visibility.Visible;
+                    LoadingText.Text = $"Buffering... {(int)e.Cache}%";
+                }
+                else
+                {
+                    // The exact millisecond it hits 100%, drop the curtain!
+                    LoadingOverlay.Visibility = Visibility.Collapsed;
+                }
+            }));
+        }
+		
+		// --- NEW: Bulletproof Failsafe for VOD/Movies ---
+        private void MediaPlayer_Playing(object? sender, EventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // The absolute millisecond audio/video officially starts, drop the curtain!
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+            }));
+        }
+		
         public void TogglePiP()
         {
             if (!_isPipMode)
@@ -219,6 +253,110 @@ namespace ChannelsNativeTest
                 _mediaPlayer.Volume = newVol < 0 ? 0 : newVol;
             }
         }
+		
+		// --- NEW: Closed Captions / Subtitles Toggle ---
+        public void ToggleSubtitles()
+        {
+            if (_mediaPlayer == null) return;
+
+            var spus = _mediaPlayer.SpuDescription;
+            
+            // FIX 1: Use .Length for arrays instead of .Count
+            if (spus == null || spus.Length <= 1)
+            {
+                ShowActionOverlay("🚫 No CC Available");
+                return;
+            }
+
+            int currentId = _mediaPlayer.Spu;
+            
+            // FIX 2: Use a safe standard loop to find the current track index
+            int currentIndex = 0;
+            for (int i = 0; i < spus.Length; i++)
+            {
+                if (spus[i].Id == currentId)
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+            
+            // FIX 3: Use .Length for the modulo wrap-around logic
+            int nextIndex = (currentIndex + 1) % spus.Length;
+            var nextSpu = spus[nextIndex];
+            
+            // Apply the new track
+            _mediaPlayer.SetSpu(nextSpu.Id);
+
+            // Show a sleek overlay message using your existing modern UI!
+            string statusText = nextSpu.Id == -1 ? "CC: Off" : $"CC: {nextSpu.Name}";
+            ShowActionOverlay(statusText);
+        }
+
+        private void BtnCC_Click(object sender, RoutedEventArgs e)
+        {
+            OpenSubtitlesMenu();
+        }
+
+        // --- NEW: Dynamic Popup Menu for Subtitles ---
+        private void OpenSubtitlesMenu()
+        {
+            if (_mediaPlayer == null) return;
+
+            var spus = _mediaPlayer.SpuDescription;
+            if (spus == null || spus.Length <= 1)
+            {
+                ShowActionOverlay("🚫 No CC Available");
+                return;
+            }
+
+            // Create a brand new Context Menu on the fly
+            ContextMenu ccMenu = new ContextMenu();
+            
+            // Apply your custom theme colors so it looks professional!
+            ccMenu.Background = (System.Windows.Media.Brush)Application.Current.FindResource("PanelBackground");
+            ccMenu.Foreground = (System.Windows.Media.Brush)Application.Current.FindResource("TextPrimary");
+            ccMenu.BorderBrush = (System.Windows.Media.Brush)Application.Current.FindResource("BorderBrush");
+            ccMenu.BorderThickness = new Thickness(2);
+
+            int currentId = _mediaPlayer.Spu;
+
+            foreach (var spu in spus)
+            {
+                MenuItem item = new MenuItem();
+                
+                // Clean up the name for the UI
+                item.Header = spu.Id == -1 ? "Off" : $"Track: {spu.Name}";
+                item.Tag = spu.Id;
+                item.FontSize = 16;
+                item.Padding = new Thickness(10, 5, 10, 5);
+                
+                // Put a checkmark next to the one currently playing
+                if (spu.Id == currentId)
+                {
+                    item.IsChecked = true; 
+                    item.FontWeight = FontWeights.Bold;
+                }
+
+                // What happens when the user clicks an option in the menu
+                item.Click += (s, args) =>
+                {
+                    int selectedId = (int)((MenuItem)s!).Tag;
+                    _mediaPlayer.SetSpu(selectedId);
+                    
+                    string statusText = selectedId == -1 ? "CC: Off" : $"CC: {spu.Name}";
+                    ShowActionOverlay(statusText);
+                };
+
+                ccMenu.Items.Add(item);
+            }
+
+            // Bind it to the CC Button and pop it open ABOVE the control bar
+            BtnCC.ContextMenu = ccMenu;
+            ccMenu.PlacementTarget = BtnCC;
+            ccMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+            ccMenu.IsOpen = true;
+        }
 
         public void ToggleMute()
         {
@@ -248,6 +386,9 @@ namespace ChannelsNativeTest
 
             var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
             media.AddOption(":network-caching=4000"); 
+
+            LoadingOverlay.Visibility = Visibility.Visible;
+            LoadingText.Text = "Connecting...";
 
             _mediaPlayer.Play(media);
         }
@@ -345,6 +486,9 @@ namespace ChannelsNativeTest
                 media.AddOption($":start-time={offsetSeconds}");
             }
 
+           LoadingOverlay.Visibility = Visibility.Visible;
+            LoadingText.Text = "Connecting...";
+            
             _mediaPlayer.Play(media);
         }
 
@@ -473,6 +617,12 @@ namespace ChannelsNativeTest
             else if (e.Key == System.Windows.Input.Key.F || e.Key == System.Windows.Input.Key.F11)
             {
                 ToggleFullscreen();
+                e.Handled = true;
+            }
+            // --- NEW: Toggle CC with the 'C' key ---
+            else if (e.Key == System.Windows.Input.Key.C) 
+            {
+                ToggleSubtitles();
                 e.Handled = true;
             }
             else if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)

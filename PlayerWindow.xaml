@@ -27,6 +27,13 @@
                     <RowDefinition Height="*"/> 
                     <RowDefinition Height="Auto"/> 
                 </Grid.RowDefinitions>
+				
+				<Border x:Name="LoadingOverlay" Grid.RowSpan="2" Background="{DynamicResource AppBackground}" Visibility="Collapsed" Panel.ZIndex="100">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="⏳" FontSize="64" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                <TextBlock x:Name="LoadingText" Text="Connecting..." FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" HorizontalAlignment="Center"/>
+            </StackPanel>
+                </Border>
 
                 <Border x:Name="StatsOverlay" Grid.Row="0" HorizontalAlignment="Left" VerticalAlignment="Top" 
                         Background="#CC000000" Padding="15" Margin="20" CornerRadius="8" Visibility="Collapsed">
@@ -64,6 +71,7 @@
                                 <Button Content="&#x23EA;" ToolTip="Rewind (-10s)" Foreground="White" FontSize="24" Background="Transparent" BorderThickness="0" Margin="0,0,20,0" Cursor="Hand" Click="Rewind_Click"/>
                                 <Button x:Name="BtnPlayPause" Content="&#x23F8;" Foreground="White" FontSize="28" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="PlayPause_Click"/>
                                 <Button Content="&#x23E9;" ToolTip="Fast Forward (+30s)" Foreground="White" FontSize="24" Background="Transparent" BorderThickness="0" Margin="20,0,0,0" Cursor="Hand" Click="FastForward_Click"/>
+								<Button x:Name="BtnCC" Content="CC" FontSize="18" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Margin="10,0" Cursor="Hand" Click="BtnCC_Click" ToolTip="Toggle Closed Captions (C)"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

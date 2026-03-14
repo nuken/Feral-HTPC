@@ -51,7 +51,8 @@
                 <Button Content="🎬 Movies" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Movies_Click"/>
                 <Button Content="📼 TV Shows" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Shows_Click"/>                
                 <Button Content="🌐 Apps" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Apps_Click"/>                
-                <Button Content="⚙️ Settings" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Settings_Click"/>
+                <Button Content="🪟 Multiview" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Multiview_Click"/>
+				<Button Content="⚙️ Settings" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Settings_Click"/>
             </WrapPanel>
         </StackPanel>
     </Grid>
