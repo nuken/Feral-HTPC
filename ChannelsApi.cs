@@ -204,7 +204,8 @@ namespace ChannelsNativeTest
             }
             return stationsList;
         }
-
+	}	
+		
     public class Channel
     {
         [System.Text.Json.Serialization.JsonExtensionData]
