@@ -23,7 +23,7 @@ namespace ChannelsNativeTest
 		public bool StartPlayersFullscreen { get; set; } = false;
 		public int GuideDurationHours { get; set; } = 4;
         public int WebServerPort { get; set; } = 0;
-        // --- NEW: The saved list of external streams ---
+        public bool StickyGuideHeaders { get; set; } = true;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
     }
 

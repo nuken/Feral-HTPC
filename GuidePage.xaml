@@ -139,7 +139,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <Border Height="35" Margin="0,0,0,5"/> 
+                    <Border x:Name="ChannelHeaderSpace" Height="35" Margin="0,0,0,5" Panel.ZIndex="999" Background="{DynamicResource AppBackground}"/> 
                     <ItemsControl x:Name="ChannelItemsControl">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -163,7 +163,7 @@
 
                 <ScrollViewer Grid.Column="1" x:Name="TimelineScroller" PreviewMouseWheel="TimelineScroller_PreviewMouseWheel" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Focusable="False" IsTabStop="False">                    
                     <StackPanel Margin="6,0,0,0">
-                        <ItemsControl x:Name="TimeHeadersControl" Height="35" Margin="0,0,0,5">
+                        <ItemsControl x:Name="TimeHeadersControl" Height="35" Margin="0,0,0,5" Panel.ZIndex="999" Background="{DynamicResource AppBackground}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal"/>

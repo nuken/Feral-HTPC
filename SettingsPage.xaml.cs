@@ -30,6 +30,8 @@ namespace ChannelsNativeTest
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
             else if (_settings.GuideDurationHours == 12) GuideDurationBox.SelectedIndex = 2;
             else GuideDurationBox.SelectedIndex = 0; // Default to 4
+			
+			StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
 
             // --- NEW: Display the formatted Mobile Remote URL ---
             string localIp = GetLocalIPAddress();
@@ -170,6 +172,7 @@ namespace ChannelsNativeTest
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
+			_settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
 			if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
                 _settings.GuideDurationHours = parsedHours;
