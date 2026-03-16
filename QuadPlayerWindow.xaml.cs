@@ -40,11 +40,11 @@ namespace ChannelsNativeTest
                     string streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[i].Number}/hls/master.m3u8?vcodec=copy&acodec=copy";
                     var media = new Media(_libVLC, new Uri(streamUrl));
                     
-                    media.AddOption(":network-caching=4000");
-                    media.AddOption(":live-caching=4000");
-                    media.AddOption(":clock-jitter=1000");
-                    media.AddOption(":clock-synchro=0");
-
+                    media.AddOption(":network-caching=2000");
+                    media.AddOption(":live-caching=2000");
+					media.AddOption(":http-reconnect");
+					media.AddOption(":avcodec-hw=none");
+                    
                     // Wait for the stream to connect and parse its tracks, then apply focus
                     _players[i].Playing += async (sender, args) => 
                     {
@@ -55,7 +55,10 @@ namespace ChannelsNativeTest
                         });
                     };
                     
-                    _players[i].Play(media);
+                    using (media)
+                    {
+                        _players[i].Play(media);
+                    }
                 }
                 else
                 {

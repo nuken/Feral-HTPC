@@ -15,6 +15,7 @@ namespace ChannelsNativeTest
         private string _baseUrl = ""; 
         private List<Channel>? _channels;
         private int _currentIndex;
+		private DateTime _lastMouseMove = DateTime.MinValue;
         
         // --- NEW: Movie Mode Variables ---
         private bool _isMovieMode = false;
@@ -465,12 +466,15 @@ namespace ChannelsNativeTest
             if (_mediaPlayer.IsPlaying) _mediaPlayer.Stop();
 
             var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
-            media.AddOption(":network-caching=4000"); 
+            media.AddOption(":network-caching=2000"); 
 
             LoadingOverlay.Visibility = Visibility.Visible;
             LoadingText.Text = "Connecting...";
 
-            _mediaPlayer.Play(media);
+            using (media)
+            {
+                _mediaPlayer.Play(media);
+            }
         }
 		
 		// --- NEW: Slider Dragging Logic ---
@@ -553,17 +557,17 @@ namespace ChannelsNativeTest
             }
             else
             {
-                streamUrl = $"{_baseUrl}/devices/ANY/channels/{currentChannel.Number}/hls/master.m3u8?vcodec=copy&acodec=copy";
+                streamUrl = $"{_baseUrl}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts";
             }
 
             if (_mediaPlayer.IsPlaying) _mediaPlayer.Stop();
 
             var media = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
 
-            media.AddOption(":network-caching=4000");
-            media.AddOption(":live-caching=4000");
-            media.AddOption(":clock-jitter=1000");
-            media.AddOption(":clock-synchro=0");
+            media.AddOption(":network-caching=2000");
+            media.AddOption(":live-caching=2000");
+            media.AddOption(":http-reconnect");
+			media.AddOption(":avcodec-hw=none");
             
             if (offsetSeconds > 0)
             {
@@ -589,7 +593,10 @@ namespace ChannelsNativeTest
             }
             // ------------------------------------------
 
-            _mediaPlayer.Play(media);
+            using (media)
+            {
+                _mediaPlayer.Play(media);
+            }
         }
 
         private void PlayPause_Click(object sender, RoutedEventArgs e)
@@ -655,12 +662,20 @@ namespace ChannelsNativeTest
         }
 
         private void Overlay_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            ControlBar.Visibility = Visibility.Visible;
-            System.Windows.Input.Mouse.OverrideCursor = null;
-            _uiTimer.Stop();
-            _uiTimer.Start();
-        }
+{
+    // Debounce: Only process this once every 100 milliseconds
+    if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
+    _lastMouseMove = DateTime.Now;
+
+    if (ControlBar.Visibility != Visibility.Visible)
+    {
+        ControlBar.Visibility = Visibility.Visible;
+        System.Windows.Input.Mouse.OverrideCursor = null;
+    }
+
+    _uiTimer.Stop();
+    _uiTimer.Start();
+}
 
         private void UiTimer_Tick(object? sender, EventArgs e)
         {
