@@ -21,11 +21,11 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Publish .NET Application
-      run: dotnet publish ChannelsNativeTest.csproj -c Release -r win-x64
+      run: dotnet publish FeralNativeTest.csproj -c Release -r win-x64
 
     - name: Compile Inno Setup Installer
       run: |
-        & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" ChannelsInstaller.iss
+        & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" FeralInstaller.iss
 
     - name: Upload Installer Artifact
       # BUMPED to v7
