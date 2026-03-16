@@ -1,4 +1,4 @@
-# Feral HTPC 
+# <img src="wwwroot/android-chrome-192x192.png" alt="Feral Logo" width="100" height="100"> Feral HTPC 
 ### *** Official Notice: ***
 #### Feral HTPC is not affiliated with *Fancy Bits, LLC* or *Channels DVR* and it is <ins>NOT</ins> an official Channels client.
 
