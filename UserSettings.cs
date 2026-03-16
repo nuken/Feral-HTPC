@@ -33,9 +33,9 @@ namespace ChannelsNativeTest
         private static string GetFilePath()
         {
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string folderPath = Path.Combine(appData, "ChannelsHTPC");
+            string folderPath = Path.Combine(appData, "FeralHTPC");
             
-            // Create the ChannelsHTPC folder in AppData if it doesn't exist yet
+            // Create the FeralHTPC folder in AppData if it doesn't exist yet
             if (!Directory.Exists(folderPath))
             {
                 Directory.CreateDirectory(folderPath);

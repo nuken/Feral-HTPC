@@ -40,7 +40,7 @@
                 <Image Source="/wwwroot/android-chrome-512x512.png" Width="72" Height="72" Margin="0,0,20,0" 
                        RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
                 
-                <TextBlock Text="CHANNELS HTPC" FontSize="62" FontWeight="Light" 
+                <TextBlock Text="Feral HTPC" FontSize="62" FontWeight="Light" 
                            Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"
                            FontFamily="Segoe UI Light"/>
                 
