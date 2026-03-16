@@ -31,5 +31,5 @@ jobs:
       # BUMPED to v7
       uses: actions/upload-artifact@v7
       with:
-        name: ChannelsHTPC-Installer
-        path: Output/ChannelsHTPC_Alpha_Setup.exe
+        name: Feral-HTPC-Installer
+        path: Output/Feral_HTPC_Alpha_Setup.exe
