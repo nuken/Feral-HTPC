@@ -3,12 +3,12 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-	<AssemblyName>ChannelsHTPC</AssemblyName>
+	<AssemblyName>FeralHTPC</AssemblyName>
     <Version>0.1.0</Version>
     <Authors>Bobby</Authors>
-    <Company>Channels HTPC Development</Company>
-    <Product>Channels HTPC</Product>
-    <Description>A native Windows client for Channels DVR.</Description>
+    <Company>Feral HTPC Development</Company>
+    <Product>Feral HTPC</Product>
+    <Description>A Feral Windows HTPC client.</Description>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
