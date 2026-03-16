@@ -55,7 +55,9 @@ namespace ChannelsNativeTest
                 "--no-mouse-events",    
                 "--no-keyboard-events", 
                 "--avcodec-threads=0",  
-                "--ts-trust-pcr"        
+                "--ts-trust-pcr",
+				"--network-caching=3000",
+				"--live-caching=3000"
             );
 
             // 2. Start the server the absolute second the app launches!
