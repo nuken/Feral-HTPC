@@ -246,9 +246,12 @@ namespace ChannelsNativeTest
         // --- NEW: Bulletproof Failsafe for VOD/Movies ---
         private void MediaPlayer_Playing(object? sender, EventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            Dispatcher.BeginInvoke(new Action(async () =>
             {
-                // The absolute millisecond audio/video officially starts, cancel flags and drop the curtain!
+                // --- NEW: Give the video renderer 300ms to snap to full screen and draw the first frame ---
+                await Task.Delay(300);
+
+                // Now that the video is actually visible behind the scenes, drop the curtain!
                 _isWaitingToBuffer = false;
                 LoadingOverlay.Visibility = Visibility.Collapsed;
             }));

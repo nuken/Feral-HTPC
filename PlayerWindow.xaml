@@ -8,7 +8,7 @@
         PreviewKeyDown="Window_PreviewKeyDown">
     
     <Grid>
-        <vlc:VideoView x:Name="VlcVideoView">
+        <vlc:VideoView x:Name="VlcVideoView" Background="Black">
             
             <Grid Background="#01000000" 
                   MouseRightButtonUp="Overlay_MouseRightButtonUp" 
@@ -28,7 +28,7 @@
                     <RowDefinition Height="Auto"/> 
                 </Grid.RowDefinitions>
 				
-				<Border x:Name="LoadingOverlay" Grid.RowSpan="2" Background="#D9000000" Visibility="Collapsed" Panel.ZIndex="100">
+				<Border x:Name="LoadingOverlay" Grid.RowSpan="2" Background="Black" Visibility="Collapsed" Panel.ZIndex="100">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         
                         <Grid Width="75" Height="75" Margin="0,0,0,25">
