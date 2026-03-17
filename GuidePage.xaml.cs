@@ -26,13 +26,11 @@ namespace ChannelsNativeTest
         private System.Windows.Threading.DispatcherTimer _refreshTimer;
         private DateTime _currentGridStart;
         private ObservableCollection<Channel> _displayedChannels = new ObservableCollection<Channel>();
-        private int _loadedCount = 0;
-        private const int LoadChunkSize = 25;
         private Airing? _selectedAiring;
         private UserSettings _settings;
         private System.Windows.Controls.Button? _lastFocusedAiringButton;      
         private DateTime _lastTimeFocus = DateTime.MinValue;
-        private DateTime _lastLeftKeyPressTime = DateTime.MinValue; // Tracks the Double-Left Cheat Code
+        private DateTime _lastLeftKeyPressTime = DateTime.MinValue; 
         
         public GuidePage()
         {
@@ -50,6 +48,20 @@ namespace ChannelsNativeTest
             _refreshTimer.Start();
             
             this.Loaded += Page_Loaded;
+        }
+
+        // --- NEW: Helper to extract the internal ScrollViewer out of the virtualizing ListBoxes ---
+        private ScrollViewer? GetScrollViewer(DependencyObject depObj)
+        {
+            if (depObj == null) return null;
+            if (depObj is ScrollViewer scroll) return scroll;
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(depObj); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(depObj, i);
+                var result = GetScrollViewer(child);
+                if (result != null) return result;
+            }
+            return null;
         }
 
         public List<string> GetCollections()
@@ -312,54 +324,45 @@ namespace ChannelsNativeTest
 
             _currentFilteredList = filtered.ToList();
             
+            // --- VIRTUALIZATION UPGRADE: No more chunks! Feed everything instantly! ---
             _displayedChannels.Clear();
-            _loadedCount = 0;
-            MainVerticalScroller.ScrollToVerticalOffset(0);
-            TimelineScroller?.ScrollToHorizontalOffset(0);
-            
-            LoadMoreChannels();
+            foreach (var channel in _currentFilteredList) _displayedChannels.Add(channel);
+
+            var guideScroll = GetScrollViewer(GuideItemsControl);
+            if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
+
+            if (TimelineScroller != null) TimelineScroller.ScrollToHorizontalOffset(0);
+
+            // Auto focus the very first channel in the newly filtered list
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var request = new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First);
+                GuideItemsControl.MoveFocus(request);
+            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
 
-        private void LoadMoreChannels()
+        // --- NEW: Sync the Virtualized Guide and Channel Lists ---
+        private void GuideItemsControl_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (_currentFilteredList == null || _loadedCount >= _currentFilteredList.Count) return;
+            if (e.VerticalChange == 0) return;
 
-            var nextChunk = _currentFilteredList.Skip(_loadedCount).Take(LoadChunkSize).ToList();
-            foreach (var channel in nextChunk) _displayedChannels.Add(channel);
-            
-            _loadedCount += nextChunk.Count;
-
-            if (_loadedCount == nextChunk.Count)
+            var channelScroll = GetScrollViewer(ChannelItemsControl);
+            if (channelScroll != null)
             {
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    var request = new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First);
-                    GuideItemsControl.MoveFocus(request);
-                }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                channelScroll.ScrollToVerticalOffset(e.VerticalOffset);
             }
-        }
 
-        private void MainVerticalScroller_ScrollChanged(object sender, System.Windows.Controls.ScrollChangedEventArgs e)
-        {
-            // --- FIXED: Ignore scroll events bubbling up from the horizontal TimelineScroller! ---
-            if (e.OriginalSource != MainVerticalScroller) return;
-
-            // --- Sticky Header Logic ---
-            if (_settings.StickyGuideHeaders)
+            if (!_settings.StickyGuideHeaders)
             {
-                // Push the headers down visually by the exact amount we scrolled!
-                TimeHeadersControl.RenderTransform = new System.Windows.Media.TranslateTransform(0, MainVerticalScroller.VerticalOffset);
-                ChannelHeaderSpace.RenderTransform = new System.Windows.Media.TranslateTransform(0, MainVerticalScroller.VerticalOffset);
+                // Push the headers up visually exactly as much as we scrolled!
+                TimeHeadersControl.RenderTransform = new System.Windows.Media.TranslateTransform(0, -e.VerticalOffset);
+                ChannelHeaderSpace.RenderTransform = new System.Windows.Media.TranslateTransform(0, -e.VerticalOffset);
             }
             else
             {
-                // Reset them if the user disabled the setting
                 TimeHeadersControl.RenderTransform = null;
                 ChannelHeaderSpace.RenderTransform = null;
             }
-
-            // Infinite Scrolling Trigger
-            if (e.VerticalChange > 0 && e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 200) LoadMoreChannels();
         }
 
         private void ScrollLeft_Click(object sender, RoutedEventArgs e)
@@ -373,7 +376,15 @@ namespace ChannelsNativeTest
             {
                 TimelineScroller.ScrollToHorizontalOffset(TimelineScroller.HorizontalOffset - e.Delta);
             }
-            else MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset - (e.Delta / 2.0)); 
+            else 
+            {
+                var guideScroll = GetScrollViewer(GuideItemsControl);
+                if (guideScroll != null)
+                {
+                    // Scroll by native pixels now that the UI supports it!
+                    guideScroll.ScrollToVerticalOffset(guideScroll.VerticalOffset - e.Delta);
+                }
+            }
             e.Handled = true;
         }
 
@@ -384,7 +395,6 @@ namespace ChannelsNativeTest
         
         private void Page_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // 1. Modal & Escape Logic
             if (ModalOverlay.Visibility == Visibility.Visible)
             {
                 if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
@@ -409,17 +419,14 @@ namespace ChannelsNativeTest
                 return;
             }
 
-            // --- 2. NEW: HORIZONTAL BARRIER & DOUBLE-LEFT CHEAT CODE ---
             if (e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right)
             {
-                // Process the Double-Left to jump to top!
                 if (e.Key == System.Windows.Input.Key.Left)
                 {
                     if ((DateTime.Now - _lastLeftKeyPressTime).TotalMilliseconds < 350)
                     {
                         e.Handled = true;
                         
-                        // 1. Focus the very first show in the guide
                         if (_displayedChannels.Count > 0)
                         {
                             var safeAirings = _displayedChannels[0].CurrentAirings ?? new List<Airing>();
@@ -432,13 +439,11 @@ namespace ChannelsNativeTest
                             }
                         }
 
-                        // 2. FORCE absolute zero scroll AFTER the focus engine finishes its automatic nudging!
-                        // DispatcherPriority.Background ensures this runs last in the UI queue.
                         Dispatcher.BeginInvoke(new Action(() => 
                         {
-                            MainVerticalScroller.ScrollToVerticalOffset(0);
+                            var guideScroll = GetScrollViewer(GuideItemsControl);
+                            if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
                             
-                            // Bonus: Also rewind the horizontal timeline back to the current time!
                             if (TimelineScroller != null) TimelineScroller.ScrollToHorizontalOffset(0);
                             
                         }), System.Windows.Threading.DispatcherPriority.Background);
@@ -448,10 +453,9 @@ namespace ChannelsNativeTest
                     _lastLeftKeyPressTime = DateTime.Now;
                 }
 
-                // If we are currently inside the Guide grid, take over the Left/Right navigation
                 if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.Button btn && btn.Tag is Airing currentAiring)
                 {
-                    e.Handled = true; // Hard trap: Prevent WPF from natively escaping the guide!
+                    e.Handled = true; 
 
                     var channel = _displayedChannels.FirstOrDefault(c => c.Number == currentAiring.ChannelNumber);
                     if (channel != null)
@@ -459,39 +463,33 @@ namespace ChannelsNativeTest
                         var safeAirings = channel.CurrentAirings ?? new List<Airing>();
                         int currentIndex = safeAirings.IndexOf(currentAiring);
                         
-                        // Calculate the index of the show to the left or right
                         int nextIndex = (e.Key == System.Windows.Input.Key.Right) ? currentIndex + 1 : currentIndex - 1;
 
                         if (nextIndex >= 0 && nextIndex < safeAirings.Count)
                         {
-                            // If a show exists, move focus to it!
                             var targetAiring = safeAirings[nextIndex];
                             var targetBtn = FindButtonForAiring(GuideItemsControl, targetAiring);
                             targetBtn?.Focus();
                         }
-                        // If nextIndex is out of bounds (edge of the guide), we do nothing! Focus remains trapped.
                     }
                     return;
                 }
             }
 
-            // --- 3. IMPENETRABLE GUIDE WALL (Anti-Diagonal Jump) ---
             if (e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down)
             {
                 if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.Button btn && btn.Tag is Airing currentAiring)
                 {
-                    e.Handled = true; // Stop WPF from moving natively
+                    e.Handled = true; 
                     
                     int currentChannelIndex = _displayedChannels.IndexOf(_displayedChannels.First(c => c.Number == currentAiring.ChannelNumber));
                     int nextIndex = e.Key == System.Windows.Input.Key.Down ? currentChannelIndex + 1 : currentChannelIndex - 1;
                     
-                    // If we are still within the guide vertically...
                     if (nextIndex >= 0 && nextIndex < _displayedChannels.Count)
                     {
                         var nextChannel = _displayedChannels[nextIndex];
                         var safeAirings = nextChannel.CurrentAirings ?? new List<Airing>();
                         
-                        // FIXED: Use pure Time-based overlapping to completely eliminate long-movie drift!
                         var targetAiring = safeAirings.FirstOrDefault(a => 
                             a.StartTime <= _lastTimeFocus && 
                             a.StartTime.AddSeconds(a.Duration ?? 0) > _lastTimeFocus);
@@ -506,18 +504,16 @@ namespace ChannelsNativeTest
                     }
                     else if (nextIndex < 0)
                     {
-                        // NEW: Already at the top row, but they pressed UP. 
-                        // Force the scrollbar to absolute zero to clear any sticky header overlaps!
                         Dispatcher.BeginInvoke(new Action(() => 
                         {
-                            MainVerticalScroller.ScrollToVerticalOffset(0);
+                            var guideScroll = GetScrollViewer(GuideItemsControl);
+                            if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     }
                     return; 
                 }
             }
 
-            // 4. Page Up / Page Down (Also trapped within the guide)
             if (e.Key == System.Windows.Input.Key.PageUp || e.Key == System.Windows.Input.Key.MediaPreviousTrack)
             {
                 for (int i = 0; i < 4; i++)
@@ -597,15 +593,12 @@ namespace ChannelsNativeTest
 
                 if (isHorizontalMove)
                 {
-                    // TIME-LOCK: Pure temporal locking completely immune to pixel width!
                     if (airing.IsAiringNow) 
                     {
-                        // Lock to right NOW so scrolling down past short/long shows stays perfectly in the live column
                         _lastTimeFocus = DateTime.Now;
                     }
                     else 
                     {
-                        // Lock to the exact start of the future show we just navigated to
                         _lastTimeFocus = airing.StartTime.AddSeconds(1);
                     }
                 }
@@ -627,30 +620,28 @@ namespace ChannelsNativeTest
                         }
                     }
 
-                    if (MainVerticalScroller != null)
+                    var guideScroll = GetScrollViewer(GuideItemsControl);
+                    if (guideScroll != null)
                     {
-                        var vTransform = btn.TransformToAncestor(MainVerticalScroller);
+                        var vTransform = btn.TransformToAncestor(guideScroll);
                         var vBounds = vTransform.TransformBounds(new Rect(0, 0, btn.ActualWidth, btn.ActualHeight));
 
-                        // NEW: Are we on the very first channel row?
                         var firstChannel = _displayedChannels.FirstOrDefault();
                         bool isTopRow = (firstChannel != null && airing.ChannelNumber == firstChannel.Number);
 
                         if (isTopRow)
                         {
-                            // If we hit the top row, don't do fractional nudging. Force an absolute zero scroll!
                             Dispatcher.BeginInvoke(new Action(() => 
                             {
-                                MainVerticalScroller.ScrollToVerticalOffset(0);
+                                guideScroll.ScrollToVerticalOffset(0);
                             }), System.Windows.Threading.DispatcherPriority.Background);
                         }
                         else
                         {
-                            // Standard fractional nudging for all other rows
                             if (vBounds.Top < 0)
-                                MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset + vBounds.Top - 20);
-                            else if (vBounds.Bottom > MainVerticalScroller.ViewportHeight)
-                                MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset + (vBounds.Bottom - MainVerticalScroller.ViewportHeight) + 20);
+                                guideScroll.ScrollToVerticalOffset(guideScroll.VerticalOffset + vBounds.Top - 20);
+                            else if (vBounds.Bottom > guideScroll.ViewportHeight)
+                                guideScroll.ScrollToVerticalOffset(guideScroll.VerticalOffset + (vBounds.Bottom - guideScroll.ViewportHeight) + 20);
                         }
                     }
                 }

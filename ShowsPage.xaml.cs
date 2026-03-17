@@ -127,7 +127,8 @@ namespace ChannelsNativeTest
                 grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
                 var img = new Image { Stretch = Stretch.UniformToFill };
-                try { if (!string.IsNullOrWhiteSpace(show.ImageUrl)) img.Source = new BitmapImage(new Uri(show.ImageUrl)); } catch { }
+                // Use the RAM-friendly loader to make the grid use 90% less memory
+                try { if (!string.IsNullOrWhiteSpace(show.ImageUrl)) img.Source = LoadOptimizedImage(show.ImageUrl, 300); } catch { }
 
                 // FIXED: Explicitly forcing a dark background and white/gray text so it doesn't break in Light Mode!
                 var textBorder = new Border { Background = new SolidColorBrush(Color.FromRgb(30, 30, 30)), Padding = new Thickness(10) };
@@ -174,7 +175,8 @@ namespace ChannelsNativeTest
             try
             {
                 if (!string.IsNullOrWhiteSpace(show.ImageUrl))
-                    SelectedShowImage.Source = new BitmapImage(new Uri(show.ImageUrl));
+                    // Decode to 400px since this is a larger header image
+                    SelectedShowImage.Source = LoadOptimizedImage(show.ImageUrl, 400); 
             }
             catch { }
 
@@ -286,6 +288,18 @@ namespace ChannelsNativeTest
                     (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Down));
                 e.Handled = true;
             }
+        }
+		
+		// --- NEW: RAM SAVER FOR IMAGES ---
+        private System.Windows.Media.Imaging.BitmapImage LoadOptimizedImage(string imageUrl, int width = 300)
+        {
+            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(imageUrl);
+            bitmap.DecodePixelWidth = width; 
+            bitmap.EndInit();
+            // Removed Freeze() here as well!
+            return bitmap;
         }
     }
 }

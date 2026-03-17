@@ -7,6 +7,23 @@
       Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}">
     
     <Page.Resources>
+        <Style x:Key="ListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="TvGuideFocusStyle" TargetType="Control">
             <Setter Property="Template">
                 <Setter.Value>
@@ -38,7 +55,6 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="BgBorder" Property="Opacity" Value="0.75"/>
                             </Trigger>
-                            
                             <Trigger Property="IsKeyboardFocused" Value="True">
                                 <Setter TargetName="BgBorder" Property="BorderBrush" Value="#FFD700"/>
                                 <Setter TargetName="BgBorder" Property="Background" Value="#005A9E"/>
@@ -86,7 +102,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> 
             <RowDefinition Height="Auto"/> 
-            <RowDefinition Height="*"/>    
+            <RowDefinition Height="*"/>   
         </Grid.RowDefinitions>
 
         <Border Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
@@ -131,127 +147,143 @@
             </StackPanel>
         </Grid>
 
-        <ScrollViewer x:Name="MainVerticalScroller" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" ScrollChanged="MainVerticalScroller_ScrollChanged" Focusable="False" IsTabStop="False">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0">
-                    <Border x:Name="ChannelHeaderSpace" Height="35" Margin="0,0,0,5" Panel.ZIndex="999" Background="{DynamicResource AppBackground}"/> 
-                    <ItemsControl x:Name="ChannelItemsControl">
+            <Grid Grid.Column="0" ClipToBounds="True">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border x:Name="ChannelHeaderSpace" Grid.Row="0" Height="35" Margin="0,0,0,5" Background="{DynamicResource AppBackground}"/>
+                <ListBox x:Name="ChannelItemsControl" Grid.Row="1" Focusable="False" IsTabStop="False"
+                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+						 VirtualizingPanel.ScrollUnit="Pixel"
+                         ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource ListBoxItemStyle}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border Height="60" Background="{DynamicResource CardBackground}" CornerRadius="4" Margin="0,5,10,5" Padding="5">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding Number}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextPrimary}"/>
+                                        <Image Source="{Binding ImageUrl}" Height="26" Stretch="Uniform" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="1" Text="{Binding Name}" HorizontalAlignment="Center" VerticalAlignment="Bottom" TextTrimming="CharacterEllipsis" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <ScrollViewer Grid.Column="1" x:Name="TimelineScroller" PreviewMouseWheel="TimelineScroller_PreviewMouseWheel" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Focusable="False" IsTabStop="False">
+                <Grid ClipToBounds="True">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <ItemsControl x:Name="TimeHeadersControl" Grid.Row="0" Height="35" Margin="0,0,0,5" Background="{DynamicResource AppBackground}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Height="60" Background="{DynamicResource CardBackground}" CornerRadius="4" Margin="0,5,10,5" Padding="5">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock Text="{Binding Number}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextPrimary}"/>
-                                            <Image Source="{Binding ImageUrl}" Height="26" Stretch="Uniform" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                        <TextBlock Grid.Row="1" Text="{Binding Name}" HorizontalAlignment="Center" VerticalAlignment="Bottom" TextTrimming="CharacterEllipsis" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
-                                    </Grid>
+                                <Border Width="240" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2,0,0,0" Padding="5,0,0,5">
+                                    <TextBlock Text="{Binding}" Foreground="{DynamicResource TextSecondary}" FontSize="14" FontWeight="SemiBold"/>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
 
-                <ScrollViewer Grid.Column="1" x:Name="TimelineScroller" PreviewMouseWheel="TimelineScroller_PreviewMouseWheel" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Focusable="False" IsTabStop="False">                    
-                    <StackPanel Margin="6,0,0,0">
-                        <ItemsControl x:Name="TimeHeadersControl" Height="35" Margin="0,0,0,5" Panel.ZIndex="999" Background="{DynamicResource AppBackground}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Width="240" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2,0,0,0" Padding="5,0,0,5">
-                                        <TextBlock Text="{Binding}" Foreground="{DynamicResource TextSecondary}" FontSize="14" FontWeight="SemiBold"/>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                    <ListBox x:Name="GuideItemsControl" Grid.Row="1" Focusable="False" IsTabStop="False"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+							 VirtualizingPanel.ScrollUnit="Pixel"
+                             ScrollViewer.VerticalScrollBarVisibility="Visible" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Background="Transparent" BorderThickness="0" ScrollViewer.ScrollChanged="GuideItemsControl_ScrollChanged"
+                             ItemContainerStyle="{StaticResource ListBoxItemStyle}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Height="60" Margin="0,5" ClipToBounds="False">
+                                    <ItemsControl ItemsSource="{Binding CurrentAirings}" Focusable="False" IsTabStop="False">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="4,0,0,0"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Click="AiringBlock_Click" GotFocus="AiringBlock_GotFocus" RequestBringIntoView="AiringBlock_RequestBringIntoView" Tag="{Binding}" FocusVisualStyle="{StaticResource TvGuideFocusStyle}" Margin="{Binding DynamicMargin}" Padding="0" BorderThickness="0" Background="Transparent" Cursor="Hand">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="EpgBorder" MinWidth="150" Width="{Binding BlockWidth}" Height="50" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8,4" Margin="1,0">
+                                                                <Grid Margin="{Binding InnerContentMargin}">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <Grid.RowDefinitions>
+                                                                        <RowDefinition Height="Auto"/>
+                                                                        <RowDefinition Height="*"/>
+                                                                    </Grid.RowDefinitions>
+                                                                    <Border Grid.Column="0" Grid.RowSpan="2" Width="4" Background="{Binding CategoryColor}" CornerRadius="2" Margin="0,0,6,0"/>
+                                                                    <TextBlock Grid.Column="1" Grid.Row="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
+                                                                    <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" VerticalAlignment="Top" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                                                </Grid>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                                                                    <Setter TargetName="EpgBorder" Property="BorderBrush" Value="{DynamicResource CardHoverBorderBrush}"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                                    <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                                                                    <Setter TargetName="EpgBorder" Property="BorderBrush" Value="{DynamicResource CardHoverBorderBrush}"/>
+                                                                </Trigger>
+                                                                <DataTrigger Binding="{Binding IsAiringNow}" Value="True">
+                                                                    <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveBackground}"/>
+                                                                    <Setter TargetName="EpgBorder" Property="BorderBrush" Value="{DynamicResource LiveBorder}"/>
+                                                                </DataTrigger>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding IsAiringNow}" Value="True"/>
+                                                                        <Condition Binding="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsMouseOver}" Value="True"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveHover}"/>
+                                                                </MultiDataTrigger>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding IsAiringNow}" Value="True"/>
+                                                                        <Condition Binding="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsKeyboardFocused}" Value="True"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveHover}"/>
+                                                                </MultiDataTrigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
 
-                        <ItemsControl x:Name="GuideItemsControl" Focusable="False" IsTabStop="False">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Height="60" Margin="0,5" ClipToBounds="False">
-                                        <ItemsControl ItemsSource="{Binding CurrentAirings}" Focusable="False" IsTabStop="False">
-                                            <ItemsControl.ItemsPanel>
-                                                <ItemsPanelTemplate>
-                                                    <StackPanel Orientation="Horizontal" Margin="4,0,0,0"/>
-                                                </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Button Click="AiringBlock_Click" GotFocus="AiringBlock_GotFocus" RequestBringIntoView="AiringBlock_RequestBringIntoView" Tag="{Binding}" FocusVisualStyle="{StaticResource TvGuideFocusStyle}" Margin="{Binding DynamicMargin}" Padding="0" BorderThickness="0" Background="Transparent" Cursor="Hand">
-                                                        <Button.Template>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border x:Name="EpgBorder" MinWidth="150" Width="{Binding BlockWidth}" Height="50" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8,4" Margin="1,0">
-                                                                    <Grid Margin="{Binding InnerContentMargin}">
-                                                                        <Grid.ColumnDefinitions>
-                                                                            <ColumnDefinition Width="Auto"/>
-                                                                            <ColumnDefinition Width="*"/>
-                                                                        </Grid.ColumnDefinitions>
-                                                                        <Grid.RowDefinitions>
-                                                                            <RowDefinition Height="Auto"/>
-                                                                            <RowDefinition Height="*"/>
-                                                                        </Grid.RowDefinitions>
-                                                                        <Border Grid.Column="0" Grid.RowSpan="2" Width="4" Background="{Binding CategoryColor}" CornerRadius="2" Margin="0,0,6,0"/>
-                                                                        <TextBlock Grid.Column="1" Grid.Row="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
-                                                                        <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" VerticalAlignment="Top" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                                                                    </Grid>
-                                                                </Border>
-                                                                <ControlTemplate.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
-                                                                        <Setter TargetName="EpgBorder" Property="BorderBrush" Value="{DynamicResource CardHoverBorderBrush}"/>
-                                                                    </Trigger>
-                                                                    <Trigger Property="IsKeyboardFocused" Value="True">
-                                                                        <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
-                                                                        <Setter TargetName="EpgBorder" Property="BorderBrush" Value="{DynamicResource CardHoverBorderBrush}"/>
-                                                                    </Trigger>
-                                                                    <DataTrigger Binding="{Binding IsAiringNow}" Value="True">
-                                                                        <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveBackground}"/>
-                                                                        <Setter TargetName="EpgBorder" Property="BorderBrush" Value="{DynamicResource LiveBorder}"/>
-                                                                    </DataTrigger>
-                                                                    <MultiDataTrigger>
-                                                                        <MultiDataTrigger.Conditions>
-                                                                            <Condition Binding="{Binding IsAiringNow}" Value="True"/>
-                                                                            <Condition Binding="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsMouseOver}" Value="True"/>
-                                                                        </MultiDataTrigger.Conditions>
-                                                                        <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveHover}"/>
-                                                                    </MultiDataTrigger>
-                                                                    <MultiDataTrigger>
-                                                                        <MultiDataTrigger.Conditions>
-                                                                            <Condition Binding="{Binding IsAiringNow}" Value="True"/>
-                                                                            <Condition Binding="{Binding RelativeSource={RelativeSource Mode=Self}, Path=IsKeyboardFocused}" Value="True"/>
-                                                                        </MultiDataTrigger.Conditions>
-                                                                        <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveHover}"/>
-                                                                    </MultiDataTrigger>
-                                                                </ControlTemplate.Triggers>
-                                                            </ControlTemplate>
-                                                        </Button.Template>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </ScrollViewer>
-            </Grid>
-        </ScrollViewer>
-
-        <Border x:Name="ModalOverlay" Grid.RowSpan="3" Background="#CC000000" Visibility="Collapsed">
+        <Border x:Name="ModalOverlay" Grid.RowSpan="3" Background="#CC000000" Visibility="Collapsed" Panel.ZIndex="1000">
             <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Width="750" Height="400" VerticalAlignment="Center" HorizontalAlignment="Center" KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle">
                 <Border.Effect>
                     <DropShadowEffect Color="Black" Opacity="0.4" BlurRadius="25" ShadowDepth="8"/>

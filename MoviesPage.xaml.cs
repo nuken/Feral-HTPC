@@ -7,6 +7,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Navigation;
+using System.Globalization;
+using System.Windows.Data;
 
 namespace ChannelsNativeTest
 {
@@ -177,7 +179,8 @@ namespace ChannelsNativeTest
 
                 if (!string.IsNullOrWhiteSpace(movie.PosterUrl))
                 {
-                    try { ModalImage.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(movie.PosterUrl)); } catch { }
+                    // Use the RAM-friendly image loader (decode to 400px wide for the modal)
+                    try { ModalImage.Source = LoadOptimizedImage(movie.PosterUrl, 400); } catch { }
                 }
 
                 ModalOverlay.Visibility = Visibility.Visible;
@@ -268,5 +271,44 @@ namespace ChannelsNativeTest
                 e.Handled = true;
             }
         }
+		
+		// --- NEW: RAM SAVER FOR IMAGES ---
+        private System.Windows.Media.Imaging.BitmapImage LoadOptimizedImage(string imageUrl, int width = 300)
+        {
+            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(imageUrl);
+            bitmap.DecodePixelWidth = width; 
+            bitmap.EndInit();
+            // Removed Freeze() here as well!
+            return bitmap;
+        }		
+		
+    }
+	
+	// --- NEW: XAML CONVERTER FOR RAM OPTIMIZATION ---
+    public class ImageUrlToOptimizedBitmapConverter : IValueConverter
+    {
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is string url && !string.IsNullOrWhiteSpace(url))
+            {
+                try
+                {
+                    var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(url);
+                    bitmap.DecodePixelWidth = 200; 
+                    bitmap.EndInit();
+                    // Removed Freeze() so WPF can download it asynchronously!
+                    return bitmap;
+                }
+                catch { return null; }
+            }
+            return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) 
+            => throw new NotImplementedException();
     }
 }
