@@ -23,6 +23,29 @@ namespace ChannelsNativeTest
     {
         private readonly HttpClient _http = new HttpClient();
 
+        // --- NEW: 5-Minute Memory Cache Fields ---
+        private static List<TvShow>? _cachedShows;
+        private static DateTime _lastShowsFetch = DateTime.MinValue;
+
+        private static List<Episode>? _cachedEpisodes;
+        private static DateTime _lastEpisodesFetch = DateTime.MinValue;
+
+        private static List<Channel>? _cachedChannels;
+        private static DateTime _lastChannelsFetch = DateTime.MinValue;
+
+        private static List<ChannelCollection>? _cachedCollections;
+        private static DateTime _lastCollectionsFetch = DateTime.MinValue;
+
+        private static List<GuideData>? _cachedGuide;
+        private static DateTime _lastGuideFetch = DateTime.MinValue;
+        private static int _lastGuideDuration = 0;
+
+        private static List<Movie>? _cachedMovies;
+        private static DateTime _lastMoviesFetch = DateTime.MinValue;
+
+        private static List<Station>? _cachedStations;
+        private static DateTime _lastStationsFetch = DateTime.MinValue;
+
         public async Task<List<DvrServer>> DiscoverDvrServersAsync()
         {
             var servers = new List<DvrServer>();
@@ -56,24 +79,32 @@ namespace ChannelsNativeTest
 		
 		public async Task<List<TvShow>> GetShowsAsync(string baseUrl)
         {
+            if (_cachedShows != null && (DateTime.Now - _lastShowsFetch).TotalMinutes < 5) return _cachedShows;
+
             try {
-                // FIXED: Changed _httpClient to _http
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/shows");
-                return System.Text.Json.JsonSerializer.Deserialize<List<TvShow>>(json) ?? new List<TvShow>();
+                _cachedShows = System.Text.Json.JsonSerializer.Deserialize<List<TvShow>>(json) ?? new List<TvShow>();
+                _lastShowsFetch = DateTime.Now;
+                return _cachedShows;
             } catch { return new List<TvShow>(); }
         }
 
         public async Task<List<Episode>> GetEpisodesAsync(string baseUrl)
         {
+            if (_cachedEpisodes != null && (DateTime.Now - _lastEpisodesFetch).TotalMinutes < 5) return _cachedEpisodes;
+
             try {
-                // FIXED: Changed _httpClient to _http
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/episodes");
-                return System.Text.Json.JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
+                _cachedEpisodes = System.Text.Json.JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
+                _lastEpisodesFetch = DateTime.Now;
+                return _cachedEpisodes;
             } catch { return new List<Episode>(); }
         }
 
         public async Task<List<Channel>> GetChannelsAsync(string baseUrl)
         {
+            if (_cachedChannels != null && (DateTime.Now - _lastChannelsFetch).TotalMinutes < 5) return _cachedChannels;
+
             var url = $"{baseUrl}/devices/ANY/channels";
             var response = await _http.GetStringAsync(url);
             
@@ -83,11 +114,15 @@ namespace ChannelsNativeTest
                 NumberHandling = JsonNumberHandling.AllowReadingFromString
             };
 
-            return JsonSerializer.Deserialize<List<Channel>>(response, options) ?? new List<Channel>();
+            _cachedChannels = JsonSerializer.Deserialize<List<Channel>>(response, options) ?? new List<Channel>();
+            _lastChannelsFetch = DateTime.Now;
+            return _cachedChannels;
         }
         
         public async Task<List<ChannelCollection>> GetChannelCollectionsAsync(string baseUrl)
         {
+            if (_cachedCollections != null && (DateTime.Now - _lastCollectionsFetch).TotalMinutes < 5) return _cachedCollections;
+
             try
             {
                 string url = $"{baseUrl}/dvr/collections/channels";
@@ -95,7 +130,9 @@ namespace ChannelsNativeTest
                 var collections = JsonSerializer.Deserialize<List<ChannelCollection>>(response, 
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     
-                return collections ?? new List<ChannelCollection>();
+                _cachedCollections = collections ?? new List<ChannelCollection>();
+                _lastCollectionsFetch = DateTime.Now;
+                return _cachedCollections;
             }
             catch
             {
@@ -105,6 +142,12 @@ namespace ChannelsNativeTest
 
         public async Task<List<GuideData>> GetGuideAsync(string baseUrl, int durationHours = 4)
         {
+            // Only use cache if it's less than 5 minutes old AND the requested duration hasn't changed
+            if (_cachedGuide != null && _lastGuideDuration == durationHours && (DateTime.Now - _lastGuideFetch).TotalMinutes < 5)
+            {
+                return _cachedGuide;
+            }
+
             long unixTime = ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeSeconds();
             long durationSeconds = durationHours * 3600; // Convert hours to seconds
             
@@ -117,21 +160,22 @@ namespace ChannelsNativeTest
                 NumberHandling = JsonNumberHandling.AllowReadingFromString
             };
             
-            return JsonSerializer.Deserialize<List<GuideData>>(response, options) ?? new List<GuideData>();
+            _cachedGuide = JsonSerializer.Deserialize<List<GuideData>>(response, options) ?? new List<GuideData>();
+            _lastGuideDuration = durationHours;
+            _lastGuideFetch = DateTime.Now;
+            
+            return _cachedGuide;
         }
 		
-		// --- NEW: Fetch Recorded Movies from the DVR ---
         public async Task<List<Movie>> GetMoviesAsync(string baseUrl)
         {
+            if (_cachedMovies != null && (DateTime.Now - _lastMoviesFetch).TotalMinutes < 5) return _cachedMovies;
+
             try
             {
-                // Self-contained HTTP Client and JSON Options!
-                using var client = new System.Net.Http.HttpClient();
                 var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-                // Connecting to the exact endpoint from your JSON sample
                 string url = $"{baseUrl.TrimEnd('/')}/api/v1/movies";
-                var response = await client.GetStringAsync(url);
+                var response = await _http.GetStringAsync(url); // Also swapped this to use the shared _http client for better performance!
                 
                 var movies = System.Text.Json.JsonSerializer.Deserialize<List<Movie>>(response, options) ?? new List<Movie>();
 
@@ -150,7 +194,9 @@ namespace ChannelsNativeTest
                 }
 
                 // Sort the library alphabetically by Title
-                return movies.OrderBy(m => m.Title).ToList();
+                _cachedMovies = movies.OrderBy(m => m.Title).ToList();
+                _lastMoviesFetch = DateTime.Now;
+                return _cachedMovies;
             }
             catch (Exception ex)
             {
@@ -161,6 +207,8 @@ namespace ChannelsNativeTest
 
         public async Task<List<Station>> GetStationsAsync(string baseUrl)
         {
+            if (_cachedStations != null && (DateTime.Now - _lastStationsFetch).TotalMinutes < 5) return _cachedStations;
+
             var stationsList = new List<Station>();
             try
             {
@@ -197,6 +245,9 @@ namespace ChannelsNativeTest
                         }
                     }
                 }
+
+                _cachedStations = stationsList;
+                _lastStationsFetch = DateTime.Now;
             }
             catch (Exception ex)
             {

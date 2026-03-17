@@ -466,11 +466,20 @@ namespace ChannelsNativeTest
             else
                 UiChannelLogo.Source = null;
             
-            if (_mediaPlayer.IsPlaying) _mediaPlayer.Stop();
+            if (_mediaPlayer.IsPlaying) 
+            {
+                _mediaPlayer.Stop();
+                // --- NEW: Hard kill the old network stream before starting the new one! ---
+                if (_mediaPlayer.Media != null)
+                {
+                    _mediaPlayer.Media.Dispose();
+                    _mediaPlayer.Media = null;
+                }
+            }
 
             var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
-            media.AddOption(":network-caching=2000"); 
-
+            media.AddOption(":network-caching=2000");
+			
             LoadingOverlay.Visibility = Visibility.Visible;
             LoadingText.Text = "Connecting...";
 
@@ -563,7 +572,16 @@ namespace ChannelsNativeTest
                 streamUrl = $"{_baseUrl}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts";
             }
 
-            if (_mediaPlayer.IsPlaying) _mediaPlayer.Stop();
+            if (_mediaPlayer.IsPlaying) 
+            {
+                _mediaPlayer.Stop();
+                // --- NEW: Hard kill the old network stream before starting the new one! ---
+                if (_mediaPlayer.Media != null)
+                {
+                    _mediaPlayer.Media.Dispose();
+                    _mediaPlayer.Media = null;
+                }
+            }
 
             var media = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
 
