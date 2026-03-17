@@ -156,11 +156,15 @@
             <TextBlock Text="Mobile Remote Control URL" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
             <TextBox x:Name="LocalRemoteUrlBox" FontSize="18" Padding="10" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource StatusConnecting}" BorderBrush="Transparent" BorderThickness="0" Margin="0,0,0,30" IsReadOnly="True"/>
             
-            <TextBlock Text="DVR Server IP Address (Optional)" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
-            
-            <ComboBox x:Name="ServerIpComboBox" IsEditable="True" FontSize="18" Padding="10" 
-                      Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" 
-                      BorderThickness="0" Margin="0,0,0,30"/>
+            <TextBlock Text="Discovered Local DVR Servers" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
+            <Border Background="{DynamicResource CardBackground}" CornerRadius="6" Padding="10" Margin="0,0,0,15" MinHeight="45">
+                <StackPanel x:Name="DiscoveredServersPanel">
+                    <TextBlock x:Name="SearchingText" Text="Searching network..." FontStyle="Italic" Foreground="{DynamicResource TextSecondary}"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Manual DVR Server Address (VPN / Remote)" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
+            <TextBox x:Name="ManualServerIpBox" FontSize="18" Padding="10" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,0,30" TextChanged="ManualServerIpBox_TextChanged"/>
 
             <TextBlock Text="Playback Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
             <CheckBox x:Name="AutoSkipCheckBox" Content="Auto-Skip Commercials in Movies" Style="{StaticResource BigCheckBox}"/>

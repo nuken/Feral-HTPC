@@ -21,7 +21,7 @@ namespace ChannelsNativeTest
             _settings = SettingsManager.Load();
             
             // Populate the UI with current settings
-            ServerIpComboBox.Text = _settings.LastServerAddress;
+            ManualServerIpBox.Text = _settings.LastServerAddress;
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
@@ -69,7 +69,7 @@ namespace ChannelsNativeTest
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
         {
-            ServerIpComboBox.Focus(); // CHANGED
+            ManualServerIpBox.Focus(); 
             RefreshStreamsList(); 
 
             // --- NEW: Auto-Discover Local Channels DVR Servers ---
@@ -78,16 +78,70 @@ namespace ChannelsNativeTest
                 var api = new ChannelsApi();
                 var discoveredServers = await api.DiscoverDvrServersAsync();
                 
-                foreach (var server in discoveredServers)
+                DiscoveredServersPanel.Children.Clear(); // Remove "Searching..." text
+
+                // --- NEW: Filter out duplicate IPs (IPv4/IPv6 overlaps) ---
+                var uniqueServers = discoveredServers
+                    .GroupBy(s => s.BaseUrl)
+                    .Select(g => g.First())
+                    .ToList();
+
+                if (uniqueServers.Count == 0)
                 {
-                    // Avoid adding duplicates if the user already has this saved as their current text
-                    if (!ServerIpComboBox.Items.Contains(server.BaseUrl))
+                    var noServersText = new TextBlock { Text = "No local servers found.", FontStyle = FontStyles.Italic };
+                    noServersText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+                    DiscoveredServersPanel.Children.Add(noServersText);
+                }
+                else
+                {
+                    foreach (var server in uniqueServers) // Correctly loops through uniqueServers!
                     {
-                        ServerIpComboBox.Items.Add(server.BaseUrl);
+                        var rb = new RadioButton
+                        {
+                            Content = $"{server.Name} ({server.BaseUrl})",
+                            Tag = server.BaseUrl,
+                            FontSize = 16,
+                            Margin = new Thickness(0, 5, 0, 5)
+                        };
+                        rb.SetResourceReference(RadioButton.ForegroundProperty, "TextPrimary");
+                        
+                        rb.Checked += (s, ev) => 
+                        { 
+                            // When a user clicks a discovered server, clear the manual box
+                            ManualServerIpBox.Text = ""; 
+                        };
+
+                        // If this discovered server matches the saved one, select it and clear the manual box
+                        if (server.BaseUrl == _settings.LastServerAddress)
+                        {
+                            rb.IsChecked = true;
+                            ManualServerIpBox.Text = "";
+                        }
+
+                        DiscoveredServersPanel.Children.Add(rb);
                     }
                 }
             }
-            catch { /* Silently fail if discovery network is restricted */ }
+            catch 
+            { 
+                DiscoveredServersPanel.Children.Clear();
+                var errorText = new TextBlock { Text = "Network discovery unavailable.", FontStyle = FontStyles.Italic };
+                errorText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+                DiscoveredServersPanel.Children.Add(errorText);
+            }
+        }
+
+        // --- NEW: Sync the list and the textbox ---
+        private void ManualServerIpBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            // If the user starts typing manually, uncheck all discovered servers
+            if (!string.IsNullOrWhiteSpace(ManualServerIpBox.Text) && DiscoveredServersPanel != null)
+            {
+                foreach (var child in DiscoveredServersPanel.Children)
+                {
+                    if (child is RadioButton rb) rb.IsChecked = false;
+                }
+            }
         }
 
         // --- EXTERNAL STREAM LOGIC ---
@@ -186,7 +240,26 @@ namespace ChannelsNativeTest
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
             // --- NEW: Format the Server Address for remote/manual connections ---
-            string serverInput = ServerIpComboBox.Text.Trim();
+            // --- NEW: Get Server Address from either the Manual Box or the Discovered List ---
+            string serverInput = ManualServerIpBox.Text.Trim();
+
+            // If the manual box is empty, check if a discovered server is selected
+            if (string.IsNullOrWhiteSpace(serverInput))
+            {
+                var selectedRadio = DiscoveredServersPanel.Children.OfType<RadioButton>().FirstOrDefault(r => r.IsChecked == true);
+                if (selectedRadio != null)
+                {
+                    serverInput = selectedRadio.Tag?.ToString() ?? "";
+                }
+            }
+
+            // Validation check to prevent saving a completely blank server URL
+            if (string.IsNullOrWhiteSpace(serverInput))
+            {
+                MessageBox.Show("Please select a discovered server or enter one manually.", "Missing Server Address", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return; // Stop the save process
+            }
+
             if (!string.IsNullOrWhiteSpace(serverInput))
             {
                 // 1. If the user forgot http:// or https://, add it automatically
@@ -203,7 +276,7 @@ namespace ChannelsNativeTest
                 }
 
                 // 3. Update the text box so the user sees the corrected URL
-                ServerIpComboBox.Text = serverInput;
+                ManualServerIpBox.Text = serverInput;
             }
             
             _settings.LastServerAddress = serverInput;
