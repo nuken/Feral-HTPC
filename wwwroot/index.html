@@ -191,8 +191,17 @@
     <div class="header">
         <h1><i class="fa-solid fa-mobile-screen"></i> Control</h1>
         <div>
-            <button class="open-remote-btn" onclick="goHome()" style="background: #333; margin-right: 10px;"><i class="fa-solid fa-house"></i></button>
-            <button class="open-remote-btn" onclick="openRemote()"><i class="fa-solid fa-sliders"></i> Remote</button>
+            <button class="open-remote-btn" onclick="toggleMinimize()" style="background: #333; margin-right: 10px; padding: 8px 12px;">
+                <i class="fa-solid fa-window-minimize" style="position: relative; top: -3px;"></i>
+            </button>
+            
+            <button class="open-remote-btn" onclick="goHome()" style="background: #333; margin-right: 10px; padding: 8px 12px;">
+                <i class="fa-solid fa-house"></i>
+            </button>
+            
+            <button class="open-remote-btn" onclick="openRemote()">
+                <i class="fa-solid fa-sliders"></i> Remote
+            </button>
         </div>
     </div>
 
@@ -787,6 +796,7 @@
         function toggleCC() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/cc', { method: 'POST' }); }
         function toggleMute() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/mute', { method: 'POST' }); }
         function goHome() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/home', { method: 'POST' }); }
+		function toggleMinimize() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/minimize', { method: 'POST' }); }
     </script>
 </body>
 </html>

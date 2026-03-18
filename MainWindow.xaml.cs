@@ -106,23 +106,28 @@ namespace FeralCode
                 try
                 {
                     var settings = SettingsManager.Load();
-                    int portToUse = settings.WebServerPort;
+                    
+                    // Default to 12345 if this is the first run
+                    int portToUse = settings.WebServerPort == 0 ? 12345 : settings.WebServerPort;
 
-                    if (portToUse == 0)
+                    // 1. Quick check: Is the port blocked just because we quickly restarted the app?
+                    // Give Windows 3 seconds to release its temporary network lock.
+                    int retry = 0;
+                    while (!IsPortAvailable(portToUse) && retry < 3)
                     {
-                        portToUse = GetAvailablePort(12345, 12445);
+                        await Task.Delay(1000);
+                        retry++;
+                    }
+
+                    // 2. If it is STILL taken, another program is permanently hogging it. 
+                    // Scan upwards to find the next available port!
+                    if (!IsPortAvailable(portToUse))
+                    {
+                        portToUse = GetAvailablePort(12345, 12445); 
+                        
+                        // Save the new port so the app tries to stick to it next time
                         settings.WebServerPort = portToUse;
                         SettingsManager.Save(settings);
-                    }
-                    else
-                    {
-                        int maxRetries = 30; 
-                        int currentTry = 0;
-                        while (!IsPortAvailable(portToUse) && currentTry < maxRetries)
-                        {
-                            await Task.Delay(1000);
-                            currentTry++;
-                        }
                     }
 
                     var options = new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory };
@@ -241,6 +246,30 @@ namespace FeralCode
                             if (MainFrame.Content is Page page && page.NavigationService.CanGoBack) page.NavigationService.GoBack();
                         }); 
                         return Results.Ok(); 
+                    });
+
+                    // --- NEW: MINIMIZE / RESTORE WINDOW ---
+                    _webHost.MapPost("/api/remote/minimize", () => 
+                    {
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            // Smart targeting: Minimize the video player if it's open, otherwise minimize the main menu!
+                            Window targetWindow = (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible) 
+                                                  ? ActivePlayerWindow 
+                                                  : Application.Current.MainWindow;
+
+                            if (targetWindow.WindowState == WindowState.Minimized)
+                            {
+                                targetWindow.WindowState = WindowState.Normal;
+                                targetWindow.Show();
+                                targetWindow.Activate();
+                            }
+                            else
+                            {
+                                targetWindow.WindowState = WindowState.Minimized;
+                            }
+                        });
+                        return Results.Ok();
                     });
                     
                     _webHost.MapPost("/api/remote/stop", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.Close()); return Results.Ok(); });
