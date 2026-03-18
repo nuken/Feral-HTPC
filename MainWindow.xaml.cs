@@ -253,6 +253,29 @@ namespace FeralCode
                         }); 
                         return Results.Ok(); 
                     });
+					
+					// --- LAUNCH MULTIVIEW SETUP ---
+                    _webHost.MapPost("/api/remote/multiview/setup", () => 
+                    {
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            // 1. Close any active video players
+                            if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
+                            
+                            var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quadWindow != null) quadWindow.Close();
+
+                            // 2. Jump the main UI straight to the Multiview Setup Page
+                            if (MainFrame.Content is not MultiviewSetupPage)
+                            {
+                                MainFrame.Navigate(new MultiviewSetupPage());
+                            }
+                            
+                            // 3. Make sure the main window has focus so the D-Pad works immediately
+                            Application.Current.MainWindow.Activate();
+                        });
+                        return Results.Ok();
+                    });
 
                     // --- MINIMIZE / RESTORE WINDOW ---
                     _webHost.MapPost("/api/remote/minimize", () => 

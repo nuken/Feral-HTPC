@@ -285,9 +285,9 @@
         <div style="background: #1e1e1e; padding: 25px; border-radius: 12px; border: 1px solid #333; text-align: center;">
             <i class="fa-solid fa-border-all" style="font-size: 48px; color: #007ACC; margin-bottom: 15px;"></i>
             <h2 style="margin: 0 0 10px 0;">Multiview Control</h2>
-            <p style="color: #aaa; font-size: 14px; margin-bottom: 25px;">Select an action to command the Quad Player</p>
+            <p style="color: #aaa; font-size: 14px; margin-bottom: 25px;">Build your 4-screen grid.</p>
             
-            <button onclick="/* We will wire this up next */" style="background: #CC0000; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; margin-bottom: 10px; cursor: pointer;">
+            <button onclick="launchMultiSetup()" style="background: #CC0000; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; margin-bottom: 10px; cursor: pointer;">
                 <i class="fa-solid fa-tv"></i> Launch Multiview Setup
             </button>
         </div>
@@ -821,6 +821,9 @@
         function toggleMute() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/mute', { method: 'POST' }); }
         function goHome() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/home', { method: 'POST' }); }
 		function toggleMinimize() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/minimize', { method: 'POST' }); }
+		function launchMultiSetup() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/multiview/setup', { method: 'POST' }); 
+           setTimeout(openRemote, 300);
+        }
     </script>
 </body>
 </html>
