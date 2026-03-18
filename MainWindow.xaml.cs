@@ -481,16 +481,21 @@ namespace FeralCode
                         return Results.Ok(await api.GetShowsAsync(settings.LastServerAddress));
                     });
 
-                    _webHost.MapGet("/api/remote/episodes/{showId}", async (string showId) => 
+                    // FIXED: Removed {showId} from the path. It now safely accepts it as a Query String!
+                    _webHost.MapGet("/api/remote/episodes", async (string? showId) => 
                     {
+                        showId ??= ""; // If the ID is completely null, treat it as blank
+
                         var settings = SettingsManager.Load();
                         if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new List<Episode>());
+                        
                         var api = new ChannelsApi();
                         var allEpisodes = await api.GetEpisodesAsync(settings.LastServerAddress);
                         
                         var showEpisodes = allEpisodes.Where(e => e.ShowId == showId)
                                                       .OrderByDescending(e => e.SeasonNumber)
                                                       .ThenByDescending(e => e.EpisodeNumber).ToList();
+                        
                         return Results.Ok(showEpisodes);
                     });
 

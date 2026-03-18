@@ -273,7 +273,12 @@
 
         <div id="episodes-view" style="display: none; padding: 15px; padding-top: 25px;">
             <button onclick="backToShows()" style="background: #333; color: white; padding: 12px; border: none; border-radius: 8px; margin-bottom: 20px; font-weight: bold; width: 100%; cursor: pointer;"><i class="fa-solid fa-arrow-left"></i> Back to Shows</button>
-            <h2 id="episodes-title" style="margin-top: 0; margin-bottom: 15px;">Episodes</h2>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 id="episodes-title" style="margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;">Episodes</h2>
+                <select id="seasonSelect" onchange="filterEpisodesBySeason()" style="padding: 8px 12px; background: #333; color: white; border: 1px solid #444; border-radius: 6px; font-size: 14px; outline: none; display: none;"></select>
+            </div>
+            
             <div id="episodeList" style="display: flex; flex-direction: column; gap: 10px;"></div>
         </div>
     </div>
@@ -356,6 +361,7 @@
         // --- MASTER DATA ARRAYS ---
         let allMovies = [];
         let allShows = [];
+		let currentShowEpisodes = [];
 
         // --- Press & Hold Scrubbing Logic ---
         let scrubTimeout;
@@ -567,41 +573,106 @@
             });
         }
 
+        // --- BULLETPROOF SEASON EXTRACTOR ---
+        function getSeasonNumber(ep) {
+            if (ep.SeasonNumber !== undefined && ep.SeasonNumber !== null) return parseInt(ep.SeasonNumber) || 0;
+            if (ep.seasonNumber !== undefined && ep.seasonNumber !== null) return parseInt(ep.seasonNumber) || 0;
+            if (ep.season_number !== undefined && ep.season_number !== null) return parseInt(ep.season_number) || 0;
+            return 0; // If all else fails, dump it in the "Specials" (Season 0) folder
+        }
+
+        // --- BULLETPROOF SEASON EXTRACTOR ---
+        function getSeasonNumber(ep) {
+            if (ep.SeasonNumber !== undefined && ep.SeasonNumber !== null) return parseInt(ep.SeasonNumber) || 0;
+            if (ep.seasonNumber !== undefined && ep.seasonNumber !== null) return parseInt(ep.seasonNumber) || 0;
+            if (ep.season_number !== undefined && ep.season_number !== null) return parseInt(ep.season_number) || 0;
+            return 0; 
+        }
+
         async function openEpisodes(showId, showName) {
             document.getElementById('shows-main').style.display = 'none';
             document.getElementById('episodes-view').style.display = 'block';
             document.getElementById('episodes-title').innerText = showName;
             
             const list = document.getElementById('episodeList');
+            const seasonSelect = document.getElementById('seasonSelect');
+            
             list.innerHTML = '<div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading episodes...</div>';
+            seasonSelect.style.display = 'none';
 
             try {
-                const response = await fetch(`/api/remote/episodes/${showId}`);
-                const episodes = await response.json();
+                // FIXED: Send the ID as a safe Query String instead of a fake folder path
+                const safeId = showId ? encodeURIComponent(showId) : "";
+                const response = await fetch(`/api/remote/episodes?showId=${safeId}`);
                 
-                list.innerHTML = '';
-                episodes.forEach(ep => {
-                    // FIXED: Support both C# and JS casing!
-                    const sNum = String(ep.SeasonNumber || ep.seasonNumber || ep.season_number || 0).padStart(2, '0');
-                    const eNum = String(ep.EpisodeNumber || ep.episodeNumber || ep.episode_number || 0).padStart(2, '0');
-                    const eTitle = ep.EpisodeTitle || ep.episodeTitle || ep.episode_title || ep.Title || ep.title || 'Episode';
-                    const eId = ep.Id || ep.id;
+                if (!response.ok) throw new Error(`Server rejected request: ${response.status} ${response.statusText}`);
 
-                    const epCard = document.createElement('div');
-                    epCard.style = "background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between;";
-                    
-                    epCard.innerHTML = `
-                        <div style="flex: 1; overflow: hidden; padding-right: 15px;">
-                            <div style="color: #007ACC; font-weight: bold; font-size: 12px; margin-bottom: 4px;">S${sNum} E${eNum}</div>
-                            <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eTitle}</div>
-                        </div>
-                        <button onclick="playEpisode('${eId}')" style="background: #007ACC; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-play"></i> Play</button>
-                    `;
-                    list.appendChild(epCard);
+                currentShowEpisodes = await response.json();
+                
+                if (!Array.isArray(currentShowEpisodes) || currentShowEpisodes.length === 0) {
+                    list.innerHTML = '<div class="loading">No episodes found.</div>';
+                    return;
+                }
+
+                // FIXED: Sort seasons DESCENDING (highest number at the top) to match C# exactly!
+                const seasons = [...new Set(currentShowEpisodes.map(ep => getSeasonNumber(ep)))].sort((a, b) => b - a);
+                
+                seasonSelect.innerHTML = '';
+                seasons.forEach(s => {
+                    const option = document.createElement('option');
+                    option.value = s;
+                    option.innerText = s === 0 ? 'Specials / Unknown' : `Season ${s}`;
+                    seasonSelect.appendChild(option);
                 });
-            } catch (error) { list.innerHTML = '<div class="loading">Error loading episodes.</div>'; }
+                
+                // Default to the first item in the sorted list (the latest season)
+                seasonSelect.value = seasons[0];
+                seasonSelect.style.display = 'block';
+
+                filterEpisodesBySeason();
+
+            } catch (error) { 
+                console.error("Episode Load Error:", error);
+                list.innerHTML = `<div class="loading" style="color: #ff4444; padding: 20px;">
+                                    <b>Error loading episodes.</b><br>
+                                    <span style="font-size: 12px; color: #aaa;">${error.message}</span>
+                                  </div>`; 
+            }
         }
 
+        function filterEpisodesBySeason() {
+            const selectedSeason = parseInt(document.getElementById('seasonSelect').value);
+            const list = document.getElementById('episodeList');
+            list.innerHTML = '';
+
+            const filteredEps = currentShowEpisodes.filter(ep => getSeasonNumber(ep) === selectedSeason);
+
+            // FIXED: Sort episodes DESCENDING (newest episode at the top) to match C# exactly!
+            const sortedEpisodes = filteredEps.sort((a, b) => {
+                const aNum = parseInt(a.EpisodeNumber || a.episodeNumber || a.episode_number || 0);
+                const bNum = parseInt(b.EpisodeNumber || b.episodeNumber || b.episode_number || 0);
+                return bNum - aNum;
+            });
+
+            sortedEpisodes.forEach(ep => {
+                const sNum = String(getSeasonNumber(ep)).padStart(2, '0');
+                const eNum = String(ep.EpisodeNumber || ep.episodeNumber || ep.episode_number || 0).padStart(2, '0');
+                const eTitle = ep.EpisodeTitle || ep.episodeTitle || ep.episode_title || ep.Title || ep.title || 'Episode';
+                const eId = ep.Id || ep.id;
+
+                const epCard = document.createElement('div');
+                epCard.style = "background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; display: flex; align-items: center; justify-content: space-between;";
+                
+                epCard.innerHTML = `
+                    <div style="flex: 1; overflow: hidden; padding-right: 15px;">
+                        <div style="color: #007ACC; font-weight: bold; font-size: 12px; margin-bottom: 4px;">S${sNum} E${eNum}</div>
+                        <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eTitle}</div>
+                    </div>
+                    <button onclick="playEpisode('${eId}')" style="background: #007ACC; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-play"></i> Play</button>
+                `;
+                list.appendChild(epCard);
+            });
+        }
         function backToShows() {
             document.getElementById('episodes-view').style.display = 'none';
             document.getElementById('shows-main').style.display = 'block';
