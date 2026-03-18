@@ -346,30 +346,47 @@ namespace FeralCode
             {
                 BackButton_Click(null!, null!);
                 e.Handled = true;
+                return;
             }
-			if (e.Key == Key.BrowserHome)
+            if (e.Key == Key.BrowserHome)
             {
                 NavigationService?.Navigate(new StartPage());
                 e.Handled = true;
                 return;
             }
-			if (e.Key == Key.Apps || e.Key == Key.System)
+            if (e.Key == Key.Apps || e.Key == Key.System)
             {
                 ToggleFilters_Click(null!, null!);
                 e.Handled = true;
                 return;
             }
-            // NEW: USB Remote Page Up / Page Down support!
-            else if (e.Key == Key.PageUp || e.Key == Key.MediaPreviousTrack)
+
+            // --- NEW: THE SCROLLVIEWER BYPASS ---
+            // Forces the arrow keys to instantly move focus between Shows, Seasons, and Episodes
+            if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right)
             {
-                // Rapidly jump focus UP 3 rows!
+                if (Keyboard.FocusedElement is Button btn && (btn.Tag is TvShow || btn.Tag is Episode || btn.Tag is List<Episode>))
+                {
+                    FocusNavigationDirection dir = FocusNavigationDirection.Next;
+                    if (e.Key == Key.Up) dir = FocusNavigationDirection.Up;
+                    else if (e.Key == Key.Down) dir = FocusNavigationDirection.Down;
+                    else if (e.Key == Key.Left) dir = FocusNavigationDirection.Left;
+                    else if (e.Key == Key.Right) dir = FocusNavigationDirection.Right;
+
+                    btn.MoveFocus(new TraversalRequest(dir));
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            if (e.Key == Key.PageUp || e.Key == Key.MediaPreviousTrack)
+            {
                 for (int i = 0; i < 3; i++)
                     (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Up));
                 e.Handled = true;
             }
             else if (e.Key == Key.PageDown || e.Key == Key.MediaNextTrack)
             {
-                // Rapidly jump focus DOWN 3 rows!
                 for (int i = 0; i < 3; i++)
                     (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Down));
                 e.Handled = true;

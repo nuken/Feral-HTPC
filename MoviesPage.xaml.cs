@@ -260,30 +260,47 @@ namespace FeralCode
                 return;
             }
 			
-			if (e.Key == Key.BrowserHome)
+            if (e.Key == Key.BrowserHome)
             {
                 NavigationService?.Navigate(new StartPage());
                 e.Handled = true;
                 return;
             }
 			
-			if (e.Key == Key.Apps || e.Key == Key.System)
+            if (e.Key == Key.Apps || e.Key == Key.System)
             {
                 ToggleFilters_Click(null!, null!);
                 e.Handled = true;
                 return;
             }
 
+            // --- NEW: THE SCROLLVIEWER BYPASS ---
+            // If the user presses an arrow key while highlighting a movie, 
+            // force the focus to jump instantly and stop the ScrollViewer from micro-scrolling!
+            if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right)
+            {
+                if (Keyboard.FocusedElement is Button btn && btn.Tag is Movie)
+                {
+                    FocusNavigationDirection dir = FocusNavigationDirection.Next;
+                    if (e.Key == Key.Up) dir = FocusNavigationDirection.Up;
+                    else if (e.Key == Key.Down) dir = FocusNavigationDirection.Down;
+                    else if (e.Key == Key.Left) dir = FocusNavigationDirection.Left;
+                    else if (e.Key == Key.Right) dir = FocusNavigationDirection.Right;
+
+                    btn.MoveFocus(new TraversalRequest(dir));
+                    e.Handled = true; 
+                    return;
+                }
+            }
+
             if (e.Key == Key.PageUp || e.Key == Key.MediaPreviousTrack)
             {
-                // Jump focus UP 3 rows instead of just visually scrolling!
                 for (int i = 0; i < 3; i++)
                     (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Up));
                 e.Handled = true;
             }
             else if (e.Key == Key.PageDown || e.Key == Key.MediaNextTrack)
             {
-                // Jump focus DOWN 3 rows!
                 for (int i = 0; i < 3; i++)
                     (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Down));
                 e.Handled = true;
