@@ -14,6 +14,7 @@ namespace FeralCode
         private List<Channel> _selectedChannels = new List<Channel>();
         private string _baseUrl = "";
         private UserSettings _settings;
+		private Button? _lastFocusedChannel;
 
         public MultiviewSetupPage()
         {
@@ -126,6 +127,13 @@ namespace FeralCode
             }
 
             ChannelsListControl.ItemsSource = filtered.ToList();
+
+            // NEW: Auto-focus the first channel so the D-Pad is instantly ready!
+            _ = Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var request = new TraversalRequest(FocusNavigationDirection.First);
+                ChannelsListControl.MoveFocus(request);
+            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
 
         private void Channel_Click(object sender, RoutedEventArgs e)
@@ -169,9 +177,158 @@ namespace FeralCode
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // --- NEW: Safely close the dropdown if it's open, instead of leaving the page! ---
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
+                if (CollectionComboBox.IsDropDownOpen)
+                {
+                    CollectionComboBox.IsDropDownOpen = false;
+                    e.Handled = true;
+                    return;
+                }
+                
                 NavigationService?.GoBack();
+                e.Handled = true;
+                return;
+            }
+            
+            if (e.Key == Key.BrowserHome)
+            {
+                NavigationService?.Navigate(new StartPage());
+                e.Handled = true;
+                return;
+            }
+
+            // --- THE DROPDOWN BYPASS ---
+            // If the menu is actively dropping down, step back and let Windows handle the arrows natively!
+            if (CollectionComboBox.IsDropDownOpen)
+            {
+                if (e.Key == Key.Left || e.Key == Key.Right) e.Handled = true; // Trap left/right so they don't break the menu
+                return; 
+            }
+
+            var focusedElement = Keyboard.FocusedElement as FrameworkElement;
+
+            // --- EXPLICIT D-PAD ROUTING ---
+            if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right || e.Key == Key.Enter)
+            {
+                // ZONE 1: Collection Dropdown
+                if (focusedElement == CollectionComboBox)
+                {
+                    if (e.Key == Key.Enter)
+                    {
+                        CollectionComboBox.IsDropDownOpen = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Key == Key.Down)
+                    {
+                        if (_lastFocusedChannel != null && _lastFocusedChannel.IsVisible) _lastFocusedChannel.Focus();
+                        else ChannelsListControl.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Key == Key.Right)
+                    {
+                        SearchTextBox.Focus();
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Key == Key.Up || e.Key == Key.Left)
+                    {
+                        e.Handled = true; // Bounce off the walls
+                        return;
+                    }
+                }
+
+                // ZONE 2: Search Box
+                if (focusedElement == SearchTextBox)
+                {
+                    if (e.Key == Key.Down)
+                    {
+                        if (_lastFocusedChannel != null && _lastFocusedChannel.IsVisible) _lastFocusedChannel.Focus();
+                        else ChannelsListControl.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Key == Key.Left)
+                    {
+                        CollectionComboBox.Focus();
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Key == Key.Right)
+                    {
+                        if (LaunchButton.IsEnabled) LaunchButton.Focus();
+                        else ClearButton.Focus();
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                // ZONE 3: Channel List
+                if (focusedElement is Button btn && btn.Tag is Channel)
+                {
+                    _lastFocusedChannel = btn; // Save our exact spot in the list!
+
+                    if (e.Key == Key.Right)
+                    {
+                        if (LaunchButton.IsEnabled) LaunchButton.Focus();
+                        else ClearButton.Focus();
+                        e.Handled = true;
+                        return;
+                    }
+                    else if (e.Key == Key.Left)
+                    {
+                        e.Handled = true; 
+                        return;
+                    }
+                    else if (e.Key == Key.Up || e.Key == Key.Down)
+                    {
+                        btn.MoveFocus(new TraversalRequest(e.Key == Key.Up ? FocusNavigationDirection.Up : FocusNavigationDirection.Down));
+                        e.Handled = true;
+                        return;
+                    }
+                }
+                
+                // ZONE 4: Right Action Panel
+                if (focusedElement == LaunchButton || focusedElement == ClearButton)
+                {
+                    if (e.Key == Key.Left)
+                    {
+                        if (_lastFocusedChannel != null && _lastFocusedChannel.IsVisible)
+                            _lastFocusedChannel.Focus();
+                        else
+                            ChannelsListControl.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+                            
+                        e.Handled = true;
+                        return;
+                    }
+                    else if (e.Key == Key.Right)
+                    {
+                        e.Handled = true; 
+                        return;
+                    }
+                    else if (e.Key == Key.Up || e.Key == Key.Down)
+                    {
+                        focusedElement.MoveFocus(new TraversalRequest(e.Key == Key.Up ? FocusNavigationDirection.Up : FocusNavigationDirection.Down));
+                        e.Handled = true;
+                        return;
+                    }
+                }
+            }
+
+            // Quick Scroll Support
+            if (e.Key == Key.PageUp || e.Key == Key.MediaPreviousTrack)
+            {
+                for (int i = 0; i < 4; i++)
+                    (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Up));
+                e.Handled = true;
+            }
+            else if (e.Key == Key.PageDown || e.Key == Key.MediaNextTrack)
+            {
+                for (int i = 0; i < 4; i++)
+                    (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Down));
                 e.Handled = true;
             }
         }

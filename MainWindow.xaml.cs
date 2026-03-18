@@ -238,25 +238,33 @@ namespace FeralCode
                         return Results.Ok();
                     });
 
+                    // --- GLOBAL COMMANDS ---
                     _webHost.MapPost("/api/remote/home", () => 
                     { 
                         Application.Current.Dispatcher.Invoke(() => 
                         {
+                            // NEW: Check if a Multiview Quad Window is open, and close it!
+                            var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quadWindow != null) quadWindow.Close();
+
+                            // Existing logic: Close single player and navigate back
                             if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
                             if (MainFrame.Content is Page page && page.NavigationService.CanGoBack) page.NavigationService.GoBack();
                         }); 
                         return Results.Ok(); 
                     });
 
-                    // --- NEW: MINIMIZE / RESTORE WINDOW ---
+                    // --- MINIMIZE / RESTORE WINDOW ---
                     _webHost.MapPost("/api/remote/minimize", () => 
                     {
                         Application.Current.Dispatcher.Invoke(() => 
                         {
-                            // Smart targeting: Minimize the video player if it's open, otherwise minimize the main menu!
-                            Window targetWindow = (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible) 
-                                                  ? ActivePlayerWindow 
-                                                  : Application.Current.MainWindow;
+                            // NEW: Check if a Multiview Quad Window is actively running on the screen!
+                            var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+
+                            Window targetWindow = Application.Current.MainWindow;
+                            if (quadWindow != null && quadWindow.IsVisible) targetWindow = quadWindow;
+                            else if (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible) targetWindow = ActivePlayerWindow;
 
                             if (targetWindow.WindowState == WindowState.Minimized)
                             {
@@ -303,7 +311,15 @@ namespace FeralCode
                         {
                             Window targetWindow = Application.Current.MainWindow;
 
-                            if (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible)
+                            // NEW: Check if Multiview is open!
+                            var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            
+                            if (quadWindow != null && quadWindow.IsVisible)
+                            {
+                                // Route the raw keystrokes directly to the Multiview window
+                                targetWindow = quadWindow;
+                            }
+                            else if (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible)
                             {
                                 targetWindow = ActivePlayerWindow;
                                 if (ActivePlayerWindow.HandleRemoteKey(direction)) return; 

@@ -3,6 +3,69 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Title="Multiview Setup" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}"
       PreviewKeyDown="Page_PreviewKeyDown" KeepAlive="True">
+	  
+    <Page.Resources>
+        <Style TargetType="Button" x:Key="ChannelListItemStyle">
+            <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="Margin" Value="0,0,10,8"/>
+            <Setter Property="Padding" Value="15"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BgBorder" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="BgBorder" Property="BorderBrush" Value="{DynamicResource StatusConnecting}"/>
+                                <Setter TargetName="BgBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BgBorder" Property="BorderBrush" Value="{DynamicResource LiveBorder}"/>
+                                <Setter TargetName="BgBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+		<Style x:Key="ActionBtnStyle" TargetType="Button">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="6" BorderThickness="3" BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bg" Property="BorderBrush" Value="#FFD700"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+		<Style x:Key="GlowFocusStyle" TargetType="Control">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Border BorderThickness="3" BorderBrush="#FFD700" CornerRadius="4" Margin="-3"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
 
     <Grid Margin="40">
         <Grid.RowDefinitions>
@@ -35,33 +98,29 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CollectionComboBox" Grid.Column="0" Width="200" FontSize="18" Margin="0,0,10,0" SelectionChanged="CollectionComboBox_SelectionChanged"/>
-                        <TextBox x:Name="SearchTextBox" Grid.Column="1" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2" TextChanged="SearchTextBox_TextChanged" />
+                        <ComboBox x:Name="CollectionComboBox" Grid.Column="0" Width="200" FontSize="18" Margin="0,0,10,0" SelectionChanged="CollectionComboBox_SelectionChanged" FocusVisualStyle="{StaticResource GlowFocusStyle}"/>
+                        <TextBox x:Name="SearchTextBox" Grid.Column="1" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2" TextChanged="SearchTextBox_TextChanged" FocusVisualStyle="{StaticResource GlowFocusStyle}"/>
                     </Grid>
 
                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                         <ItemsControl x:Name="ChannelsListControl">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Background="Transparent" BorderThickness="0" Cursor="Hand" Click="Channel_Click" Tag="{Binding}" Margin="0,0,0,5" HorizontalContentAlignment="Stretch">
-                                        <Border Background="{DynamicResource CardBackground}" CornerRadius="6" Padding="10">
+                                    <Button Style="{StaticResource ChannelListItemStyle}" Click="Channel_Click" Tag="{Binding}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
                                             
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="60"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                
-                                                <TextBlock Grid.Column="0" Text="{Binding Number}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" Margin="0,0,10,0"/>
-                                                <TextBlock Grid.Column="2" Text="•" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,10,0"/>
-                                                
-                                                <TextBlock Grid.Column="3" Text="{Binding CurrentShowTitle}" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
-                                            </Grid>
+                                            <TextBlock Grid.Column="0" Text="{Binding Number}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" Margin="0,0,10,0"/>
+                                            <TextBlock Grid.Column="2" Text="•" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,10,0"/>
                                             
-                                        </Border>
+                                            <TextBlock Grid.Column="3" Text="{Binding CurrentShowTitle}" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                        </Grid>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -87,8 +146,8 @@
                         <TextBlock x:Name="Slot4Text" Text="Slot 4: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
                     </Border>
 
-                    <Button x:Name="LaunchButton" Content="▶ LAUNCH MULTIVIEW" FontSize="20" FontWeight="Bold" Padding="20" Background="{DynamicResource StatusSuccess}" Foreground="Black" BorderThickness="0" Cursor="Hand" Click="Launch_Click" IsEnabled="False"/>
-                    <Button Content="Clear All" FontSize="16" Margin="0,15,0,0" Padding="10" Background="Transparent" Foreground="{DynamicResource StatusError}" BorderThickness="0" Cursor="Hand" Click="Clear_Click"/>
+                    <Button x:Name="LaunchButton" Content="▶ LAUNCH MULTIVIEW" FontSize="20" FontWeight="Bold" Padding="20" Background="{DynamicResource StatusSuccess}" Foreground="Black" Cursor="Hand" Click="Launch_Click" IsEnabled="False" Style="{StaticResource ActionBtnStyle}"/>
+                    <Button x:Name="ClearButton" Content="Clear All" FontSize="16" Margin="0,15,0,0" Padding="10" Background="Transparent" Foreground="{DynamicResource StatusError}" Cursor="Hand" Click="Clear_Click" Style="{StaticResource ActionBtnStyle}"/>
                 </StackPanel>
             </Border>
         </Grid>

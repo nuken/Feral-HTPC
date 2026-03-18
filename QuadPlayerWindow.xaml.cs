@@ -16,6 +16,9 @@ namespace FeralCode
         private Border[] _borders;
         private int _activeIndex = 0;
         private int _totalActive = 0;
+        
+        // Tracking Fullscreen state
+        private bool _isFullscreen = true;
 
         public QuadPlayerWindow(string baseUrl, List<Channel> channels)
         {
@@ -42,8 +45,8 @@ namespace FeralCode
                     
                     media.AddOption(":network-caching=2000");
                     media.AddOption(":live-caching=2000");
-					media.AddOption(":http-reconnect");
-					media.AddOption(":avcodec-hw=none");
+                    media.AddOption(":http-reconnect");
+                    media.AddOption(":avcodec-hw=none");
                     
                     // Wait for the stream to connect and parse its tracks, then apply focus
                     _players[i].Playing += async (sender, args) => 
@@ -104,12 +107,65 @@ namespace FeralCode
                     : Brushes.Transparent;
             }
         }
+        
+        // --- NEW: Double Click to Toggle Fullscreen ---
+        private void UniformGrid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                ToggleFullscreen();
+                e.Handled = true;
+            }
+        }
+
+        // --- NEW: Toggle Fullscreen Logic ---
+        public void ToggleFullscreen()
+        {
+            if (!_isFullscreen)
+            {
+                this.WindowStyle = WindowStyle.None; 
+                this.ResizeMode = ResizeMode.NoResize; 
+                this.WindowState = WindowState.Maximized;
+                this.Topmost = true; 
+                _isFullscreen = true;
+            }
+            else
+            {
+                this.Topmost = false;
+                this.WindowStyle = WindowStyle.SingleBorderWindow;
+                this.ResizeMode = ResizeMode.CanResize;
+                this.WindowState = WindowState.Normal;
+                _isFullscreen = false;
+            }
+        }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                this.Close();
+                // NEW: If they hit escape while fullscreen, just drop to a window instead of instantly killing the streams!
+                if (_isFullscreen) 
+                {
+                    ToggleFullscreen();
+                }
+                else 
+                {
+                    this.Close();
+                }
+                e.Handled = true;
+                return;
+            }
+            
+            // --- NEW: Hardware Hotkeys ---
+            if (e.Key == Key.F || e.Key == Key.F11)
+            {
+                ToggleFullscreen();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.M)
+            {
+                this.WindowState = WindowState.Minimized;
                 e.Handled = true;
                 return;
             }
@@ -137,8 +193,7 @@ namespace FeralCode
                 if (_activeIndex == 0 && _totalActive > 2) _activeIndex = 2;
                 else if (_activeIndex == 1 && _totalActive > 3) _activeIndex = 3;
             }
-			
-			// --- NEW: Hardware Remote Volume & Mute Intercepts ---
+            
             if (e.Key == Key.VolumeMute)
             {
                 if (_players[_activeIndex] != null)
@@ -179,7 +234,6 @@ namespace FeralCode
 
         protected override void OnClosed(EventArgs e)
         {
-            // Clean up players to free up network bandwidth!
             for (int i = 0; i < 4; i++)
             {
                 if (_players[i] != null)
