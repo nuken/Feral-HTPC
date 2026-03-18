@@ -10,7 +10,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="Margin" Value="10"/>
             <Setter Property="Width" Value="200"/>
-            <Setter Property="Height" Value="340"/>
+            <Setter Property="Height" Value="350"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="4"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
