@@ -1,4 +1,4 @@
-name: Build and Package Channels HTPC
+name: Build and Package FERAL HTPC
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Publish .NET Application
-      run: dotnet publish FeralNativeTest.csproj -c Release -r win-x64
+      run: dotnet publish FeralCode.csproj -c Release -r win-x64
 
     - name: Compile Inno Setup Installer
       run: |
