@@ -276,6 +276,20 @@ namespace FeralCode
                         });
                         return Results.Ok();
                     });
+					
+					// --- MULTIVIEW AUDIO SWITCHER ---
+                    _webHost.MapPost("/api/remote/multiview/audio/{index}", (int index) => 
+                    {
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quadWindow != null && quadWindow.IsVisible)
+                            {
+                                quadWindow.SetActiveQuadrant(index);
+                            }
+                        });
+                        return Results.Ok();
+                    });
 
                     // --- MINIMIZE / RESTORE WINDOW ---
                     _webHost.MapPost("/api/remote/minimize", () => 
