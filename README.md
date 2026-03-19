@@ -2,7 +2,7 @@
 
 ### \*\*\* Official Notice: \*\*\*
 
-#### FERAL HTPC is not affiliated with *Fancy Bits, LLC* or *Channels DVR* and it is \<ins\>NOT\</ins\> an official Channels client.
+#### FERAL HTPC is not affiliated with *Fancy Bits, LLC* or *Channels DVR* and it is <ins>NOT</ins> an official Channels client.
 
 Welcome to the Feral HTPC project. This application is a Windows client designed to interface with your Channels DVR server, acting as a complete living room media hub.
 
