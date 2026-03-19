@@ -38,7 +38,7 @@
             
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,50">
                 
-                <Image Source="pack://application:,,,/wwwroot/android-chrome-512x512.png" Width="120" Height="120" Margin="0,0,20,0" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
+                <Image Source="pack://application:,,,/Assets/splash.png" Width="120" Height="120" Margin="0,0,20,0" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
                                       
                 <TextBlock Text="FERAL HTPC" FontSize="62" FontWeight="Light" 
                            Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"

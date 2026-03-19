@@ -21,7 +21,7 @@
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.5" />
     
     <Resource Include="Assets\appicon.ico" />
-    
+    <Resource Include="Assets\splash.png" />
     <EmbeddedResource Include="wwwroot\**\*" />
     
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
