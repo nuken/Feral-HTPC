@@ -352,7 +352,15 @@
                         onpointerdown="startScrub('right')" onpointerup="endScrub('right')" onpointerleave="endScrub('right')"><i class="fa-solid fa-chevron-right"></i></button>
             </div>
             <div class="dpad-row">
+                <button class="dpad-btn" onclick="sendKey('back')" style="background-color: #333; font-size: 22px;">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+                
                 <button class="dpad-btn" onclick="sendKey('down')"><i class="fa-solid fa-chevron-down"></i></button>
+                
+                <button class="dpad-btn" onclick="stopPlayer()" style="background-color: #333; font-size: 24px;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
         </div>
     </div>
