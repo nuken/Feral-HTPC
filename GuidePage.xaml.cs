@@ -715,9 +715,15 @@ namespace FeralCode
                     if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
 
                     mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _masterChannelList, channelIndex);
-                    mainWindow.ActivePlayerWindow.Closed += (s, args) => mainWindow.ActivePlayerWindow = null; 
+                    
+                    // --- NEW FIX: Moved the focus snap INSIDE the Closed event ---
+                    mainWindow.ActivePlayerWindow.Closed += (s, args) => 
+                    {
+                        mainWindow.ActivePlayerWindow = null; 
+                        Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedAiringButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                    }; 
+                    
                     mainWindow.ActivePlayerWindow.Show();
-					_lastFocusedAiringButton?.Focus();
                 }
                 catch (Exception ex)
                 {

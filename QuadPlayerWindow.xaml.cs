@@ -24,6 +24,21 @@ namespace FeralCode
         public QuadPlayerWindow(string baseUrl, List<Channel> channels)
         {
             InitializeComponent();
+			// --- NEW: Anti-Focus Stealing Fix & Settings Check ---
+            this.Loaded += (s, e) =>
+            {
+                this.Activate();
+                this.Topmost = true; // Rip the window to the absolute foreground
+
+                var settings = SettingsManager.Load();
+                if (!settings.StartPlayersFullscreen)
+                {
+                    this.Topmost = false; // Release the lock
+                    if (_isFullscreen) ToggleFullscreen(); // Safely drop to windowed mode
+                }
+                
+                this.Focus();
+            };
             _libVLC = MainWindow.SharedLibVLC;
             _totalActive = channels.Count;
 

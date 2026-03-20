@@ -231,18 +231,25 @@ namespace FeralCode
             if (_selectedMovie != null)
             {
                 string baseUrl = _settings.LastServerAddress;
+                
                 string streamUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie.Id}/hls/master.m3u8?vcodec=copy&acodec=copy";
                 
                 var mainWindow = (MainWindow)Application.Current.MainWindow;
                 if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
 
                 mainWindow.ActivePlayerWindow = new PlayerWindow(streamUrl, _selectedMovie.Title, _selectedMovie.PosterUrl, _selectedMovie.Commercials);
-                mainWindow.ActivePlayerWindow.Closed += (s, args) => mainWindow.ActivePlayerWindow = null; 
+                
+                // --- NEW FIX: Moved the focus snap INSIDE the Closed event ---
+                mainWindow.ActivePlayerWindow.Closed += (s, args) => 
+                {
+                    mainWindow.ActivePlayerWindow = null; 
+                    Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                };
+                
                 mainWindow.ActivePlayerWindow.Show();
                 
                 ModalOverlay.Visibility = Visibility.Collapsed;
                 ToggleFiltersButton.Visibility = Visibility.Visible;
-				_lastFocusedMovieButton?.Focus();
             }
         }
 
