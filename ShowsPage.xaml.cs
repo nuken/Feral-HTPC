@@ -317,14 +317,16 @@ namespace FeralCode
 
                     mainWin.ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
                     
-                    // --- NEW FIX: We moved the focus snap INSIDE the Closed event! ---
+                    // --- NEW FIX: Hide & Seek ---
                     mainWin.ActivePlayerWindow.Closed += (s, args) => 
                     {
                         mainWin.ActivePlayerWindow = null;
+                        mainWin.Show(); // 1. Bring the main basecamp back!
                         Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                     };
                     
-                    mainWin.ActivePlayerWindow.Show();
+                    mainWin.Hide(); // 2. Hide the basecamp
+                    mainWin.ActivePlayerWindow.Show(); // 3. Launch the player
                 }
             }
         }

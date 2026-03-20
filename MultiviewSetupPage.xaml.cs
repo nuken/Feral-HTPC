@@ -169,18 +169,21 @@ namespace FeralCode
 
         private void Launch_Click(object sender, RoutedEventArgs e)
         {
+            var mainWindow = (MainWindow)Application.Current.MainWindow;
             var quadWindow = new QuadPlayerWindow(_baseUrl, _selectedChannels);
             
-            // --- NEW FIX: Precision Focus Snap for the Quad Window! ---
+            // --- NEW FIX: Hide & Seek ---
             quadWindow.Closed += (s, args) => 
             {
+                mainWindow.Show(); // 1. Bring the main basecamp back!
                 Application.Current.Dispatcher.InvokeAsync(() => 
                 {
                     LaunchButton.Focus(); 
                 }, System.Windows.Threading.DispatcherPriority.Input);
             };
 
-            quadWindow.Show();
+            mainWindow.Hide(); // 2. Hide the basecamp
+            quadWindow.Show(); // 3. Launch the quad player
         }
 
         // --- SAFE NAVIGATION ---

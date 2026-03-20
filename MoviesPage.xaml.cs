@@ -239,14 +239,16 @@ namespace FeralCode
 
                 mainWindow.ActivePlayerWindow = new PlayerWindow(streamUrl, _selectedMovie.Title, _selectedMovie.PosterUrl, _selectedMovie.Commercials);
                 
-                // --- NEW FIX: Moved the focus snap INSIDE the Closed event ---
+                // --- NEW FIX: Hide & Seek ---
                 mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                 {
                     mainWindow.ActivePlayerWindow = null; 
+                    mainWindow.Show(); // 1. Bring the main basecamp back!
                     Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                 };
                 
-                mainWindow.ActivePlayerWindow.Show();
+                mainWindow.Hide(); // 2. Hide the basecamp
+                mainWindow.ActivePlayerWindow.Show(); // 3. Launch the player
                 
                 ModalOverlay.Visibility = Visibility.Collapsed;
                 ToggleFiltersButton.Visibility = Visibility.Visible;

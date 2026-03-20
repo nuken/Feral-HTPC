@@ -716,14 +716,16 @@ namespace FeralCode
 
                     mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _masterChannelList, channelIndex);
                     
-                    // --- NEW FIX: Moved the focus snap INSIDE the Closed event ---
+                    // --- NEW FIX: Hide & Seek ---
                     mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                     {
                         mainWindow.ActivePlayerWindow = null; 
+                        mainWindow.Show(); // 1. Bring the main basecamp back!
                         Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedAiringButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                     }; 
                     
-                    mainWindow.ActivePlayerWindow.Show();
+                    mainWindow.Hide(); // 2. Hide the basecamp
+                    mainWindow.ActivePlayerWindow.Show(); // 3. Launch the player
                 }
                 catch (Exception ex)
                 {
