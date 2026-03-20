@@ -440,6 +440,7 @@ namespace FeralCode
                             else if (direction == "left") vk = 0x25;
                             else if (direction == "right") vk = 0x27;
                             else if (direction == "enter") vk = 0x0D;
+                            else if (direction == "back") vk = 0x08; // --- NEW: Simulates the physical U-Turn / Back key! ---
 
                             if (vk != 0)
                             {
