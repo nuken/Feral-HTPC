@@ -41,7 +41,14 @@ namespace FeralCode
                     _players[i].Mute = false;
                     _players[i].Volume = 100;
 
-                    string streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[i].Number}/hls/master.m3u8?vcodec=copy&acodec=copy";
+                    // --- NEW: Smart Audio Transcoding Logic for Multiview ---
+                    string audioCodec = "copy";
+                    if (double.TryParse(channels[i].Number, out double chNum) && chNum >= 100 && chNum < 200)
+                    {
+                        audioCodec = "aac";
+                    }
+
+                    string streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[i].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";
                     var media = new Media(_libVLC, new Uri(streamUrl));
                     
                     media.AddOption(":network-caching=2000");

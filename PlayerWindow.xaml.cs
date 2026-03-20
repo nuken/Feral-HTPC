@@ -569,7 +569,16 @@ namespace FeralCode
             }
             else
             {
-                streamUrl = $"{_baseUrl}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts";
+                // --- NEW: Smart Audio Transcoding Logic ---
+                string audioCodec = "copy"; // Default to preserving Dolby Digital (AC-3)
+                
+                // If the channel number is between 100 and 199, it's an ATSC 3.0 channel using AC-4.
+                if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
+                {
+                    audioCodec = "aac"; // Force server to transcode AC-4 to AAC
+                }
+
+                streamUrl = $"{_baseUrl}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
             }
 
             if (_mediaPlayer.IsPlaying) 
