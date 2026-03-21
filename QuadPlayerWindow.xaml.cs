@@ -143,6 +143,9 @@ namespace FeralCode
 
         private void GlassOverlay_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            // --- NEW: Safely cast the sender so the compiler knows it is never null ---
+            if (sender is not Window overlay) return;
+
             if (e.ClickCount == 2)
             {
                 ToggleFullscreen();
@@ -152,10 +155,11 @@ namespace FeralCode
 
             if (e.ClickCount == 1)
             {
-                Point pos = e.GetPosition(_glassOverlay);
+                // We use our safely casted 'overlay' variable here instead of '_glassOverlay'
+                Point pos = e.GetPosition(overlay);
                 
-                int col = pos.X < (_glassOverlay.ActualWidth / 2) ? 0 : 1;
-                int row = pos.Y < (_glassOverlay.ActualHeight / 2) ? 0 : 1;
+                int col = pos.X < (overlay.ActualWidth / 2) ? 0 : 1;
+                int row = pos.Y < (overlay.ActualHeight / 2) ? 0 : 1;
                 int index = (row * 2) + col;
 
                 if (index < _totalActive && _activeIndex != index)
