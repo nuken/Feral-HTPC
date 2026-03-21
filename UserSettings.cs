@@ -25,6 +25,7 @@ namespace FeralCode
         public int WebServerPort { get; set; } = 0;
         public bool StickyGuideHeaders { get; set; } = true;
 		public bool ShowExtendedMetadata { get; set; } = false;
+		public bool ForceAacAudio { get; set; } = true;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
     }
 

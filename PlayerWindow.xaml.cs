@@ -15,25 +15,26 @@ namespace FeralCode
         private string _baseUrl = ""; 
         private List<Channel>? _channels;
         private int _currentIndex;
-		private DateTime _lastMouseMove = DateTime.MinValue;
+        private DateTime _lastMouseMove = DateTime.MinValue;
         
-        // --- NEW: Movie Mode Variables ---
+        // --- Movie Mode Variables ---
         private bool _isMovieMode = false;
         private string _movieStreamUrl = "";
         private string _movieTitle = "";
         private string _moviePosterUrl = "";
         private List<double>? _movieCommercials;
-		private UserSettings _settings;
+        private UserSettings _settings;
         private bool _isDraggingTimeline = false;
-        // --- NEW: Auto-Scrubbing Trackers ---
+        
+        // --- Auto-Scrubbing Trackers ---
         private bool _isScrubbing = false;
         private long _scrubTargetTime = 0;
-		private DispatcherTimer _remoteScrubTimer;
+        private DispatcherTimer _remoteScrubTimer;
         private string _remoteScrubDirection = "";
         
         private DispatcherTimer _uiTimer;
         private DispatcherTimer _statsTimer;
-		private DispatcherTimer? _liveProgressTimer;
+        private DispatcherTimer? _liveProgressTimer;
         private bool _showStats = false;
         private bool _isPipMode = false;
         private WindowState _previousState;
@@ -43,21 +44,22 @@ namespace FeralCode
         private double _previousTop;
         private double _previousLeft;
         private bool _previousTopmost;
+        private bool _isFullscreen = false;
+        private bool _isWaitingToBuffer = false;
 
         // --- ORIGINAL CONSTRUCTOR: Live TV Mode ---
         public PlayerWindow(string baseUrl, List<Channel> channels, int startIndex)
         {
             InitializeComponent();
-			// --- NEW: Anti-Focus Stealing Fix ---
             this.Loaded += (s, e) =>
             {
                 this.Activate();
-                this.Topmost = true; // Rip the window to the absolute foreground
+                this.Topmost = true; 
                 
                 var settings = SettingsManager.Load();
                 if (!settings.StartPlayersFullscreen)
                 {
-                    this.Topmost = false; // Release the lock so it acts like a normal window
+                    this.Topmost = false; 
                 }
                 
                 this.Focus();
@@ -66,16 +68,16 @@ namespace FeralCode
             _baseUrl = baseUrl;
             _channels = channels;
             _currentIndex = startIndex;
-			_remoteScrubTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _remoteScrubTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             _remoteScrubTimer.Tick += RemoteScrubTimer_Tick;
-			_liveProgressTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _liveProgressTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _liveProgressTimer.Tick += LiveProgressTimer_Tick;
 
             _mediaPlayer = new MediaPlayer(MainWindow.SharedLibVLC);
             VlcVideoView.MediaPlayer = _mediaPlayer;
             _mediaPlayer.EndReached += MediaPlayer_EndReached;
-			_mediaPlayer.Buffering += MediaPlayer_Buffering;
-			_mediaPlayer.Playing += MediaPlayer_Playing;
+            _mediaPlayer.Buffering += MediaPlayer_Buffering;
+            _mediaPlayer.Playing += MediaPlayer_Playing;
 
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _uiTimer.Tick += UiTimer_Tick;
@@ -85,19 +87,19 @@ namespace FeralCode
 
             this.Loaded += PlayerWindow_Loaded;
             this.Closed += PlayerWindow_Closed;
-			this.PreviewKeyUp += Window_PreviewKeyUp;
-			// If the user wants full screen, take over the monitor immediately!
+            this.PreviewKeyUp += Window_PreviewKeyUp;
+            
             if (_settings.StartPlayersFullscreen)
             {
                 this.WindowState = WindowState.Maximized;
                 this.WindowStyle = WindowStyle.None;
                 this.ResizeMode = ResizeMode.NoResize;
-                this.Topmost = true; // Keeps it above the Windows taskbar
-                _isFullscreen = true; // Syncs with your existing toggle logic
+                this.Topmost = true; 
+                _isFullscreen = true; 
             }
         }
-		
-		private void LiveProgressTimer_Tick(object? sender, EventArgs e)
+        
+        private void LiveProgressTimer_Tick(object? sender, EventArgs e)
         {
             if (_channels == null || !_channels.Any()) return;
 
@@ -106,11 +108,9 @@ namespace FeralCode
 
             if (currentAiring != null && currentAiring.Duration.HasValue && !_isDraggingTimeline)
             {
-                // Calculate how many milliseconds have passed since the show started
                 double elapsedMs = (DateTime.Now - currentAiring.StartTime).TotalMilliseconds;
                 double maxMs = currentAiring.Duration.Value * 1000;
 
-                // Keep the bar within bounds
                 if (elapsedMs > maxMs) elapsedMs = maxMs;
                 if (elapsedMs < 0) elapsedMs = 0;
 
@@ -123,16 +123,15 @@ namespace FeralCode
         public PlayerWindow(string streamUrl, string movieTitle, string posterUrl, List<double>? commercials)
         {
             InitializeComponent();
-			// --- NEW: Anti-Focus Stealing Fix ---
             this.Loaded += (s, e) =>
             {
                 this.Activate();
-                this.Topmost = true; // Rip the window to the absolute foreground
+                this.Topmost = true; 
                 
                 var settings = SettingsManager.Load();
                 if (!settings.StartPlayersFullscreen)
                 {
-                    this.Topmost = false; // Release the lock so it acts like a normal window
+                    this.Topmost = false; 
                 }
                 
                 this.Focus();
@@ -143,18 +142,17 @@ namespace FeralCode
             _movieTitle = movieTitle;
             _moviePosterUrl = posterUrl;
             _movieCommercials = commercials;
-			_remoteScrubTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _remoteScrubTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             _remoteScrubTimer.Tick += RemoteScrubTimer_Tick;
 
             _mediaPlayer = new MediaPlayer(MainWindow.SharedLibVLC);
             VlcVideoView.MediaPlayer = _mediaPlayer;
             _mediaPlayer.EndReached += MediaPlayer_EndReached;
-			_mediaPlayer.Buffering += MediaPlayer_Buffering;
-			_mediaPlayer.Playing += MediaPlayer_Playing;
+            _mediaPlayer.Buffering += MediaPlayer_Buffering;
+            _mediaPlayer.Playing += MediaPlayer_Playing;
             
-            // Listen to the VLC clock tick for commercial skipping!
             _mediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
-			_mediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+            _mediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
 
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _uiTimer.Tick += UiTimer_Tick;
@@ -164,25 +162,24 @@ namespace FeralCode
 
             this.Loaded += PlayerWindow_Loaded;
             this.Closed += PlayerWindow_Closed;
-			this.PreviewKeyUp += Window_PreviewKeyUp;
-			// If the user wants full screen, take over the monitor immediately!
+            this.PreviewKeyUp += Window_PreviewKeyUp;
+            
             if (_settings.StartPlayersFullscreen)
             {
                 this.WindowState = WindowState.Maximized;
                 this.WindowStyle = WindowStyle.None;
                 this.ResizeMode = ResizeMode.NoResize;
-                this.Topmost = true; // Keeps it above the Windows taskbar
-                _isFullscreen = true; // Syncs with your existing toggle logic
+                this.Topmost = true; 
+                _isFullscreen = true; 
             }
         }
 
         private void MediaPlayer_TimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
         {
-            if (!_isMovieMode) return; // Ignore VLC's internal stream time for Live TV
+            if (!_isMovieMode) return; 
 
             long currentTime = e.Time;
 
-            // 1. Commercial Skip Logic
             if (_isMovieMode && _movieCommercials != null && _movieCommercials.Count >= 2 && _settings.AutoSkipCommercials)
             {
                 for (int i = 0; i < _movieCommercials.Count - 1; i += 2)
@@ -202,10 +199,8 @@ namespace FeralCode
                 }
             }
 
-            // 2. Timeline Slider Update Logic
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // --- THIS is where !_isScrubbing belongs! ---
                 if (!_isDraggingTimeline && !_isScrubbing) 
                 {
                     TimelineSlider.Value = currentTime;
@@ -214,10 +209,9 @@ namespace FeralCode
             }));
         }
         
-        // We need to know how long the movie is to set the Slider's maximum length!
         private void MediaPlayer_LengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
         {
-            if (!_isMovieMode) return; // Ignore VLC's internal length for Live TV
+            if (!_isMovieMode) return; 
 
             long safeLength = e.Length;
 
@@ -227,36 +221,27 @@ namespace FeralCode
                 TotalTimeText.Text = TimeSpan.FromMilliseconds(safeLength).ToString(@"h\:mm\:ss");
             }));
         }
-		
-		// --- NEW: Debounce flag for micro-stutters ---
-        private bool _isWaitingToBuffer = false;
-
-        // --- NEW: Real-time Buffering Intercept ---
+        
         private void MediaPlayer_Buffering(object? sender, MediaPlayerBufferingEventArgs e)
         {
-            // FIXED: Grab the value immediately before VLC destroys the memory!
             float safeCache = e.Cache; 
 
             Dispatcher.BeginInvoke(new Action(async () =>
             {
                 if (safeCache < 100)
                 {
-                    // If the curtain is hidden and we aren't already waiting...
                     if (LoadingOverlay.Visibility != Visibility.Visible && !_isWaitingToBuffer)
                     {
                         _isWaitingToBuffer = true;
                         
-                        // Give VLC a 750ms grace period to recover on its own!
                         await Task.Delay(750);
                         
-                        // If it is STILL buffering after the grace period, drop the curtain!
                         if (_isWaitingToBuffer)
                         {
                             LoadingOverlay.Visibility = Visibility.Visible;
                         }
                     }
 
-                    // If the curtain actually became visible, update the text
                     if (LoadingOverlay.Visibility == Visibility.Visible)
                     {
                         LoadingText.Text = $"Buffering... {(int)safeCache}%";
@@ -264,27 +249,23 @@ namespace FeralCode
                 }
                 else
                 {
-                    // Hit 100%! Cancel the waiting flag and hide the curtain instantly.
                     _isWaitingToBuffer = false;
                     LoadingOverlay.Visibility = Visibility.Collapsed;
                 }
             }));
         }
-		
-        // --- NEW: Bulletproof Failsafe for VOD/Movies ---
+        
         private void MediaPlayer_Playing(object? sender, EventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(async () =>
             {
-                // --- NEW: Give the video renderer 300ms to snap to full screen and draw the first frame ---
                 await Task.Delay(300);
 
-                // Now that the video is actually visible behind the scenes, drop the curtain!
                 _isWaitingToBuffer = false;
                 LoadingOverlay.Visibility = Visibility.Collapsed;
             }));
         }
-		
+        
         public void TogglePiP()
         {
             if (!_isPipMode)
@@ -341,19 +322,15 @@ namespace FeralCode
                 _mediaPlayer.Volume = newVol < 0 ? 0 : newVol;
             }
         }
-		
-		// --- NEW: CLOSED CAPTION TOGGLE ---
+        
         public void ToggleClosedCaptions()
         {
             if (_mediaPlayer == null) return;
 
-            // In VLC, -1 means subtitles/CC are currently disabled
             if (_mediaPlayer.Spu == -1)
             {
-                // Grab the track list and find the first real subtitle track (Id > -1)
                 var firstCcTrack = _mediaPlayer.SpuDescription.FirstOrDefault(track => track.Id > -1);
                 
-                // If we found a valid track, turn it on!
                 if (firstCcTrack.Id > -1)
                 {
                     _mediaPlayer.SetSpu(firstCcTrack.Id);
@@ -361,19 +338,16 @@ namespace FeralCode
             }
             else
             {
-                // If it is anything other than -1, they are currently on, so turn them off!
                 _mediaPlayer.SetSpu(-1);
             }
         }
-		
-		// --- NEW: Closed Captions / Subtitles Toggle ---
+        
         public void ToggleSubtitles()
         {
             if (_mediaPlayer == null) return;
 
             var spus = _mediaPlayer.SpuDescription;
             
-            // FIX 1: Use .Length for arrays instead of .Count
             if (spus == null || spus.Length <= 1)
             {
                 ShowActionOverlay("🚫 No CC Available");
@@ -382,7 +356,6 @@ namespace FeralCode
 
             int currentId = _mediaPlayer.Spu;
             
-            // FIX 2: Use a safe standard loop to find the current track index
             int currentIndex = 0;
             for (int i = 0; i < spus.Length; i++)
             {
@@ -393,14 +366,11 @@ namespace FeralCode
                 }
             }
             
-            // FIX 3: Use .Length for the modulo wrap-around logic
             int nextIndex = (currentIndex + 1) % spus.Length;
             var nextSpu = spus[nextIndex];
             
-            // Apply the new track
             _mediaPlayer.SetSpu(nextSpu.Id);
 
-            // Show a sleek overlay message using your existing modern UI!
             string statusText = nextSpu.Id == -1 ? "CC: Off" : $"CC: {nextSpu.Name}";
             ShowActionOverlay(statusText);
         }
@@ -410,7 +380,6 @@ namespace FeralCode
             OpenSubtitlesMenu();
         }
 
-        // --- NEW: Dynamic Popup Menu for Subtitles ---
         private void OpenSubtitlesMenu()
         {
             if (_mediaPlayer == null) return;
@@ -422,10 +391,8 @@ namespace FeralCode
                 return;
             }
 
-            // Create a brand new Context Menu on the fly
             ContextMenu ccMenu = new ContextMenu();
             
-            // Apply your custom theme colors so it looks professional!
             ccMenu.Background = (System.Windows.Media.Brush)Application.Current.FindResource("PanelBackground");
             ccMenu.Foreground = (System.Windows.Media.Brush)Application.Current.FindResource("TextPrimary");
             ccMenu.BorderBrush = (System.Windows.Media.Brush)Application.Current.FindResource("BorderBrush");
@@ -437,20 +404,17 @@ namespace FeralCode
             {
                 MenuItem item = new MenuItem();
                 
-                // Clean up the name for the UI
                 item.Header = spu.Id == -1 ? "Off" : $"Track: {spu.Name}";
                 item.Tag = spu.Id;
                 item.FontSize = 16;
                 item.Padding = new Thickness(10, 5, 10, 5);
                 
-                // Put a checkmark next to the one currently playing
                 if (spu.Id == currentId)
                 {
                     item.IsChecked = true; 
                     item.FontWeight = FontWeights.Bold;
                 }
 
-                // What happens when the user clicks an option in the menu
                 item.Click += (s, args) =>
                 {
                     int selectedId = (int)((MenuItem)s!).Tag;
@@ -463,7 +427,6 @@ namespace FeralCode
                 ccMenu.Items.Add(item);
             }
 
-            // Bind it to the CC Button and pop it open ABOVE the control bar
             BtnCC.ContextMenu = ccMenu;
             ccMenu.PlacementTarget = BtnCC;
             ccMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
@@ -497,7 +460,6 @@ namespace FeralCode
             if (_mediaPlayer.IsPlaying) 
             {
                 _mediaPlayer.Stop();
-                // --- NEW: Hard kill the old network stream before starting the new one! ---
                 if (_mediaPlayer.Media != null)
                 {
                     _mediaPlayer.Media.Dispose();
@@ -507,7 +469,7 @@ namespace FeralCode
 
             var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
             media.AddOption(":network-caching=2000");
-			
+            
             LoadingOverlay.Visibility = Visibility.Visible;
             LoadingText.Text = "Connecting...";
 
@@ -516,8 +478,7 @@ namespace FeralCode
                 _mediaPlayer.Play(media);
             }
         }
-		
-		// --- NEW: Slider Dragging Logic ---
+        
         private void TimelineSlider_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             _isDraggingTimeline = true;
@@ -525,7 +486,6 @@ namespace FeralCode
 
         private void TimelineSlider_PreviewMouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // Only seek if we are in Movie/Recording mode
             if (_isMovieMode && _mediaPlayer.IsSeekable) 
             {
                 _mediaPlayer.Time = (long)TimelineSlider.Value;
@@ -539,7 +499,6 @@ namespace FeralCode
                 CurrentTimeText.Text = TimeSpan.FromMilliseconds(TimelineSlider.Value).ToString(@"h\:mm\:ss");
         }
 
-        // --- NEW: Modern Overlay Animation ---
         private void ShowActionOverlay(string text)
         {
             ActionOverlayText.Text = text;
@@ -549,11 +508,11 @@ namespace FeralCode
             {
                 From = 1.0, To = 0.0,
                 Duration = new Duration(TimeSpan.FromSeconds(0.75)),
-                BeginTime = TimeSpan.FromSeconds(0.5) // Wait half a second, then fade out
+                BeginTime = TimeSpan.FromSeconds(0.5) 
             };
             ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             
-            Overlay_MouseMove(null!, null!); // Keep the control bar visible
+            Overlay_MouseMove(null!, null!); 
         }
 
         private void PlayCurrentChannel()
@@ -597,22 +556,28 @@ namespace FeralCode
             }
             else
             {
-                // --- NEW: Smart Audio Transcoding Logic ---
-                string audioCodec = "copy"; // Default to preserving Dolby Digital (AC-3)
-                
-                // If the channel number is between 100 and 199, it's an ATSC 3.0 channel using AC-4.
-                if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
+                // --- NEW: Settings-Driven Audio Codec Logic ---
+                var settings = SettingsManager.Load();
+                string audioCodec = "aac"; // Default to the ultra-stable AAC
+
+                if (!settings.ForceAacAudio)
                 {
-                    audioCodec = "aac"; // Force server to transcode AC-4 to AAC
+                    // The user disabled forced AAC, so default to raw Passthrough
+                    audioCodec = "copy";
+                    
+                    // ...but still catch the specific ATSC 3.0 virtual channels!
+                    if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
+                    {
+                        audioCodec = "aac";
+                    }
                 }
 
-                streamUrl = $"{_baseUrl}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
+                streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
             }
 
             if (_mediaPlayer.IsPlaying) 
             {
                 _mediaPlayer.Stop();
-                // --- NEW: Hard kill the old network stream before starting the new one! ---
                 if (_mediaPlayer.Media != null)
                 {
                     _mediaPlayer.Media.Dispose();
@@ -625,7 +590,7 @@ namespace FeralCode
             media.AddOption(":network-caching=2000");
             media.AddOption(":live-caching=2000");
             media.AddOption(":http-reconnect");
-			media.AddOption(":avcodec-hw=none");
+            media.AddOption(":avcodec-hw=none");
             
             if (offsetSeconds > 0)
             {
@@ -649,7 +614,6 @@ namespace FeralCode
                 CurrentTimeText.Text = "LIVE";
                 TotalTimeText.Text = "";
             }
-            // ------------------------------------------
 
             using (media)
             {
@@ -721,7 +685,6 @@ namespace FeralCode
 
         private void Overlay_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
-            // Debounce: Only process this once every 100 milliseconds
             if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
             _lastMouseMove = DateTime.Now;
 
@@ -744,7 +707,6 @@ namespace FeralCode
 
         private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // --- NEW: Physical Keyboard Auto-Scrubbing ---
             if (e.Key == System.Windows.Input.Key.Right || e.Key == System.Windows.Input.Key.Left)
             {
                 if (ControlBar.Visibility == Visibility.Collapsed && _isMovieMode)
@@ -757,7 +719,6 @@ namespace FeralCode
                         ActionOverlayText.Opacity = 1.0;
                     }
 
-                    // Jump 10s on the first press, then 5s for every automatic repeat for smooth scrolling
                     long jumpAmount = (e.Key == System.Windows.Input.Key.Right) ? 
                                       (e.IsRepeat ? 5000 : 10000) : 
                                       (e.IsRepeat ? -5000 : -10000);
@@ -792,39 +753,34 @@ namespace FeralCode
                 ToggleFullscreen();
                 e.Handled = true;
             }
-            // --- NEW: Toggle CC with the 'C' key ---
             else if (e.Key == System.Windows.Input.Key.C) 
             {
                 ToggleSubtitles();
                 e.Handled = true;
             }
-            // --- NEW: Safe Handling of Escape & Back Keys ---
             else if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
             {
                 if (_isFullscreen) 
                 {
-                    ToggleFullscreen(); // Simply drop out of fullscreen if they are in it
+                    ToggleFullscreen(); 
                 }
                 else 
                 {
-                    this.Close(); // Safely shut the player down and reveal the background UI
+                    this.Close(); 
                 }
                 e.Handled = true;
             }
-            // --- NEW: Safely Trap 'BrowserHome' so it doesn't background-navigate! ---
             else if (e.Key == System.Windows.Input.Key.BrowserHome)
             {
-                // Force the background MainWindow to navigate Home
                 if (Application.Current.MainWindow is MainWindow main && main.MainFrame.Content is Page page)
                 {
                     page.NavigationService?.Navigate(new StartPage());
                 }
                 
-                // Then immediately close the player window so the user sees the StartPage
                 this.Close();
                 e.Handled = true;
             }
-			else if (e.Key == System.Windows.Input.Key.MediaPlayPause)
+            else if (e.Key == System.Windows.Input.Key.MediaPlayPause)
             {
                 PlayPause_Click(null!, null!);
                 Overlay_MouseMove(null!, null!);
@@ -855,7 +811,6 @@ namespace FeralCode
 
         private void Window_PreviewKeyUp(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // --- NEW: Apply the scrubbed time to VLC the absolute second the key is released! ---
             if ((e.Key == System.Windows.Input.Key.Right || e.Key == System.Windows.Input.Key.Left) && _isScrubbing)
             {
                 _isScrubbing = false;
@@ -872,8 +827,7 @@ namespace FeralCode
                 e.Handled = true;
             }
         }
-		
-		// --- NEW: Mobile Remote Scrubbing Engine ---
+        
         public void StartRemoteScrub(string direction)
         {
             if (!_isMovieMode || ControlBar.Visibility != Visibility.Collapsed) return;
@@ -927,10 +881,7 @@ namespace FeralCode
                 fe.ContextMenu.IsOpen = true;
             }
         }
-
-        private bool _isFullscreen = false;
        
-        // --- NEW: Direct Remote Control Gateway ---
         public bool HandleRemoteKey(string key)
         {
             if (key == "right" && ControlBar.Visibility == Visibility.Collapsed)
@@ -960,12 +911,11 @@ namespace FeralCode
                 return true;
             }
             
-            // If the UI is open, wake it up and let the standard D-Pad logic take over!
             Overlay_MouseMove(null!, null!);
             return false; 
         }
-		
-		private void ToggleFullscreen()
+        
+        private void ToggleFullscreen()
         {
             if (!_isFullscreen)
             {
@@ -978,8 +928,6 @@ namespace FeralCode
             else
             {
                 this.Topmost = false;
-                
-                // FIXED: Explicitly force the standard Windows title bar to reappear!
                 this.WindowStyle = WindowStyle.SingleBorderWindow;
                 this.ResizeMode = ResizeMode.CanResize;
                 this.WindowState = WindowState.Normal;
@@ -1007,10 +955,10 @@ namespace FeralCode
             if (_mediaPlayer != null)
             {
                 _mediaPlayer.TimeChanged -= MediaPlayer_TimeChanged;
-                _mediaPlayer.LengthChanged -= MediaPlayer_LengthChanged; // <-- Fixed to "-="
+                _mediaPlayer.LengthChanged -= MediaPlayer_LengthChanged; 
                 _mediaPlayer.Stop();
                 _mediaPlayer.Dispose();
-				_liveProgressTimer?.Stop();
+                _liveProgressTimer?.Stop();
             }
         }
         

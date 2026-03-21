@@ -66,10 +66,20 @@ namespace FeralCode
                     _players[i] = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
                     _views[i].MediaPlayer = _players[i];
 
-                    string audioCodec = "copy";
-                    if (double.TryParse(channels[i].Number, out double chNum) && chNum >= 100 && chNum < 200)
+                    // --- NEW: Settings-Driven Audio Codec Logic ---
+                    string audioCodec = "aac"; // Default to the ultra-stable AAC
+
+                    var settings = SettingsManager.Load();
+                    if (!settings.ForceAacAudio)
                     {
-                        audioCodec = "aac";
+                        // The user disabled forced AAC, so default to raw Passthrough
+                        audioCodec = "copy";
+                        
+                        // ...but still catch the specific 100-199 channel block!
+                        if (double.TryParse(channels[i].Number, out double chNum) && chNum >= 100 && chNum < 200)
+                        {
+                            audioCodec = "aac";
+                        }
                     }
 
                     string streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[i].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";

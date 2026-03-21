@@ -26,6 +26,7 @@ namespace FeralCode
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
 			ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
+			ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;
 
             // NEW: Load Guide Duration
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
@@ -296,6 +297,7 @@ namespace FeralCode
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
 			_settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
+			_settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
             
             if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
@@ -328,6 +330,13 @@ namespace FeralCode
                 Application.Current.Resources.MergedDictionaries.Add(newDictionary);
             }
             catch { }
+        }
+		
+		private void ForceAacCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            var settings = SettingsManager.Load();
+            settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
+            SettingsManager.Save(settings);
         }
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
