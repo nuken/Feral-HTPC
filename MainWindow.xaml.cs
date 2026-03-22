@@ -75,7 +75,7 @@ namespace FeralCode
         {
             InitializeComponent();
             Core.Initialize(); 
-            
+            AppLogger.IsEnabled = SettingsManager.Load().EnableDebugLogging;
             AppLogger.Log("=== APPLICATION STARTED ===");
 
             SharedLibVLC = new LibVLC(
@@ -702,15 +702,20 @@ namespace FeralCode
         }
     }
 
-    // --- NEW: Custom Application Logger ---
+   // --- NEW: Custom Application Logger ---
     public static class AppLogger
     {
-        // Force the log file directly onto your Windows Desktop!
+        // --- NEW: Master Kill Switch ---
+        public static bool IsEnabled { get; set; } = false;
+
         private static readonly string LogFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "feral_debug.log");
         private static readonly object _lock = new object();
 
         public static void Log(string message)
         {
+            // Instantly abort and write nothing if the setting is turned off!
+            if (!IsEnabled) return;
+
             try
             {
                 lock (_lock)

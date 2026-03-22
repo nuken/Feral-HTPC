@@ -306,6 +306,7 @@ namespace FeralCode
                 _settings.GuideDurationHours = parsedHours;
             }
             _settings.EnableDebugLogging = EnableLoggingCheckBox.IsChecked ?? false;
+			AppLogger.IsEnabled = _settings.EnableDebugLogging;
             SettingsManager.Save(_settings);
             ApplyTheme(_settings.IsLightTheme);
 
