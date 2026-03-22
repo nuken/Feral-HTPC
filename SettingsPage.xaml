@@ -188,7 +188,7 @@
             
             <CheckBox x:Name="ForceAacCheckBox" 
                       Content="Force AAC Audio Transcoding (Recommended)" 
-                      Foreground="White" FontSize="16" 
+                      Style="{StaticResource BigCheckBox}" 
                       Click="ForceAacCheckBox_Click" />
                       
             <TextBlock Text="Unchecking this enables raw AC-3 Passthrough for OTA channels, but maintains AAC for channels 100-199." 
