@@ -160,8 +160,8 @@
                 </Grid.RowDefinitions>
                 <Border x:Name="ChannelHeaderSpace" Grid.Row="0" Height="35" Margin="0,0,0,5" Background="{DynamicResource AppBackground}"/>
                 <ListBox x:Name="ChannelItemsControl" Grid.Row="1" Focusable="False" IsTabStop="False"
-                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-						 VirtualizingPanel.ScrollUnit="Pixel"
+                         PreviewMouseWheel="ChannelItemsControl_PreviewMouseWheel" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                         VirtualizingPanel.ScrollUnit="Pixel"
                          ScrollViewer.VerticalScrollBarVisibility="Hidden" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource ListBoxItemStyle}">
                     <ListBox.ItemTemplate>

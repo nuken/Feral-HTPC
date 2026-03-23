@@ -49,6 +49,22 @@ namespace FeralCode
             
             this.Loaded += Page_Loaded;
         }
+		
+		private void ChannelItemsControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // 1. Tell WPF "I got this, don't scroll the left column."
+            e.Handled = true;
+
+            // 2. Package up the exact speed and direction of the scroll wheel movement
+            var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+            {
+                RoutedEvent = UIElement.MouseWheelEvent,
+                Source = sender
+            };
+
+            // 3. Fire it directly at the main Guide Scroller so they move together!
+            TimelineScroller.RaiseEvent(eventArg);
+        }
 
         // --- NEW: Helper to extract the internal ScrollViewer out of the virtualizing ListBoxes ---
         private ScrollViewer? GetScrollViewer(DependencyObject depObj)
