@@ -145,10 +145,23 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,30">
-            <StackPanel Orientation="Horizontal">
-                <Button Content="🏠 Back" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
-                <TextBlock Text="⚙️ SYSTEM SETTINGS" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="🏠 Back" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
+                    <TextBlock Text="⚙️ SYSTEM SETTINGS" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="CurrentVersionText" Text="v1.0.0-beta" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                    <Button x:Name="CheckVersionBtn" Content="Check for Updates" Click="CheckVersion_Click" Style="{StaticResource ModernButton}" Padding="15,8" FontSize="14"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <StackPanel Grid.Row="1" HorizontalAlignment="Left" Width="600">

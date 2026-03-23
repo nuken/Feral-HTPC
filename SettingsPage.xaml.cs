@@ -8,6 +8,8 @@ using System.Windows.Navigation;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.Http;
+using System.Reflection;
 
 namespace FeralCode
 {
@@ -40,8 +42,59 @@ namespace FeralCode
             // --- NEW: Display the formatted Mobile Remote URL ---
             string localIp = GetLocalIPAddress();
             LocalRemoteUrlBox.Text = $"http://{localIp}:{_settings.WebServerPort}";
+			string localVersion = "1.0.0-beta"; // Fallback
+            try
+            {
+                var versionAttr = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+                if (versionAttr != null) localVersion = versionAttr.InformationalVersion;
+            }
+            catch { }
+            
+            CurrentVersionText.Text = $"v{localVersion}";
 
             this.Loaded += Page_Loaded;
+        }
+		
+		// --- NEW: VERSION CHECK LOGIC ---
+        private async void CheckVersion_Click(object sender, RoutedEventArgs e)
+        {
+            CheckVersionBtn.IsEnabled = false;
+            CheckVersionBtn.Content = "Checking...";
+
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    // WARNING: Replace this URL with the RAW link to your version.txt on GitHub or your server!
+                    // The ?t= trick prevents aggressive caching so it always gets the latest file.
+                    string repoUrl = $"https://raw.githubusercontent.com/nuken/Feral-HTPC/refs/heads/main/version.txt?t={DateTime.Now.Ticks}";
+                    
+                    string remoteVersion = await client.GetStringAsync(repoUrl);
+                    remoteVersion = remoteVersion.Trim();
+
+                    // Strip the "v" from our UI text so we are just comparing "1.0.0-beta" to "1.0.0-beta"
+                    string localVersion = CurrentVersionText.Text.Replace("v", "").Trim();
+
+                    if (string.Equals(remoteVersion, localVersion, StringComparison.OrdinalIgnoreCase))
+                    {
+                        MessageBox.Show($"You are running the latest version!\n\nCurrent Version: {localVersion}", "Up to Date", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show($"A new version is available!\n\nYour Version: {localVersion}\nLatest Version: {remoteVersion}\n\nPlease check the project repository to download the latest release.", "Update Available", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    }
+                }
+            }
+            catch
+            {
+                MessageBox.Show("Could not connect to the update server. Please check your internet connection and try again later.", "Update Check Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally
+            {
+                // Reset the button UI
+                CheckVersionBtn.IsEnabled = true;
+                CheckVersionBtn.Content = "Check for Updates";
+            }
         }
 
         // --- NEW: Helper to find the physical network IP ---
