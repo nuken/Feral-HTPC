@@ -16,6 +16,7 @@ using System.Net.Sockets;
 using Microsoft.Extensions.FileProviders;
 using System.Reflection;
 using System.IO;
+using System.Diagnostics;
 
 namespace FeralCode
 {
@@ -87,7 +88,6 @@ namespace FeralCode
                 "--file-caching=3000"
             );
 
-            // --- NEW: The Public Release Spam Filter ---
             // A list of harmless native VLC errors/warnings to hide from end-users
             string[] ignoredVlcMessages = new[]
             {
@@ -98,10 +98,10 @@ namespace FeralCode
                 "non-dated audio buffer received",   // Normal stream transition warning
                 "Timestamp conversion failed",       // Harmless missing clock warning
                 "Could not convert timestamp",       // Harmless missing clock warning
-				"buffer deadlock prevented",         // Harmless auto-recovery from weak signal
-				"buffer too late",                   // Harmless auto-recovery from weak signal
-                "mpeg4audio: AAC channels",           // Harmless audio format notice
-				"No PCR received",                   // Harmless missing clock warning
+                "buffer deadlock prevented",         // Harmless auto-recovery from weak signal
+                "buffer too late",                   // Harmless auto-recovery from weak signal
+                "mpeg4audio: AAC channels",          // Harmless audio format notice
+                "No PCR received",                   // Harmless missing clock warning
                 "Broken stream",                     // Harmless clock delay workaround
                 "waiting for SPS/PPS"                // Harmless waiting for H.264 keyframe
             };
@@ -110,7 +110,6 @@ namespace FeralCode
             {
                 if (e.Level == LogLevel.Warning || e.Level == LogLevel.Error || e.Level == LogLevel.Notice)
                 {
-                    // Check if the VLC message contains any of our ignored phrases
                     bool isIgnored = ignoredVlcMessages.Any(ignored => 
                         e.Message.Contains(ignored, StringComparison.OrdinalIgnoreCase));
                     
@@ -461,6 +460,7 @@ namespace FeralCode
                     });
 
                     _webHost.MapPost("/api/remote/stats", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleStats()); return Results.Ok(); });
+                    
                     _webHost.MapPost("/api/remote/fullscreen", () =>
                     {
                         Application.Current.Dispatcher.Invoke(() =>
@@ -674,48 +674,95 @@ namespace FeralCode
                         return Results.Ok(settings.ExternalStreams);
                     });
 
-                    _webHost.MapPost("/api/remote/playapp/{id}", (string id) =>
+                    _webHost.MapPost("/api/remote/playapp/{id}", async (string id) =>
                     {
-                        Application.Current.Dispatcher.Invoke(() => 
+                        var settings = SettingsManager.Load();
+                        var stream = settings.ExternalStreams.FirstOrDefault(s => s.Id == id);
+                        
+                        if (stream != null)
                         {
-                            var settings = SettingsManager.Load();
-                            var stream = settings.ExternalStreams.FirstOrDefault(s => s.Id == id);
-                            if (stream != null)
+                            // 1. Launch the app on the UI thread
+                            Application.Current.Dispatcher.Invoke(() => 
                             {
                                 try
                                 {
+                                    var windowStyle = settings.StartPlayersFullscreen ? ProcessWindowStyle.Maximized : ProcessWindowStyle.Normal;
+
                                     if (stream.Service.ToLower() == "netflix")
                                     {
                                         string input = stream.StreamId.Trim();
                                         string finalUrl = input.StartsWith("http") ? input : $"https://www.netflix.com/watch/{input}";
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app={finalUrl} --start-fullscreen", UseShellExecute = true });
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app=\"{finalUrl}\" --start-fullscreen", UseShellExecute = true, WindowStyle = windowStyle });
                                     }
                                     else if (stream.Service.ToLower() == "disney+")
                                     {
                                         string input = stream.StreamId.Trim();
                                         string finalUrl = input.StartsWith("http") ? input : $"https://www.disneyplus.com/play/{input}";
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app={finalUrl} --start-fullscreen", UseShellExecute = true });
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app=\"{finalUrl}\" --start-fullscreen", UseShellExecute = true, WindowStyle = windowStyle });
                                     }
-                                    else if (stream.Service.ToLower() == "prime video")
+                                    else if (stream.Service.ToLower() == "youtube")
                                     {
                                         string input = stream.StreamId.Trim();
-                                        string finalUrl = input.StartsWith("http") ? input : $"https://www.primevideo.com/watch/{input}";
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app={finalUrl} --start-fullscreen", UseShellExecute = true });
+                                        string finalUrl = (string.IsNullOrWhiteSpace(input) || input.Equals("app", StringComparison.OrdinalIgnoreCase)) 
+                                            ? "https://www.youtube.com/tv" 
+                                            : (input.StartsWith("http") ? input : $"https://www.youtube.com/watch?v={input}");
+
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { 
+                                            FileName = "msedge", 
+                                            Arguments = $"--app=\"{finalUrl}\" --start-fullscreen", 
+                                            UseShellExecute = true, 
+                                            WindowStyle = windowStyle 
+                                        });
                                     }
                                     else
                                     {
-                                        string uri = stream.Service.ToLower() switch
-                                        {
-                                            "hulu" => $"hulu://w/{stream.StreamId.Trim()}",
-                                            _ => stream.StreamId.Trim()
-                                        };
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
+                                        // Custom URI
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(stream.StreamId.Trim()) { UseShellExecute = true, WindowStyle = windowStyle });
                                     }
                                 }
                                 catch { }
+                            });
+
+                            // 2. Inject Keystrokes for Fullscreen Asynchronously (so UI doesn't freeze)
+                            if (settings.StartPlayersFullscreen)
+                            {
+                                await Task.Delay(1500); 
+                                
+                                keybd_event(0x7A, 0, 0, 0);      
+                                await Task.Delay(50);
+                                keybd_event(0x7A, 0, 0x0002, 0); 
+
+                                if (stream.Service.ToLower() == "youtube")
+                                {
+                                    await Task.Delay(2500); 
+
+                                    int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
+                                    int screenHeight = (int)SystemParameters.PrimaryScreenHeight;
+
+                                    SetCursorPos(screenWidth / 2, screenHeight / 3);
+
+                                    mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                                    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+
+                                    await Task.Delay(100); 
+
+                                    keybd_event(0x46, 0, 0, 0);      
+                                    await Task.Delay(50);
+                                    keybd_event(0x46, 0, 0x0002, 0); 
+                                    
+                                    await Task.Delay(100);
+
+                                    keybd_event(0x4B, 0, 0, 0);      
+                                    await Task.Delay(50);
+                                    keybd_event(0x4B, 0, 0x0002, 0); 
+
+                                    SetCursorPos(9999, 9999); 
+                                }
                             }
-                        });
-                        return Results.Ok();
+
+                            return Results.Ok();
+                        }
+                        return Results.NotFound();
                     });
                     
                     await _webHost.RunAsync();
@@ -728,10 +775,8 @@ namespace FeralCode
         }
     }
 
-   // --- NEW: Custom Application Logger ---
     public static class AppLogger
     {
-        // --- NEW: Master Kill Switch ---
         public static bool IsEnabled { get; set; } = false;
 
         private static readonly string LogFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "feral_debug.log");
@@ -739,7 +784,6 @@ namespace FeralCode
 
         public static void Log(string message)
         {
-            // Instantly abort and write nothing if the setting is turned off!
             if (!IsEnabled) return;
 
             try
@@ -749,7 +793,7 @@ namespace FeralCode
                     File.AppendAllText(LogFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}");
                 }
             }
-            catch { /* Do not crash the app if logging fails */ }
+            catch { }
         }
     }
 }

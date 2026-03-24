@@ -236,8 +236,7 @@
                         <ComboBox x:Name="StreamServiceBox" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0">
                             <ComboBoxItem Content="Netflix" IsSelected="True"/>
                             <ComboBoxItem Content="Disney+"/>
-                            <ComboBoxItem Content="Hulu"/>
-                            <ComboBoxItem Content="Prime Video"/>
+                            <ComboBoxItem Content="YouTube"/>
                             <ComboBoxItem Content="Custom URI"/>
                         </ComboBox>
                     </StackPanel>

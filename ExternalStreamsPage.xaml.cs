@@ -4,19 +4,29 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Threading.Tasks; // <-- Added for Task.Delay
-using System.Runtime.InteropServices; // <-- Added for keybd_event
+using System.Threading.Tasks; 
+using System.Runtime.InteropServices; 
 
 namespace FeralCode
 {
     public partial class ExternalStreamsPage : Page
     {
-        // --- NEW: Import Windows API for Key Injection ---
+        // --- Import Windows API for Key and Mouse Injection ---
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
         
+        [DllImport("user32.dll")]
+        private static extern bool SetCursorPos(int X, int Y);
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
+
         private const byte VK_F11 = 0x7A;
+        private const byte VK_F = 0x46;
+        private const byte VK_K = 0x4B;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        private const uint MOUSEEVENTF_LEFTUP = 0x0004;
 
         public ExternalStreamsPage()
         {
@@ -62,7 +72,6 @@ namespace FeralCode
 
                 btn.Content = stack;
                 
-                // IMPORTANT: Changed to async so we can use Task.Delay
                 btn.Click += Stream_Click;
 
                 StreamsWrapPanel.Children.Add(btn);
@@ -78,13 +87,11 @@ namespace FeralCode
             {
                 "netflix" => new SolidColorBrush(Color.FromRgb(229, 9, 20)),      
                 "disney+" => new SolidColorBrush(Color.FromRgb(17, 60, 207)),     
-                "hulu" => new SolidColorBrush(Color.FromRgb(28, 231, 131)),       
-                "prime video" => new SolidColorBrush(Color.FromRgb(0, 168, 225)), 
-                _ => new SolidColorBrush(Color.FromRgb(50, 50, 50))               
+                "youtube" => new SolidColorBrush(Color.FromRgb(255, 0, 0)),        
+                _ => new SolidColorBrush(Color.FromRgb(50, 50, 50))                
             };
         }
 
-        // --- NEW: Added 'async' keyword to this method ---
         private async void Stream_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ExternalStream stream)
@@ -92,16 +99,17 @@ namespace FeralCode
                 try
                 {
                     var settings = SettingsManager.Load();
-                    
-                    // We also tell Windows to maximize the window right out of the gate, just to be safe
                     var windowStyle = settings.StartPlayersFullscreen ? ProcessWindowStyle.Maximized : ProcessWindowStyle.Normal;
 
                     if (stream.Service.ToLower() == "netflix")
                     {
+                        string input = stream.StreamId.Trim();
+                        string finalUrl = input.StartsWith("http") ? input : $"https://www.netflix.com/watch/{input}";
+                        
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = "msedge", 
-                            Arguments = $"--app=https://www.netflix.com/watch/{stream.StreamId.Trim()}",
+                            Arguments = $"--app=\"{finalUrl}\"",
                             UseShellExecute = true,
                             WindowStyle = windowStyle
                         });
@@ -114,26 +122,75 @@ namespace FeralCode
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = "msedge", 
-                            Arguments = $"--app={finalUrl}",
+                            Arguments = $"--app=\"{finalUrl}\"",
                             UseShellExecute = true,
                             WindowStyle = windowStyle
                         });
                     }
+                    else if (stream.Service.ToLower() == "youtube")
+                    {
+                        string input = stream.StreamId.Trim();
+                        string finalUrl = (string.IsNullOrWhiteSpace(input) || input.Equals("app", StringComparison.OrdinalIgnoreCase)) 
+                            ? "https://www.youtube.com/tv" 
+                            : (input.StartsWith("http") ? input : $"https://www.youtube.com/watch?v={input}");
+
+                        Process.Start(new ProcessStartInfo { 
+                            FileName = "msedge", 
+                            Arguments = $"--app=\"{finalUrl}\" --start-fullscreen", 
+                            UseShellExecute = true, 
+                            WindowStyle = windowStyle 
+                        });
+                    }
                     else
                     {
+                        // Custom URI Fallback
                         string uri = BuildUri(stream);
                         Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true, WindowStyle = windowStyle });
                     }
 
-                    // --- NEW: The HTPC F11 Injection Bypass ---
+                    // The HTPC Fullscreen & YouTube Injection Bypass
                     if (settings.StartPlayersFullscreen)
                     {
-                        // Wait 1.5 seconds for the PWA window to fully render and steal the keyboard focus
+                        // Wait for the Edge PWA window to initially render
                         await Task.Delay(1500); 
                         
-                        // Programmatically tap the 'F11' key on behalf of the user to force true full screen!
-                        keybd_event(VK_F11, 0, 0, 0);             // Key Down
-                        keybd_event(VK_F11, 0, KEYEVENTF_KEYUP, 0); // Key Up
+                        keybd_event(VK_F11, 0, 0, 0);      // F11 down
+                        await Task.Delay(50);
+                        keybd_event(VK_F11, 0, KEYEVENTF_KEYUP, 0); // F11 up
+
+                        if (stream.Service.ToLower() == "youtube")
+                        {
+                            // Give YouTube's standard web player time to load the video
+                            await Task.Delay(2500); 
+
+                            // Calculate center of screen
+                            int screenWidth = (int)SystemParameters.PrimaryScreenWidth;
+                            int screenHeight = (int)SystemParameters.PrimaryScreenHeight;
+
+                            // 1. Move mouse to the upper-center of the screen
+                            SetCursorPos(screenWidth / 2, screenHeight / 3);
+
+                            // 2. Send a quick Left Mouse Click to register interaction with the document
+                            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+
+                            await Task.Delay(100); 
+
+                            // 3. Send the 'f' key
+                            keybd_event(VK_F, 0, 0, 0);      
+                            await Task.Delay(50);
+                            keybd_event(VK_F, 0, KEYEVENTF_KEYUP, 0); 
+                            
+                            await Task.Delay(100);
+
+                            // 4. Send the 'k' key to unpause
+                            keybd_event(VK_K, 0, 0, 0);      
+                            await Task.Delay(50);
+                            keybd_event(VK_K, 0, KEYEVENTF_KEYUP, 0); 
+
+                            // 5. Hide the mouse by throwing it into the extreme bottom-right corner 
+                            SetCursorPos(9999, 9999); 
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -148,11 +205,10 @@ namespace FeralCode
             string id = stream.StreamId.Trim();
             return stream.Service.ToLower() switch
             {
-                "netflix" => $"https://www.netflix.com/watch/{id}",
-                "disney+" => $"disneyplus://video/{id}",
-                "hulu" => $"hulu://w/{id}",
-                "prime video" => $"https://www.primevideo.com/watch/{id}",
-                _ => id 
+                "netflix" => id.StartsWith("http") ? id : $"https://www.netflix.com/watch/{id}",
+                "disney+" => id.StartsWith("http") ? id : $"https://www.disneyplus.com/play/{id}",
+                "youtube" => id.StartsWith("http") ? id : $"https://www.youtube.com/watch?v={id}",
+                _ => id // Returns the exact custom URI input
             };
         }
 
