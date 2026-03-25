@@ -129,11 +129,15 @@ namespace FeralCode
             ChannelsListControl.ItemsSource = filtered.ToList();
 
             // Auto-focus the first channel so the D-Pad is instantly ready!
-            _ = Dispatcher.BeginInvoke(new Action(() =>
-            {
-                var request = new TraversalRequest(FocusNavigationDirection.First);
-                ChannelsListControl.MoveFocus(request);
-            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+// FIX: Don't steal focus if the user is actively typing in the search box
+if (!SearchTextBox.IsKeyboardFocusWithin)
+{
+    _ = Dispatcher.BeginInvoke(new Action(() =>
+    {
+        var request = new TraversalRequest(FocusNavigationDirection.First);
+        ChannelsListControl.MoveFocus(request);
+    }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+}
         }
 
         private void Channel_Click(object sender, RoutedEventArgs e)
@@ -201,6 +205,11 @@ namespace FeralCode
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+			// --- NEW: Prevent Backspace from exiting the page if typing in a TextBox ---
+    if (e.Key == Key.Back && e.OriginalSource is TextBox)
+    {
+        return; // Let the TextBox handle the backspace normally!
+    }
             // Safely close the dropdown if it's open, instead of leaving the page!
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
