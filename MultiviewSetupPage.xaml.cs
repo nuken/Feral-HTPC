@@ -15,11 +15,18 @@ namespace FeralCode
         private string _baseUrl = "";
         private UserSettings _settings;
         private Button? _lastFocusedChannel;
+		private System.Windows.Threading.DispatcherTimer _searchTimer = new System.Windows.Threading.DispatcherTimer();
 
         public MultiviewSetupPage()
         {
             InitializeComponent();
             _settings = SettingsManager.Load();
+			_searchTimer.Interval = TimeSpan.FromMilliseconds(300);
+			_searchTimer.Tick += (s, args) =>
+			{
+				_searchTimer.Stop();
+				ApplyFilters();
+			};
             this.Loaded += Page_Loaded;
         }
 
@@ -101,7 +108,14 @@ namespace FeralCode
             ApplyFilters();
         }
 
-        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilters();
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+{
+    if (_masterChannelList == null || _masterChannelList.Count == 0) return;
+
+    // --- THE FIX: Reset the timer on every keystroke instead of filtering instantly ---
+    _searchTimer.Stop();
+    _searchTimer.Start();
+}
 
         private void ApplyFilters()
         {

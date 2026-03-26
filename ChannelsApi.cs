@@ -325,31 +325,33 @@ namespace FeralCode
         }
 
         public bool HasIdentifier(string query)
+{
+    if (string.IsNullOrWhiteSpace(query)) return false;
+    query = query.Trim();
+
+    // --- FIX: Use IndexOf to allow for partial substring matches! ---
+    if (Number.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+    if (Id.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+    if (Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+    if (CallSign.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+    if (ExtraData != null)
+    {
+        foreach (var kvp in ExtraData)
         {
-            if (string.IsNullOrWhiteSpace(query)) return false;
-            query = query.Trim();
-
-            if (query.Equals(Number, StringComparison.OrdinalIgnoreCase)) return true;
-            if (query.Equals(Id, StringComparison.OrdinalIgnoreCase)) return true;
-            if (query.Equals(Name, StringComparison.OrdinalIgnoreCase)) return true;
-            if (query.Equals(CallSign, StringComparison.OrdinalIgnoreCase)) return true;
-
-            if (ExtraData != null)
+            if (kvp.Value.ValueKind == System.Text.Json.JsonValueKind.String || 
+                kvp.Value.ValueKind == System.Text.Json.JsonValueKind.Number)
             {
-                foreach (var kvp in ExtraData)
+                string val = kvp.Value.ToString().Trim();
+                if (val.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    if (kvp.Value.ValueKind == System.Text.Json.JsonValueKind.String || 
-                        kvp.Value.ValueKind == System.Text.Json.JsonValueKind.Number)
-                    {
-                        if (query.Equals(kvp.Value.ToString().Trim(), StringComparison.OrdinalIgnoreCase))
-                        {
-                            return true;
-                        }
-                    }
+                    return true;
                 }
             }
-            return false;
         }
+    }
+    return false;
+}
     }
     
     public class GuideData

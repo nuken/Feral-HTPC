@@ -31,6 +31,7 @@ namespace FeralCode
         private System.Windows.Controls.Button? _lastFocusedAiringButton;      
         private DateTime _lastTimeFocus = DateTime.MinValue;
         private DateTime _lastLeftKeyPressTime = DateTime.MinValue; 
+		private System.Windows.Threading.DispatcherTimer _searchTimer = new System.Windows.Threading.DispatcherTimer();
         
         public GuidePage()
         {
@@ -41,6 +42,12 @@ namespace FeralCode
             
             _settings = SettingsManager.Load();
             ApplyTheme(_settings.IsLightTheme);
+			_searchTimer.Interval = TimeSpan.FromMilliseconds(300);
+			_searchTimer.Tick += (s, args) =>
+			{
+				_searchTimer.Stop();
+				ApplyFilters();
+			};
             
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
             _refreshTimer.Interval = TimeSpan.FromMinutes(1);
@@ -316,8 +323,14 @@ namespace FeralCode
             ApplyFilters();
         }
         
-        private void SearchTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => ApplyFilters();
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+{
+    if (_masterChannelList == null || _masterChannelList.Count == 0) return;
 
+    // --- THE FIX: Reset the timer on every keystroke instead of filtering instantly ---
+    _searchTimer.Stop();
+    _searchTimer.Start();
+}
         private void ApplyFilters()
         {
             if (_masterChannelList == null) return;
@@ -350,11 +363,15 @@ namespace FeralCode
             if (TimelineScroller != null) TimelineScroller.ScrollToHorizontalOffset(0);
 
             // Auto focus the very first channel in the newly filtered list
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                var request = new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First);
-                GuideItemsControl.MoveFocus(request);
-            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+// FIX: Don't steal focus if the user is actively typing in the search box
+if (!SearchTextBox.IsKeyboardFocusWithin)
+{
+    Dispatcher.BeginInvoke(new Action(() =>
+    {
+        var request = new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First);
+        GuideItemsControl.MoveFocus(request);
+    }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+}
         }
 
         // --- NEW: Sync the Virtualized Guide and Channel Lists ---
@@ -411,7 +428,12 @@ namespace FeralCode
         
         private void Page_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (ModalOverlay.Visibility == Visibility.Visible)
+            // --- NEW: Prevent Backspace from exiting the page if typing in a TextBox ---
+    if (e.Key == System.Windows.Input.Key.Back && e.OriginalSource is TextBox)
+    {
+        return; // Let the TextBox handle the backspace normally!
+    }
+			if (ModalOverlay.Visibility == Visibility.Visible)
             {
                 if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
                 {
