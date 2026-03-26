@@ -27,8 +27,9 @@ namespace FeralCode
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
-			ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
-			ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;            
+            ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
+            ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;            
+            
             // NEW: Load the Logging Setting
             EnableLoggingCheckBox.IsChecked = _settings.EnableDebugLogging;
 
@@ -36,10 +37,15 @@ namespace FeralCode
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
             else if (_settings.GuideDurationHours == 12) GuideDurationBox.SelectedIndex = 2;
             else GuideDurationBox.SelectedIndex = 0; // Default to 4
-			
-			StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
+            
+            StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
 
-            // --- NEW: Display the formatted Mobile Remote URL ---
+            // --- FIX: Formatted Mobile Remote URL Display ---
+            // Grabs local network IP and pairs it with WebServerPort (fallback to 8080 if 0)
+            int currentPort = _settings.WebServerPort > 0 ? _settings.WebServerPort : 8080; 
+            LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{currentPort}";
+
+            // --- Version Display ---
             string localVersion = "1.0.0-beta"; // Fallback
             try
             {
@@ -61,8 +67,8 @@ namespace FeralCode
 
             this.Loaded += Page_Loaded;
         }
-		
-		// --- NEW: VERSION CHECK LOGIC ---
+        
+        // --- VERSION CHECK LOGIC ---
         private async void CheckVersion_Click(object sender, RoutedEventArgs e)
         {
             CheckVersionBtn.IsEnabled = false;
@@ -72,14 +78,10 @@ namespace FeralCode
             {
                 using (HttpClient client = new HttpClient())
                 {
-                    // WARNING: Replace this URL with the RAW link to your version.txt on GitHub or your server!
-                    // The ?t= trick prevents aggressive caching so it always gets the latest file.
                     string repoUrl = $"https://raw.githubusercontent.com/nuken/Feral-HTPC/refs/heads/main/version.txt";
-                    
                     string remoteVersion = await client.GetStringAsync(repoUrl);
                     remoteVersion = remoteVersion.Trim();
 
-                    // Strip the "v" from our UI text so we are just comparing "1.0.0-beta" to "1.0.0-beta"
                     string localVersion = CurrentVersionText.Text.Replace("v", "").Trim();
 
                     if (string.Equals(remoteVersion, localVersion, StringComparison.OrdinalIgnoreCase))
@@ -98,19 +100,16 @@ namespace FeralCode
             }
             finally
             {
-                // Reset the button UI
                 CheckVersionBtn.IsEnabled = true;
                 CheckVersionBtn.Content = "Check for Updates";
             }
         }
 
-        // --- NEW: Helper to find the physical network IP ---
+        // --- Helper to find the physical network IP ---
         private string GetLocalIPAddress()
         {
             try
             {
-                // Create a dummy UDP socket. It doesn't actually connect over the network, 
-                // but it forces Windows to reveal the primary local network adapter's IP.
                 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
                 {
                     socket.Connect("8.8.8.8", 65530);
@@ -127,7 +126,6 @@ namespace FeralCode
                 // Silently swallow errors if the PC is completely offline
             }
             
-            // Fallback if the socket trick fails
             return "127.0.0.1"; 
         }
 
@@ -136,7 +134,7 @@ namespace FeralCode
             ManualServerIpBox.Focus(); 
             RefreshStreamsList(); 
 
-            // --- NEW: Auto-Discover Local Channels DVR Servers ---
+            // --- Auto-Discover Local Channels DVR Servers ---
             try
             {
                 var api = new ChannelsApi();
@@ -144,7 +142,6 @@ namespace FeralCode
                 
                 DiscoveredServersPanel.Children.Clear(); // Remove "Searching..." text
 
-                // --- NEW: Filter out duplicate IPs (IPv4/IPv6 overlaps) ---
                 var uniqueServers = discoveredServers
                     .GroupBy(s => s.BaseUrl)
                     .Select(g => g.First())
@@ -158,7 +155,7 @@ namespace FeralCode
                 }
                 else
                 {
-                    foreach (var server in uniqueServers) // Correctly loops through uniqueServers!
+                    foreach (var server in uniqueServers) 
                     {
                         var rb = new RadioButton
                         {
@@ -171,11 +168,9 @@ namespace FeralCode
                         
                         rb.Checked += (s, ev) => 
                         { 
-                            // When a user clicks a discovered server, clear the manual box
                             ManualServerIpBox.Text = ""; 
                         };
 
-                        // If this discovered server matches the saved one, select it and clear the manual box
                         if (server.BaseUrl == _settings.LastServerAddress)
                         {
                             rb.IsChecked = true;
@@ -195,10 +190,8 @@ namespace FeralCode
             }
         }
 
-        // --- NEW: Sync the list and the textbox ---
         private void ManualServerIpBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            // If the user starts typing manually, uncheck all discovered servers
             if (!string.IsNullOrWhiteSpace(ManualServerIpBox.Text) && DiscoveredServersPanel != null)
             {
                 foreach (var child in DiscoveredServersPanel.Children)
@@ -209,7 +202,6 @@ namespace FeralCode
         }
 
         // --- EXTERNAL STREAM LOGIC ---
-
         private void RefreshStreamsList()
         {
             SavedStreamsList.Children.Clear();
@@ -294,9 +286,7 @@ namespace FeralCode
             }
         }
 
-        // ----------------------------------
-
-        // --- NEW: SAFE NAVIGATION ---
+        // --- SAFE NAVIGATION ---
         private void HomeButton_Click(object sender, RoutedEventArgs e)
         {
             if (NavigationService != null && NavigationService.CanGoBack)
@@ -311,11 +301,8 @@ namespace FeralCode
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            // --- NEW: Format the Server Address for remote/manual connections ---
-            // --- NEW: Get Server Address from either the Manual Box or the Discovered List ---
             string serverInput = ManualServerIpBox.Text.Trim();
 
-            // If the manual box is empty, check if a discovered server is selected
             if (string.IsNullOrWhiteSpace(serverInput))
             {
                 var selectedRadio = DiscoveredServersPanel.Children.OfType<RadioButton>().FirstOrDefault(r => r.IsChecked == true);
@@ -325,48 +312,44 @@ namespace FeralCode
                 }
             }
 
-            // Validation check to prevent saving a completely blank server URL
             if (string.IsNullOrWhiteSpace(serverInput))
             {
                 MessageBox.Show("Please select a discovered server or enter one manually.", "Missing Server Address", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return; // Stop the save process
+                return;
             }
 
             if (!string.IsNullOrWhiteSpace(serverInput))
             {
-                // 1. If the user forgot http:// or https://, add it automatically
                 if (!serverInput.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
                     serverInput = "http://" + serverInput;
                 }
 
-                // 2. If the user didn't specify a port (e.g., the only colon is in "http://"), add the default :8089
                 int colonIndex = serverInput.IndexOf(':', serverInput.IndexOf("://") + 3);
                 if (colonIndex == -1)
                 {
                     serverInput += ":8089";
                 }
 
-                // 3. Update the text box so the user sees the corrected URL
                 ManualServerIpBox.Text = serverInput;
             }
             
             _settings.LastServerAddress = serverInput;
-            // -------------------------------------------------------------------
-
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
-			_settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
-			_settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
+            _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
+            _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
             
             if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
                 _settings.GuideDurationHours = parsedHours;
             }
+            
             _settings.EnableDebugLogging = EnableLoggingCheckBox.IsChecked ?? false;
-			AppLogger.IsEnabled = _settings.EnableDebugLogging;
+            AppLogger.IsEnabled = _settings.EnableDebugLogging;
+            
             SettingsManager.Save(_settings);
             ApplyTheme(_settings.IsLightTheme);
 
@@ -394,8 +377,8 @@ namespace FeralCode
             }
             catch { }
         }
-		
-		private void ForceAacCheckBox_Click(object sender, RoutedEventArgs e)
+        
+        private void ForceAacCheckBox_Click(object sender, RoutedEventArgs e)
         {
             var settings = SettingsManager.Load();
             settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
@@ -404,16 +387,14 @@ namespace FeralCode
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // Prevent Backspace from exiting the page if typing in a TextBox
             if (e.Key == Key.Back && e.OriginalSource is TextBox)
             {
-                return; // Let the TextBox handle the backspace normally!
+                return;
             }
 
-            // --- NEW: SAFE NAVIGATION ---
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                e.Handled = true; // Stop WPF native navigation
+                e.Handled = true; 
                 
                 if (NavigationService != null && NavigationService.CanGoBack)
                 {

@@ -4,10 +4,11 @@
       Title="Settings" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}"
       PreviewKeyDown="Page_PreviewKeyDown" KeepAlive="True" Focusable="True">
     <Page.Resources>
-	    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#007ACC"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#007ACC"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#007ACC"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White"/>
+        
         <Style TargetType="Button" x:Key="ModernButton">
             <Setter Property="Background" Value="{DynamicResource LiveBorder}"/>
             <Setter Property="Foreground" Value="White"/>
@@ -68,7 +69,8 @@
                 </Setter.Value>
             </Setter>
         </Style>
-		<Style TargetType="ComboBox">
+        
+        <Style TargetType="ComboBox">
             <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
@@ -133,10 +135,41 @@
                 </Setter.Value>
             </Setter>
         </Style>
-		
-    </Page.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
 
+        <Style TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border Name="Border" Padding="20,12" Margin="0,0,5,0" Background="{DynamicResource CardBackground}" CornerRadius="8,8,0,0" BorderBrush="Transparent" BorderThickness="0,0,0,3">
+                            <ContentPresenter x:Name="ContentSite" VerticalAlignment="Center" HorizontalAlignment="Center" ContentSource="Header" Margin="10,2"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="{DynamicResource PanelBackground}" />
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource LiveBorder}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondary}" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                    <Condition Property="IsSelected" Value="False" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="{DynamicResource LiveHover}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Page.Resources>
+    
     <Grid Margin="40">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -144,7 +177,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,30">
+        <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,20">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -164,101 +197,116 @@
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="1" HorizontalAlignment="Left" Width="600">
+        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0" Margin="0,0,0,20">
             
-            <TextBlock Text="Mobile Remote Control URL" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
-            <TextBox x:Name="LocalRemoteUrlBox" FontSize="18" Padding="10" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource StatusConnecting}" BorderBrush="Transparent" BorderThickness="0" Margin="0,0,0,30" IsReadOnly="True"/>
-            
-            <TextBlock Text="Discovered Local DVR Servers" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
-            <Border Background="{DynamicResource CardBackground}" CornerRadius="6" Padding="10" Margin="0,0,0,15" MinHeight="45">
-                <StackPanel x:Name="DiscoveredServersPanel">
-                    <TextBlock x:Name="SearchingText" Text="Searching network..." FontStyle="Italic" Foreground="{DynamicResource TextSecondary}"/>
-                </StackPanel>
-            </Border>
+            <TabItem Header="🌐 Servers &amp; Remote">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,15,0,0">
+                    <StackPanel HorizontalAlignment="Left" Width="600" Margin="10,10,0,10">
+                        <TextBlock Text="Mobile Remote Control URL" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
+                        <TextBox x:Name="LocalRemoteUrlBox" FontSize="18" Padding="10" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource StatusConnecting}" BorderBrush="Transparent" BorderThickness="0" Margin="0,0,0,30" IsReadOnly="True"/>
+                        
+                        <TextBlock Text="Discovered Local DVR Servers" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
+                        <Border Background="{DynamicResource CardBackground}" CornerRadius="6" Padding="10" Margin="0,0,0,15" MinHeight="45">
+                            <StackPanel x:Name="DiscoveredServersPanel">
+                                <TextBlock x:Name="SearchingText" Text="Searching network..." FontStyle="Italic" Foreground="{DynamicResource TextSecondary}"/>
+                            </StackPanel>
+                        </Border>
 
-            <TextBlock Text="Manual DVR Server Address (VPN / Remote)" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
-            <TextBox x:Name="ManualServerIpBox" FontSize="18" Padding="10" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,0,30" TextChanged="ManualServerIpBox_TextChanged"/>
-
-            <TextBlock Text="Playback Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
-            <CheckBox x:Name="AutoSkipCheckBox" Content="Auto-Skip Commercials in Movies" Style="{StaticResource BigCheckBox}"/>
-            
-            <CheckBox x:Name="FullscreenCheckBox" Content="Start Players in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
-
-            <TextBlock Text="Guide Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
-            <StackPanel Orientation="Horizontal" Margin="5,0,0,10">
-                <TextBlock Text="Hours of Guide Data to Load:" FontSize="18" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
-                <ComboBox x:Name="GuideDurationBox" FontSize="18" Width="150" Padding="10,5">
-                    <ComboBoxItem Content="4 Hours" Tag="4"/>
-                    <ComboBoxItem Content="8 Hours" Tag="8"/>
-                    <ComboBoxItem Content="12 Hours" Tag="12"/>
-                </ComboBox>
-            </StackPanel>
-			
-			<CheckBox x:Name="StickyHeadersCheckBox" Content="Keep Time Headers Visible While Scrolling (Sticky)" Style="{StaticResource BigCheckBox}"/>
-            
-			<StackPanel Margin="0,20,0,0">
-            <TextBlock Text="Audio Settings" FontSize="20" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-            
-            <CheckBox x:Name="ForceAacCheckBox" 
-                      Content="Force AAC Audio Transcoding (Recommended)" 
-                      Style="{StaticResource BigCheckBox}" 
-                      Click="ForceAacCheckBox_Click" />
-                      
-            <TextBlock Text="Unchecking this enables raw AC-3 Passthrough for OTA channels, but maintains AAC for channels 100-199." 
-                       Foreground="Gray" FontSize="12" Margin="20,5,0,0" TextWrapping="Wrap" />
-            </StackPanel>
-			
-            <TextBlock Text="Appearance" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
-            <CheckBox x:Name="LightModeCheckBox" Content="Enable Light Theme (Global)" Style="{StaticResource BigCheckBox}"/>			
-            <CheckBox x:Name="ShowExtendedMetadata" Content="Enhanced Metadata" Style="{StaticResource BigCheckBox}"/>
-
-            <TextBlock Text="Advanced / Developer" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
-            <CheckBox x:Name="EnableLoggingCheckBox" Content="Enable Debug Logging (Saves feral_debug.log to Desktop)" Style="{StaticResource BigCheckBox}"/>
-
-            <TextBlock Text="External Streaming Apps" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,40,0,15"/>
-            
-            <Border Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="1.5*"/>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                        <TextBlock Text="Show / Movie Title" Foreground="{DynamicResource TextSecondary}" FontSize="12" Margin="0,0,0,4"/>
-                        <TextBox x:Name="StreamTitleBox" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2"/>
+                        <TextBlock Text="Manual DVR Server Address (VPN / Remote)" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
+                        <TextBox x:Name="ManualServerIpBox" FontSize="18" Padding="10" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,0,30" TextChanged="ManualServerIpBox_TextChanged"/>
                     </StackPanel>
+                </ScrollViewer>
+            </TabItem>
 
-                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                        <TextBlock Text="Service" Foreground="{DynamicResource TextSecondary}" FontSize="12" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="StreamServiceBox" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0">
-                            <ComboBoxItem Content="Netflix" IsSelected="True"/>
-                            <ComboBoxItem Content="Disney+"/>
-                            <ComboBoxItem Content="YouTube"/>
-                            <ComboBoxItem Content="Custom URI"/>
-                        </ComboBox>
+            <TabItem Header="📺 Preferences">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,15,0,0">
+                    <StackPanel HorizontalAlignment="Left" Width="600" Margin="10,10,0,10">
+                        <TextBlock Text="Playback Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
+                        <CheckBox x:Name="AutoSkipCheckBox" Content="Auto-Skip Commercials in Movies" Style="{StaticResource BigCheckBox}"/>
+                        <CheckBox x:Name="FullscreenCheckBox" Content="Start Players in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
+
+                        <TextBlock Text="Guide Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
+                        <StackPanel Orientation="Horizontal" Margin="5,0,0,10">
+                            <TextBlock Text="Hours of Guide Data to Load:" FontSize="18" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                            <ComboBox x:Name="GuideDurationBox" FontSize="18" Width="150" Padding="10,5">
+                                <ComboBoxItem Content="4 Hours" Tag="4"/>
+                                <ComboBoxItem Content="8 Hours" Tag="8"/>
+                                <ComboBoxItem Content="12 Hours" Tag="12"/>
+                            </ComboBox>
+                        </StackPanel>
+                        <CheckBox x:Name="StickyHeadersCheckBox" Content="Keep Time Headers Visible While Scrolling (Sticky)" Style="{StaticResource BigCheckBox}"/>
+                        
+                        <StackPanel Margin="0,20,0,0">
+                            <TextBlock Text="Audio Settings" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,10"/>
+                            <CheckBox x:Name="ForceAacCheckBox" Content="Force AAC Audio Transcoding (Recommended)" Style="{StaticResource BigCheckBox}" Click="ForceAacCheckBox_Click" />
+                            <TextBlock Text="Unchecking this enables raw AC-3 Passthrough for OTA channels, but maintains AAC for channels 100-199." Foreground="Gray" FontSize="12" Margin="20,5,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        
+                        <TextBlock Text="Appearance" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
+                        <CheckBox x:Name="LightModeCheckBox" Content="Enable Light Theme (Global)" Style="{StaticResource BigCheckBox}"/>            
+                        <CheckBox x:Name="ShowExtendedMetadata" Content="Enhanced Metadata" Style="{StaticResource BigCheckBox}"/>
                     </StackPanel>
+                </ScrollViewer>
+            </TabItem>
 
-                    <StackPanel Grid.Column="2" Margin="0,0,10,0">
-                        <TextBlock Text="Deep Link ID / URL" Foreground="{DynamicResource TextSecondary}" FontSize="12" Margin="0,0,0,4"/>
-                        <TextBox x:Name="StreamIdBox" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2"/>
+            <TabItem Header="📱 External Apps">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,15,0,0">
+                    <StackPanel HorizontalAlignment="Left" Width="600" Margin="10,10,0,10">
+                        <TextBlock Text="External Streaming Apps" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
+                        
+                        <Border Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="1.5*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                    <TextBlock Text="Show / Movie Title" Foreground="{DynamicResource TextSecondary}" FontSize="12" Margin="0,0,0,4"/>
+                                    <TextBox x:Name="StreamTitleBox" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                    <TextBlock Text="Service" Foreground="{DynamicResource TextSecondary}" FontSize="12" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="StreamServiceBox" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0">
+                                        <ComboBoxItem Content="Netflix" IsSelected="True"/>
+                                        <ComboBoxItem Content="Disney+"/>
+                                        <ComboBoxItem Content="YouTube"/>
+                                        <ComboBoxItem Content="Custom URI"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Margin="0,0,10,0">
+                                    <TextBlock Text="Deep Link ID / URL" Foreground="{DynamicResource TextSecondary}" FontSize="12" Margin="0,0,0,4"/>
+                                    <TextBox x:Name="StreamIdBox" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2"/>
+                                </StackPanel>
+
+                                <Button Grid.Column="3" Content="➕ Add" VerticalAlignment="Bottom" Click="AddStream_Click" 
+                                        Background="{DynamicResource LiveBorder}" Foreground="White" FontSize="14" FontWeight="Bold" Padding="15,8" BorderThickness="0" Cursor="Hand" Height="41"/>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel x:Name="SavedStreamsList"/>
                     </StackPanel>
+                </ScrollViewer>
+            </TabItem>
 
-                    <Button Grid.Column="3" Content="➕ Add" VerticalAlignment="Bottom" Click="AddStream_Click" 
-                            Background="{DynamicResource LiveBorder}" Foreground="White" FontSize="14" FontWeight="Bold" Padding="15,8" BorderThickness="0" Cursor="Hand" Height="41"/>
-                </Grid>
-            </Border>
-
-            <StackPanel x:Name="SavedStreamsList"/>
-
-        </StackPanel>
+            <TabItem Header="🛠️ Advanced">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,15,0,0">
+                    <StackPanel HorizontalAlignment="Left" Width="600" Margin="10,10,0,10">
+                        <TextBlock Text="Advanced / Developer" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
+                        <CheckBox x:Name="EnableLoggingCheckBox" Content="Enable Debug Logging (Saves feral_debug.log to Desktop)" Style="{StaticResource BigCheckBox}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            
+        </TabControl>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
             <TextBlock x:Name="SaveStatusText" FontSize="16" Foreground="{DynamicResource StatusSuccess}" VerticalAlignment="Center" Margin="0,0,20,0" Visibility="Collapsed" Text="✔ Settings Saved!"/>
             <Button x:Name="SaveButton" Content="💾 Save Settings" Click="SaveButton_Click" Style="{StaticResource ModernButton}" Width="200"/>
         </StackPanel>
     </Grid>
-  </ScrollViewer>
 </Page>
