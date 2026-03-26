@@ -77,7 +77,7 @@ namespace FeralCode
             return servers;
         }
 		
-		public async Task<List<TvShow>> GetShowsAsync(string baseUrl)
+        public async Task<List<TvShow>> GetShowsAsync(string baseUrl)
         {
             if (_cachedShows != null && (DateTime.Now - _lastShowsFetch).TotalMinutes < 5) return _cachedShows;
 
@@ -95,7 +95,14 @@ namespace FeralCode
 
             try {
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/episodes");
-                _cachedEpisodes = System.Text.Json.JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
+                var episodes = System.Text.Json.JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
+                
+                // --- NEW: Filter out stream links from the library ---
+                episodes.RemoveAll(e => !string.IsNullOrWhiteSpace(e.Path) && 
+                                       (e.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
+                                        e.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
+
+                _cachedEpisodes = episodes;
                 _lastEpisodesFetch = DateTime.Now;
                 return _cachedEpisodes;
             } catch { return new List<Episode>(); }
@@ -175,9 +182,14 @@ namespace FeralCode
             {
                 var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 string url = $"{baseUrl.TrimEnd('/')}/api/v1/movies";
-                var response = await _http.GetStringAsync(url); // Also swapped this to use the shared _http client for better performance!
+                var response = await _http.GetStringAsync(url);
                 
                 var movies = System.Text.Json.JsonSerializer.Deserialize<List<Movie>>(response, options) ?? new List<Movie>();
+
+                // --- NEW: Filter out stream links from the library ---
+                movies.RemoveAll(m => !string.IsNullOrWhiteSpace(m.Path) && 
+                                     (m.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
+                                      m.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
 
                 // Ensure the Poster URLs are absolute so WPF can render them
                 foreach (var movie in movies)
@@ -255,7 +267,7 @@ namespace FeralCode
             }
             return stationsList;
         }
-	}	
+    }	
 		
     public class Channel
     {
@@ -293,7 +305,7 @@ namespace FeralCode
         [System.Text.Json.Serialization.JsonIgnore]
         public List<Airing>? CurrentAirings { get; set; }
 		
-		[System.Text.Json.Serialization.JsonPropertyName("CurrentShowTitle")]
+        [System.Text.Json.Serialization.JsonPropertyName("CurrentShowTitle")]
         public string CurrentShowTitle => (CurrentAirings != null && CurrentAirings.Count > 0) ? CurrentAirings[0].DisplayTitle : "Unknown Programming";
 
         private string GetValue(params string[] searchKeys)
@@ -366,29 +378,29 @@ namespace FeralCode
             }
         }
 		
-		[JsonIgnore]
-public string? ChannelImageUrl 
-{
-    get 
-    {
-        if (!ChannelRaw.HasValue) return null;
-        var el = ChannelRaw.Value;
-        
-        if (el.ValueKind == JsonValueKind.Array)
+        [JsonIgnore]
+        public string? ChannelImageUrl 
         {
-            var e = el.EnumerateArray();
-            if (e.MoveNext()) el = e.Current;
-            else return null;
+            get 
+            {
+                if (!ChannelRaw.HasValue) return null;
+                var el = ChannelRaw.Value;
+                
+                if (el.ValueKind == JsonValueKind.Array)
+                {
+                    var e = el.EnumerateArray();
+                    if (e.MoveNext()) el = e.Current;
+                    else return null;
+                }
+                
+                if (el.ValueKind == JsonValueKind.Object)
+                {
+                    if (el.TryGetProperty("Image", out var img) && img.ValueKind == JsonValueKind.String) return img.GetString();
+                    if (el.TryGetProperty("logo", out var logo) && logo.ValueKind == JsonValueKind.String) return logo.GetString();
+                }
+                return null;
+            }
         }
-        
-        if (el.ValueKind == JsonValueKind.Object)
-        {
-            if (el.TryGetProperty("Image", out var img) && img.ValueKind == JsonValueKind.String) return img.GetString();
-            if (el.TryGetProperty("logo", out var logo) && logo.ValueKind == JsonValueKind.String) return logo.GetString();
-        }
-        return null;
-    }
-}
 
         [JsonPropertyName("Airings")] public List<Airing>? Airings { get; set; }
     }
@@ -406,7 +418,7 @@ public string? ChannelImageUrl
 
         [JsonPropertyName("Title")] public string? Title { get; set; }
         [JsonPropertyName("EpisodeTitle")] public string? EpisodeTitle { get; set; }
-		[JsonPropertyName("Source")] public string? Source { get; set; }
+        [JsonPropertyName("Source")] public string? Source { get; set; }
 
         [JsonIgnore]
         public string DisplayTitle => !string.IsNullOrWhiteSpace(Title) ? Title : 
@@ -416,7 +428,7 @@ public string? ChannelImageUrl
 
         [JsonExtensionData] public Dictionary<string, JsonElement>? ExtensionData { get; set; }
 		
-		[JsonIgnore]
+        [JsonIgnore]
         public double LeftOffset { get; set; } = 0;
 
         [JsonIgnore]
@@ -471,9 +483,9 @@ public string? ChannelImageUrl
             }
         }
 		
-		[JsonPropertyName("Categories")] public List<string>? Categories { get; set; }
+        [JsonPropertyName("Categories")] public List<string>? Categories { get; set; }
         [JsonPropertyName("Genres")] public List<string>? Genres { get; set; }
-		[JsonPropertyName("SeasonNumber")] public int? SeasonNumber { get; set; }
+        [JsonPropertyName("SeasonNumber")] public int? SeasonNumber { get; set; }
         [JsonPropertyName("EpisodeNumber")] public int? EpisodeNumber { get; set; }
         [JsonPropertyName("OriginalDate")] public string? OriginalDate { get; set; }
 
@@ -564,16 +576,20 @@ public string? ChannelImageUrl
         public string? ChannelLogoUrl { get; set; }
     }
 	
-	// --- NEW: The Data Model for Recorded Movies ---
+    // --- NEW: The Data Model for Recorded Movies ---
     public class Movie
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public string Id { get; set; } = "";
 
+        // --- NEW: Path for filtering out Stream Links ---
+        [System.Text.Json.Serialization.JsonPropertyName("path")]
+        public string Path { get; set; } = "";
+
         [System.Text.Json.Serialization.JsonPropertyName("title")]
         public string Title { get; set; } = "Unknown Title";
 		
-		[System.Text.Json.Serialization.JsonPropertyName("commercials")]
+        [System.Text.Json.Serialization.JsonPropertyName("commercials")]
         public List<double>? Commercials { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("summary")]
@@ -585,7 +601,7 @@ public string? ChannelImageUrl
         [System.Text.Json.Serialization.JsonPropertyName("release_year")]
         public int? ReleaseYear { get; set; }
 		
-		[System.Text.Json.Serialization.JsonPropertyName("genres")] 
+        [System.Text.Json.Serialization.JsonPropertyName("genres")] 
         public List<string>? Genres { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("watched")] 
@@ -594,7 +610,7 @@ public string? ChannelImageUrl
         [System.Text.Json.Serialization.JsonPropertyName("created_at")] 
         public long CreatedAt { get; set; }
 		
-		[System.Text.Json.Serialization.JsonPropertyName("content_rating")]
+        [System.Text.Json.Serialization.JsonPropertyName("content_rating")]
         public string? ContentRating { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("tags")]
@@ -635,14 +651,14 @@ public string? ChannelImageUrl
         public string? Logo { get; set; }
     }
 	
-	public class TvShow
+    public class TvShow
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("name")] public string Name { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string ImageUrl { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("episode_count")] public int EpisodeCount { get; set; }
 		
-		[System.Text.Json.Serialization.JsonPropertyName("genres")] 
+        [System.Text.Json.Serialization.JsonPropertyName("genres")] 
         public List<string>? Genres { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("release_year")] 
@@ -662,6 +678,10 @@ public string? ChannelImageUrl
     public class Episode
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
+
+        // --- NEW: Path for filtering out Stream Links ---
+        [System.Text.Json.Serialization.JsonPropertyName("path")] public string Path { get; set; } = "";
+
         [System.Text.Json.Serialization.JsonPropertyName("show_id")] public string ShowId { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("title")] public string Title { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("episode_title")] public string EpisodeTitle { get; set; } = "";
@@ -669,7 +689,7 @@ public string? ChannelImageUrl
         [System.Text.Json.Serialization.JsonPropertyName("episode_number")] public int EpisodeNumber { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string ImageUrl { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("commercials")] public List<double>? Commercials { get; set; }
-		[System.Text.Json.Serialization.JsonPropertyName("content_rating")] public string? ContentRating { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("content_rating")] public string? ContentRating { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("tags")] public List<string>? Tags { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("cast")] public List<string>? Cast { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("full_summary")] public string? FullSummary { get; set; }

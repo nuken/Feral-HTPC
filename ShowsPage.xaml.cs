@@ -17,7 +17,7 @@ namespace FeralCode
         private List<TvShow> _allShows = new List<TvShow>(); 
         private string _baseUrl = "";
         private UserSettings _settings;
-        private Button? _lastFocusedShowButton; // --- NEW: Track the focused show poster ---
+        private Button? _lastFocusedShowButton; 
 
         public ShowsPage()
         {
@@ -130,10 +130,8 @@ namespace FeralCode
                 grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
                 var img = new Image { Stretch = Stretch.UniformToFill };
-                // Use the RAM-friendly loader to make the grid use 90% less memory
                 try { if (!string.IsNullOrWhiteSpace(show.ImageUrl)) img.Source = LoadOptimizedImage(show.ImageUrl, 300); } catch { }
 
-                // FIXED: Explicitly forcing a dark background and white/gray text so it doesn't break in Light Mode!
                 var textBorder = new Border { Background = new SolidColorBrush(Color.FromRgb(30, 30, 30)), Padding = new Thickness(10) };
                 var textPanel = new StackPanel();
                 
@@ -151,15 +149,17 @@ namespace FeralCode
                 ShowsWrapPanel.Children.Add(btn);
             }
 
-            if (ShowsWrapPanel.Children.Count > 0)
+            if (ShowsWrapPanel.Children.Count > 0 && !SearchBox.IsKeyboardFocusWithin)
+            {
                 ((UIElement)ShowsWrapPanel.Children[0]).Focus();
+            }
         }
 
         private void Show_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is TvShow show)
             {
-                _lastFocusedShowButton = btn; // Save our exact spot in the grid!
+                _lastFocusedShowButton = btn;
                 OpenEpisodesView(show);
             }
         }
@@ -178,7 +178,7 @@ namespace FeralCode
 
             SelectedShowTitle.Text = show.Name;
             SelectedShowCount.Text = $"{show.EpisodeCount} Recorded Episodes";
-            SelectedShowImage.Source = null; // Clear the previous show poster so it doesn't ghost
+            SelectedShowImage.Source = null; 
             if (!string.IsNullOrWhiteSpace(show.ImageUrl))
             {
                 LoadModalImageAsync(SelectedShowImage, show.ImageUrl, 400); 
@@ -188,10 +188,8 @@ namespace FeralCode
             EpisodesStackPanel.Children.Clear();
             _selectedSeasonButton = null;
 
-            // Get all episodes for this specific show
             var showEpisodes = _allEpisodes.Where(ep => ep.ShowId == show.Id).ToList();
 
-            // --- FIXED: Populate Extended Metadata safely ---
             if (_settings.ShowExtendedMetadata && showEpisodes.Any())
             {
                 var firstEp = showEpisodes.First();
@@ -200,7 +198,6 @@ namespace FeralCode
                 ModalRating.Text = !string.IsNullOrWhiteSpace(firstEp.ContentRating) ? firstEp.ContentRating : "NR";
                 RatingBorder.Visibility = string.IsNullOrWhiteSpace(firstEp.ContentRating) ? Visibility.Collapsed : Visibility.Visible;
 
-                // Safely check if lists exist before attempting to join them
                 ModalTags.Text = (firstEp.Tags != null && firstEp.Tags.Any()) ? string.Join(" • ", firstEp.Tags) : "";
                 ModalCast.Text = (firstEp.Cast != null && firstEp.Cast.Any()) ? $"Starring: {string.Join(", ", firstEp.Cast.Take(6))}" : "";
             }
@@ -209,36 +206,31 @@ namespace FeralCode
                 ModalExtendedData.Visibility = Visibility.Collapsed;
             }
             
-            // Group the episodes by Season Number, sorting the Seasons descending (newest season at the top)
             var seasons = showEpisodes.GroupBy(ep => ep.SeasonNumber).OrderByDescending(g => g.Key).ToList();
 
             if (!seasons.Any()) return;
 
-            // Dynamically create the Season buttons
             foreach (var seasonGroup in seasons)
             {
                 int seasonNum = seasonGroup.Key;
-                // If the DVR labels it Season 0, it's usually "Specials" or "Extras"
                 string seasonText = seasonNum == 0 ? "Specials" : $"Season {seasonNum}";
 
                 var btn = new Button
                 {
                     Content = new TextBlock { Text = seasonText, FontSize = 16, FontWeight = FontWeights.Bold },
                     Style = (Style)FindResource("SeasonButton"),
-                    Tag = seasonGroup.ToList() // Store the episodes for this season inside the button's memory
+                    Tag = seasonGroup.ToList() 
                 };
 
                 btn.Click += SeasonButton_Click;
                 SeasonsStackPanel.Children.Add(btn);
             }
 
-            // Auto-select the latest season by default when the page opens
             if (SeasonsStackPanel.Children.Count > 0)
             {
                 var latestSeasonBtn = (Button)SeasonsStackPanel.Children[0];
                 SelectSeason(latestSeasonBtn);
                 
-                // Drop focus immediately into the Episodes list so the user can just hit "Play"
                 if (EpisodesStackPanel.Children.Count > 0)
                     ((UIElement)EpisodesStackPanel.Children[0]).Focus();
             }
@@ -254,19 +246,16 @@ namespace FeralCode
 
         private void SelectSeason(Button btn)
         {
-            // 1. Reset the styling of the previously selected button
             if (_selectedSeasonButton != null)
             {
                 _selectedSeasonButton.Background = Brushes.Transparent;
                 _selectedSeasonButton.SetResourceReference(Button.ForegroundProperty, "TextSecondary");
             }
 
-            // 2. Highlight the newly clicked button
             _selectedSeasonButton = btn;
             _selectedSeasonButton.SetResourceReference(Button.BackgroundProperty, "CardHoverBackground");
             _selectedSeasonButton.SetResourceReference(Button.ForegroundProperty, "TextPrimary");
 
-            // 3. Render the episodes for this specific season
             if (btn.Tag is List<Episode> seasonEpisodes)
             {
                 RenderEpisodesList(seasonEpisodes);
@@ -277,7 +266,6 @@ namespace FeralCode
         {
             EpisodesStackPanel.Children.Clear();
 
-            // Order episodes within the season (Newest episode at the top)
             var sortedEpisodes = episodes.OrderByDescending(ep => ep.EpisodeNumber).ToList();
 
             foreach (var ep in sortedEpisodes)
@@ -304,6 +292,7 @@ namespace FeralCode
                 EpisodesStackPanel.Children.Add(btn);
             }
         }
+        
         private void Episode_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is Episode ep)
@@ -317,24 +306,21 @@ namespace FeralCode
 
                     mainWin.ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
                     
-                    // --- NEW FIX: Hide & Seek ---
                     mainWin.ActivePlayerWindow.Closed += (s, args) => 
                     {
                         mainWin.ActivePlayerWindow = null;
-                        mainWin.Show(); // 1. Bring the main basecamp back!
+                        mainWin.Show(); 
                         Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                     };
                     
-                    mainWin.Hide(); // 2. Hide the basecamp
-                    mainWin.ActivePlayerWindow.Show(); // 3. Launch the player
+                    mainWin.Hide(); 
+                    mainWin.ActivePlayerWindow.Show(); 
                 }
             }
         }
 
-        // --- NEW: SAFE NAVIGATION ---
         private void BackButton_Click(object sender, RoutedEventArgs e)
         {
-            // If the filter bar is open, Back should simply close it.
             if (FilterBar.Visibility == Visibility.Visible)
             {
                 ApplyAndClose_Click(null!, null!);
@@ -350,7 +336,6 @@ namespace FeralCode
                 BackButton.Content = "🏠 Home";
                 ToggleFiltersButton.Visibility = Visibility.Visible;
                 
-                // Snap focus back to the show we were just looking at!
                 if (_lastFocusedShowButton != null && _lastFocusedShowButton.IsVisible)
                 {
                     _lastFocusedShowButton.Focus();
@@ -375,9 +360,14 @@ namespace FeralCode
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (e.Key == Key.Back && e.OriginalSource is TextBox)
+            {
+                return; 
+            }
+
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                e.Handled = true; // Stop WPF native navigation immediately
+                e.Handled = true; 
                 BackButton_Click(null!, null!);
                 return;
             }
@@ -394,8 +384,6 @@ namespace FeralCode
                 return;
             }
 
-            // --- THE SCROLLVIEWER BYPASS ---
-            // Forces the arrow keys to instantly move focus between Shows, Seasons, and Episodes
             if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right)
             {
                 if (Keyboard.FocusedElement is Button btn && (btn.Tag is TvShow || btn.Tag is Episode || btn.Tag is List<Episode>))
@@ -426,7 +414,6 @@ namespace FeralCode
             }
         }
         
-        // --- RAM SAVER FOR IMAGES ---
         private System.Windows.Media.Imaging.BitmapImage LoadOptimizedImage(string imageUrl, int width = 300)
         {
             var bitmap = new System.Windows.Media.Imaging.BitmapImage();
@@ -437,28 +424,24 @@ namespace FeralCode
             return bitmap;
         }
         
-        // --- Bulletproof Async Image Loader for Modals ---
         private async void LoadModalImageAsync(System.Windows.Controls.Image imgControl, string url, int width)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(url)) return;
                 
-                // 1. Download the raw image bytes in the background (Bypasses WPF's HTTP bug)
                 using var client = new System.Net.Http.HttpClient();
                 var bytes = await client.GetByteArrayAsync(url);
                 using var stream = new System.IO.MemoryStream(bytes);
                 
-                // 2. Decode the memory stream safely (Bypasses the "Gold Rush" JPEG crash)
                 var bitmap = new System.Windows.Media.Imaging.BitmapImage();
                 bitmap.BeginInit();
                 bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
                 bitmap.DecodePixelWidth = width;
                 bitmap.StreamSource = stream;
                 bitmap.EndInit();
-                bitmap.Freeze(); // 100% safe to freeze now that the download is complete!
+                bitmap.Freeze(); 
                 
-                // 3. Assign the completely processed image to the UI
                 imgControl.Source = bitmap;
             }
             catch { }

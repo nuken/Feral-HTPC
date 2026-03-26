@@ -20,7 +20,6 @@ namespace FeralCode
         private Button? _lastFocusedMovieButton;
         private Movie? _selectedMovie;
 
-        // NEW: The master list to filter against
         private List<Movie> _allMovies = new List<Movie>();
 
         public MoviesPage()
@@ -35,7 +34,7 @@ namespace FeralCode
         private async void Page_Loaded(object sender, RoutedEventArgs e)
         {
             _settings = SettingsManager.Load();
-			string baseUrl = _settings.LastServerAddress;
+            string baseUrl = _settings.LastServerAddress;
 
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
@@ -85,8 +84,6 @@ namespace FeralCode
             }
         }
 
-        // --- FILTERING LOGIC ---
-
         private void ToggleFilters_Click(object sender, RoutedEventArgs e)
         {
             if (FilterBar.Visibility == Visibility.Visible)
@@ -122,47 +119,41 @@ namespace FeralCode
 
             var filtered = _allMovies.AsEnumerable();
 
-            // 1. Text Search
             string search = SearchBox.Text.ToLower().Trim();
             if (!string.IsNullOrEmpty(search))
                 filtered = filtered.Where(m => m.Title.ToLower().Contains(search));
 
-            // 2. Genre
             if (GenreBox.SelectedIndex > 0 && GenreBox.SelectedItem is ComboBoxItem gi)
             {
                 string genre = gi.Content.ToString() ?? "";
                 filtered = filtered.Where(m => m.Genres != null && m.Genres.Contains(genre));
             }
 
-            // 3. Watched Status
             if (WatchedBox.SelectedIndex == 1) filtered = filtered.Where(m => !m.Watched);
             if (WatchedBox.SelectedIndex == 2) filtered = filtered.Where(m => m.Watched);
 
-            // 4. Sort
             if (SortBox.SelectedIndex == 0) filtered = filtered.OrderBy(m => m.Title);
             else if (SortBox.SelectedIndex == 1) filtered = filtered.OrderByDescending(m => m.CreatedAt);
             else if (SortBox.SelectedIndex == 2) filtered = filtered.OrderByDescending(m => m.ReleaseYear);
 
-            // Update the Observable Collection! This safely updates the UI.
             _movies.Clear();
             foreach (var m in filtered)
             {
                 _movies.Add(m);
             }
 
-            // Update count text
             StatusText.Text = $"{_movies.Count} Movies Loaded.";
 
-            // Auto-focus the very first movie so the D-Pad is ready to go!
-            _ = Dispatcher.BeginInvoke(new Action(() =>
+            if (!SearchBox.IsKeyboardFocusWithin)
             {
-                var request = new TraversalRequest(FocusNavigationDirection.First);
-                MoviesItemsControl.MoveFocus(request);
-            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                _ = Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    var request = new TraversalRequest(FocusNavigationDirection.First);
+                    MoviesItemsControl.MoveFocus(request);
+                }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
         }
 
-
-        // --- NEW: SAFE NAVIGATION ---
         private void HomeButton_Click(object sender, RoutedEventArgs e)
         {
             if (NavigationService != null && NavigationService.CanGoBack)
@@ -187,13 +178,12 @@ namespace FeralCode
                 ModalDuration.Text = movie.DisplayDuration;
                 ModalSummary.Text = movie.Summary;
 
-                ModalImage.Source = null; // Clear the previous movie poster so it doesn't ghost
+                ModalImage.Source = null; 
                 if (!string.IsNullOrWhiteSpace(movie.PosterUrl))
                 {
                     LoadModalImageAsync(ModalImage, movie.PosterUrl, 400);
                 }
 
-                // --- NEW: Populate Extended Metadata if Setting is ON ---
                 if (_settings.ShowExtendedMetadata)
                 {
                     ModalExtendedData.Visibility = Visibility.Visible;
@@ -204,7 +194,6 @@ namespace FeralCode
                     ModalTags.Text = movie.Tags != null ? string.Join(" • ", movie.Tags) : "";
                     ModalDirectors.Text = movie.Directors != null ? $"Directed by: {string.Join(", ", movie.Directors)}" : "";
                     
-                    // Grab up to the first 6 cast members so it doesn't overflow the screen
                     ModalCast.Text = movie.Cast != null ? $"Starring: {string.Join(", ", movie.Cast.Take(6))}" : "";
                 }
                 else
@@ -231,7 +220,7 @@ namespace FeralCode
             if (_selectedMovie != null)
             {
                 string baseUrl = _settings.LastServerAddress;
-                
+
                 string streamUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie.Id}/hls/master.m3u8?vcodec=copy&acodec=copy";
                 
                 var mainWindow = (MainWindow)Application.Current.MainWindow;
@@ -239,16 +228,15 @@ namespace FeralCode
 
                 mainWindow.ActivePlayerWindow = new PlayerWindow(streamUrl, _selectedMovie.Title, _selectedMovie.PosterUrl, _selectedMovie.Commercials);
                 
-                // --- NEW FIX: Hide & Seek ---
                 mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                 {
                     mainWindow.ActivePlayerWindow = null; 
-                    mainWindow.Show(); // 1. Bring the main basecamp back!
+                    mainWindow.Show(); 
                     Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                 };
                 
-                mainWindow.Hide(); // 2. Hide the basecamp
-                mainWindow.ActivePlayerWindow.Show(); // 3. Launch the player
+                mainWindow.Hide(); 
+                mainWindow.ActivePlayerWindow.Show(); 
                 
                 ModalOverlay.Visibility = Visibility.Collapsed;
                 ToggleFiltersButton.Visibility = Visibility.Visible;
@@ -257,6 +245,11 @@ namespace FeralCode
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (e.Key == Key.Back && e.OriginalSource is TextBox)
+            {
+                return; 
+            }
+
             if (ModalOverlay.Visibility == Visibility.Visible)
             {
                 if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
@@ -267,10 +260,9 @@ namespace FeralCode
                 }
             }
             
-            // --- NEW: SAFE NAVIGATION ---
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                e.Handled = true; // Stop WPF native navigation
+                e.Handled = true;
 
                 if (FilterBar.Visibility == Visibility.Visible)
                 {
@@ -304,9 +296,6 @@ namespace FeralCode
                 return;
             }
 
-            // --- NEW: THE SCROLLVIEWER BYPASS ---
-            // If the user presses an arrow key while highlighting a movie, 
-            // force the focus to jump instantly and stop the ScrollViewer from micro-scrolling!
             if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right)
             {
                 if (Keyboard.FocusedElement is Button btn && btn.Tag is Movie)
@@ -337,7 +326,6 @@ namespace FeralCode
             }
         }
 		
-		// --- NEW: RAM SAVER FOR IMAGES ---
         private System.Windows.Media.Imaging.BitmapImage LoadOptimizedImage(string imageUrl, int width = 300)
         {
             var bitmap = new System.Windows.Media.Imaging.BitmapImage();
@@ -345,38 +333,33 @@ namespace FeralCode
             bitmap.UriSource = new Uri(imageUrl);
             bitmap.DecodePixelWidth = width; 
             bitmap.EndInit();
-            // Removed Freeze() here as well!
             return bitmap;
         }		
-		// --- NEW: Bulletproof Async Image Loader for Modals ---
+
         private async void LoadModalImageAsync(System.Windows.Controls.Image imgControl, string url, int width)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(url)) return;
                 
-                // 1. Download the raw image bytes in the background (Bypasses WPF's HTTP bug)
                 using var client = new System.Net.Http.HttpClient();
                 var bytes = await client.GetByteArrayAsync(url);
                 using var stream = new System.IO.MemoryStream(bytes);
                 
-                // 2. Decode the memory stream safely (Bypasses the "Gold Rush" JPEG crash)
                 var bitmap = new System.Windows.Media.Imaging.BitmapImage();
                 bitmap.BeginInit();
                 bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
                 bitmap.DecodePixelWidth = width;
                 bitmap.StreamSource = stream;
                 bitmap.EndInit();
-                bitmap.Freeze(); // 100% safe to freeze now that the download is complete!
+                bitmap.Freeze(); 
                 
-                // 3. Assign the completely processed image to the UI
                 imgControl.Source = bitmap;
             }
             catch { }
         }
     }
 	
-	// --- NEW: XAML CONVERTER FOR RAM OPTIMIZATION ---
     public class ImageUrlToOptimizedBitmapConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -390,7 +373,6 @@ namespace FeralCode
                     bitmap.UriSource = new Uri(url);
                     bitmap.DecodePixelWidth = 200; 
                     bitmap.EndInit();
-                    // Removed Freeze() so WPF can download it asynchronously!
                     return bitmap;
                 }
                 catch { return null; }
