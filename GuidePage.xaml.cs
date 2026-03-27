@@ -31,7 +31,7 @@ namespace FeralCode
         private System.Windows.Controls.Button? _lastFocusedAiringButton;      
         private DateTime _lastTimeFocus = DateTime.MinValue;
         private DateTime _lastLeftKeyPressTime = DateTime.MinValue; 
-		private System.Windows.Threading.DispatcherTimer _searchTimer = new System.Windows.Threading.DispatcherTimer();
+        private System.Windows.Threading.DispatcherTimer _searchTimer = new System.Windows.Threading.DispatcherTimer();
         
         public GuidePage()
         {
@@ -42,12 +42,12 @@ namespace FeralCode
             
             _settings = SettingsManager.Load();
             ApplyTheme(_settings.IsLightTheme);
-			_searchTimer.Interval = TimeSpan.FromMilliseconds(300);
-			_searchTimer.Tick += (s, args) =>
-			{
-				_searchTimer.Stop();
-				ApplyFilters();
-			};
+            _searchTimer.Interval = TimeSpan.FromMilliseconds(300);
+            _searchTimer.Tick += (s, args) =>
+            {
+                _searchTimer.Stop();
+                ApplyFilters();
+            };
             
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
             _refreshTimer.Interval = TimeSpan.FromMinutes(1);
@@ -56,8 +56,8 @@ namespace FeralCode
             
             this.Loaded += Page_Loaded;
         }
-		
-		private void ChannelItemsControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        
+        private void ChannelItemsControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
             // 1. Tell WPF "I got this, don't scroll the left column."
             e.Handled = true;
@@ -101,9 +101,11 @@ namespace FeralCode
             if (!string.IsNullOrWhiteSpace(collection) && collection != "All Channels")
             {
                 var selected = _collections?.FirstOrDefault(c => c.name == collection);
-                if (selected != null && selected.items != null) targetList = targetList.Where(ch => selected.items.Any(item => ch.HasIdentifier(item)));
+                // --- FIX 1/3: Changed HasIdentifier to IsExactMatch for mobile API collections ---
+                if (selected != null && selected.items != null) targetList = targetList.Where(ch => selected.items.Any(item => ch.IsExactMatch(item)));
             }
 
+            // Keep HasIdentifier for general searching!
             if (!string.IsNullOrWhiteSpace(search)) targetList = targetList.Where(c => c.HasIdentifier(search));
 
             return targetList.Select(c => new
@@ -166,7 +168,8 @@ namespace FeralCode
                 var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedName);
                 if (selectedCollection != null && selectedCollection.items != null)
                 {
-                    _currentFilteredList = _masterChannelList.Where(channel => selectedCollection.items.Any(item => channel.HasIdentifier(item))).ToList();
+                    // --- FIX 2/3: Changed HasIdentifier to IsExactMatch when selecting a dropdown collection ---
+                    _currentFilteredList = _masterChannelList.Where(channel => selectedCollection.items.Any(item => channel.IsExactMatch(item))).ToList();
                 }
             }
 
@@ -324,13 +327,14 @@ namespace FeralCode
         }
         
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-{
-    if (_masterChannelList == null || _masterChannelList.Count == 0) return;
+        {
+            if (_masterChannelList == null || _masterChannelList.Count == 0) return;
 
-    // --- THE FIX: Reset the timer on every keystroke instead of filtering instantly ---
-    _searchTimer.Stop();
-    _searchTimer.Start();
-}
+            // Reset the timer on every keystroke instead of filtering instantly
+            _searchTimer.Stop();
+            _searchTimer.Start();
+        }
+
         private void ApplyFilters()
         {
             if (_masterChannelList == null) return;
@@ -345,15 +349,16 @@ namespace FeralCode
                 var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedCollectionName);
                 if (selectedCollection != null && selectedCollection.items != null)
                 {
-                    filtered = filtered.Where(c => selectedCollection.items.Any(item => c.HasIdentifier(item)));
+                    // --- FIX 3/3: Changed HasIdentifier to IsExactMatch when refreshing the grid filters ---
+                    filtered = filtered.Where(c => selectedCollection.items.Any(item => c.IsExactMatch(item)));
                 }
             }
 
+            // Keep HasIdentifier here so typing "Fox" still finds "Fox Sports"
             if (!string.IsNullOrWhiteSpace(query)) filtered = filtered.Where(c => c.HasIdentifier(query));
 
             _currentFilteredList = filtered.ToList();
             
-            // --- VIRTUALIZATION UPGRADE: No more chunks! Feed everything instantly! ---
             _displayedChannels.Clear();
             foreach (var channel in _currentFilteredList) _displayedChannels.Add(channel);
 
@@ -362,19 +367,16 @@ namespace FeralCode
 
             if (TimelineScroller != null) TimelineScroller.ScrollToHorizontalOffset(0);
 
-            // Auto focus the very first channel in the newly filtered list
-// FIX: Don't steal focus if the user is actively typing in the search box
-if (!SearchTextBox.IsKeyboardFocusWithin)
-{
-    Dispatcher.BeginInvoke(new Action(() =>
-    {
-        var request = new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First);
-        GuideItemsControl.MoveFocus(request);
-    }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-}
+            if (!SearchTextBox.IsKeyboardFocusWithin)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    var request = new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First);
+                    GuideItemsControl.MoveFocus(request);
+                }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
         }
 
-        // --- NEW: Sync the Virtualized Guide and Channel Lists ---
         private void GuideItemsControl_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
             if (e.VerticalChange == 0) return;
@@ -387,7 +389,6 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
 
             if (!_settings.StickyGuideHeaders)
             {
-                // Push the headers up visually exactly as much as we scrolled!
                 TimeHeadersControl.RenderTransform = new System.Windows.Media.TranslateTransform(0, -e.VerticalOffset);
                 ChannelHeaderSpace.RenderTransform = new System.Windows.Media.TranslateTransform(0, -e.VerticalOffset);
             }
@@ -414,7 +415,6 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
                 var guideScroll = GetScrollViewer(GuideItemsControl);
                 if (guideScroll != null)
                 {
-                    // Scroll by native pixels now that the UI supports it!
                     guideScroll.ScrollToVerticalOffset(guideScroll.VerticalOffset - e.Delta);
                 }
             }
@@ -428,12 +428,11 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
         
         private void Page_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // --- NEW: Prevent Backspace from exiting the page if typing in a TextBox ---
-    if (e.Key == System.Windows.Input.Key.Back && e.OriginalSource is TextBox)
-    {
-        return; // Let the TextBox handle the backspace normally!
-    }
-			if (ModalOverlay.Visibility == Visibility.Visible)
+            if (e.Key == System.Windows.Input.Key.Back && e.OriginalSource is TextBox)
+            {
+                return; 
+            }
+            if (ModalOverlay.Visibility == Visibility.Visible)
             {
                 if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
                 {
@@ -443,10 +442,9 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
                 }
             }
             
-            // --- NEW: SAFE NAVIGATION ---
             if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
             {
-                e.Handled = true; // Stop WPF native navigation
+                e.Handled = true; 
                 
                 if (NavigationService != null && NavigationService.CanGoBack)
                 {
@@ -466,9 +464,6 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
                 return;
             }
 
-            // --- NEW: THE INDESTRUCTIBLE FOCUS RECOVERY ---
-            // If an arrow key is pressed, but the focus has slipped out of the guide 
-            // (e.g., clicked the background), this instantly snaps it back to the first channel!
             bool isArrowKey = e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right;
             bool isFocusedOnAiring = Keyboard.FocusedElement is Button fBtn && fBtn.Tag is Airing;
 
@@ -487,8 +482,6 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
             {
                 if (e.Key == System.Windows.Input.Key.Left)
                 {
-                    // FIXED: Dropped to 150ms. 350ms was too long and caused accidental teleports to Channel 1
-                    // when you were just trying to scrub left quickly!
                     if ((DateTime.Now - _lastLeftKeyPressTime).TotalMilliseconds < 150)
                     {
                         e.Handled = true;
@@ -754,16 +747,15 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
 
                     mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _masterChannelList, channelIndex);
                     
-                    // --- NEW FIX: Hide & Seek ---
                     mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                     {
                         mainWindow.ActivePlayerWindow = null; 
-                        mainWindow.Show(); // 1. Bring the main basecamp back!
+                        mainWindow.Show(); 
                         Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedAiringButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                     }; 
                     
-                    mainWindow.Hide(); // 2. Hide the basecamp
-                    mainWindow.ActivePlayerWindow.Show(); // 3. Launch the player
+                    mainWindow.Hide(); 
+                    mainWindow.ActivePlayerWindow.Show(); 
                 }
                 catch (Exception ex)
                 {

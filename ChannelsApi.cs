@@ -352,6 +352,20 @@ namespace FeralCode
     }
     return false;
 }
+
+public bool IsExactMatch(string query)
+{
+    if (string.IsNullOrWhiteSpace(query)) return false;
+    query = query.Trim();
+
+    // For collections, we only want exact 1-to-1 matches, usually against the ID or Number
+    if (string.Equals(Id, query, StringComparison.OrdinalIgnoreCase)) return true;
+    if (string.Equals(Number, query, StringComparison.OrdinalIgnoreCase)) return true;
+    if (string.Equals(CallSign, query, StringComparison.OrdinalIgnoreCase)) return true;
+
+    return false;
+}
+
     }
     
     public class GuideData

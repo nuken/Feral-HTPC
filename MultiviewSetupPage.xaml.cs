@@ -15,18 +15,18 @@ namespace FeralCode
         private string _baseUrl = "";
         private UserSettings _settings;
         private Button? _lastFocusedChannel;
-		private System.Windows.Threading.DispatcherTimer _searchTimer = new System.Windows.Threading.DispatcherTimer();
+        private System.Windows.Threading.DispatcherTimer _searchTimer = new System.Windows.Threading.DispatcherTimer();
 
         public MultiviewSetupPage()
         {
             InitializeComponent();
             _settings = SettingsManager.Load();
-			_searchTimer.Interval = TimeSpan.FromMilliseconds(300);
-			_searchTimer.Tick += (s, args) =>
-			{
-				_searchTimer.Stop();
-				ApplyFilters();
-			};
+            _searchTimer.Interval = TimeSpan.FromMilliseconds(300);
+            _searchTimer.Tick += (s, args) =>
+            {
+                _searchTimer.Stop();
+                ApplyFilters();
+            };
             this.Loaded += Page_Loaded;
         }
 
@@ -109,13 +109,13 @@ namespace FeralCode
         }
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-{
-    if (_masterChannelList == null || _masterChannelList.Count == 0) return;
+        {
+            if (_masterChannelList == null || _masterChannelList.Count == 0) return;
 
-    // --- THE FIX: Reset the timer on every keystroke instead of filtering instantly ---
-    _searchTimer.Stop();
-    _searchTimer.Start();
-}
+            // Reset the timer on every keystroke instead of filtering instantly
+            _searchTimer.Stop();
+            _searchTimer.Start();
+        }
 
         private void ApplyFilters()
         {
@@ -131,7 +131,8 @@ namespace FeralCode
                 var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedCollectionName);
                 if (selectedCollection != null && selectedCollection.items != null)
                 {
-                    filtered = filtered.Where(c => selectedCollection.items.Any(item => c.HasIdentifier(item)));
+                    // --- FIX: Changed HasIdentifier to IsExactMatch for collections ---
+                    filtered = filtered.Where(c => selectedCollection.items.Any(item => c.IsExactMatch(item)));
                 }
             }
 
@@ -143,15 +144,14 @@ namespace FeralCode
             ChannelsListControl.ItemsSource = filtered.ToList();
 
             // Auto-focus the first channel so the D-Pad is instantly ready!
-// FIX: Don't steal focus if the user is actively typing in the search box
-if (!SearchTextBox.IsKeyboardFocusWithin)
-{
-    _ = Dispatcher.BeginInvoke(new Action(() =>
-    {
-        var request = new TraversalRequest(FocusNavigationDirection.First);
-        ChannelsListControl.MoveFocus(request);
-    }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-}
+            if (!SearchTextBox.IsKeyboardFocusWithin)
+            {
+                _ = Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    var request = new TraversalRequest(FocusNavigationDirection.First);
+                    ChannelsListControl.MoveFocus(request);
+                }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
         }
 
         private void Channel_Click(object sender, RoutedEventArgs e)
@@ -190,7 +190,7 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
             var mainWindow = (MainWindow)Application.Current.MainWindow;
             var quadWindow = new QuadPlayerWindow(_baseUrl, _selectedChannels);
             
-            // --- NEW FIX: Hide & Seek ---
+            // --- Hide & Seek ---
             quadWindow.Closed += (s, args) => 
             {
                 mainWindow.Show(); // 1. Bring the main basecamp back!
@@ -219,11 +219,12 @@ if (!SearchTextBox.IsKeyboardFocusWithin)
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-			// --- NEW: Prevent Backspace from exiting the page if typing in a TextBox ---
-    if (e.Key == Key.Back && e.OriginalSource is TextBox)
-    {
-        return; // Let the TextBox handle the backspace normally!
-    }
+            // Prevent Backspace from exiting the page if typing in a TextBox
+            if (e.Key == Key.Back && e.OriginalSource is TextBox)
+            {
+                return; // Let the TextBox handle the backspace normally!
+            }
+
             // Safely close the dropdown if it's open, instead of leaving the page!
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {

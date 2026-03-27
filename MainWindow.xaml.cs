@@ -305,7 +305,7 @@ namespace FeralCode
                                 var selected = collections.FirstOrDefault(c => c.name == collection);
                                 if (selected != null && selected.items != null)
                                 {
-                                    channels = channels.Where(c => selected.items.Any(item => c.HasIdentifier(item))).ToList();
+                                    channels = channels.Where(c => selected.items.Any(item => c.IsExactMatch(item))).ToList();
                                 }
                             }
 
