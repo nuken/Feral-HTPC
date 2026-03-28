@@ -8,6 +8,9 @@ using LibVLCSharp.Shared;
 using System.Windows.Controls;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
+using System.IO;
+using System.Net.Http;
+using System.Threading;
 
 namespace FeralCode
 {
@@ -15,6 +18,14 @@ namespace FeralCode
     {
         // --- NEW: Toggle this to false to disable logging! ---
         private bool _enableLogging;
+		private CancellationTokenSource? _spoolCts;
+        private string _spoolFilePath = "";
+        private bool _isSpooling = false;
+        private StreamMediaInput? _currentMediaInput;
+		private Media? _currentMedia;
+		private LiveTailStream? _liveTailStream;
+		private bool _isRebuildingMedia = false;
+        private double _accumulatedScrubSeconds = 0;
 
         private MediaPlayer _mediaPlayer;
         private string _baseUrl = ""; 
@@ -80,6 +91,155 @@ namespace FeralCode
             {
                 _isWaitingForCast = true;
                 SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
+            }
+        }
+		
+		private async Task SpoolStreamAsync(string streamUrl, string filePath, CancellationToken token)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.Timeout = TimeSpan.FromHours(12); 
+
+                using var response = await client.GetAsync(streamUrl, HttpCompletionOption.ResponseHeadersRead, token);
+                response.EnsureSuccessStatusCode();
+
+                _isSpooling = true; // Set to true right as download starts
+                using var networkStream = await response.Content.ReadAsStreamAsync();
+                using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+
+                byte[] buffer = new byte[81920]; 
+                int bytesRead;
+
+                while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length, token)) > 0)
+                {
+                    token.ThrowIfCancellationRequested();
+                    await fileStream.WriteAsync(buffer, 0, bytesRead, token);
+                    await fileStream.FlushAsync(token); // CRITICAL FIX: Force OS to write to disk instantly
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LogDebug("SpoolStreamAsync: Download canceled via CancellationToken.");
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"SpoolStreamAsync Error: {ex.Message}");
+            }
+            finally
+            {
+                _isSpooling = false;
+            }
+        }
+
+        private void CleanupSpooler()
+        {
+            _spoolCts?.Cancel();
+            _spoolCts?.Dispose();
+            _spoolCts = null;
+
+            // Grab references to the active objects
+            var oldInput = _currentMediaInput;
+            var oldMedia = _currentMedia;
+            var oldStream = _liveTailStream;
+
+            // Clear the active pointers so the app can move on
+            _currentMediaInput = null;
+            _currentMedia = null;
+            _liveTailStream = null;
+
+            // --- FIX: Safely spin down unmanaged threads ---
+            Task.Run(async () => 
+            {
+                // Give VLC's native C-threads plenty of time to detach from the delegates
+                await Task.Delay(3000); 
+                
+                oldMedia?.Dispose();
+                oldInput?.Dispose();
+                oldStream?.Dispose();
+            });
+
+            if (!string.IsNullOrEmpty(_spoolFilePath) && File.Exists(_spoolFilePath))
+            {
+                try
+                {
+                    File.Delete(_spoolFilePath);
+                    LogDebug($"CleanupSpooler: Deleted temp file {_spoolFilePath}");
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"CleanupSpooler: Could not delete temp file. {ex.Message}");
+                }
+            }
+        }
+		
+		private async Task PerformSafeSeek(double seconds)
+        {
+            if (_liveTailStream == null || _isRebuildingMedia) return;
+            
+            _isRebuildingMedia = true;
+            LoadingOverlay.Visibility = Visibility.Visible;
+            LoadingText.Text = "Seeking...";
+
+            try
+            {
+                // 1. Stop playback to release the imem native pointers cleanly
+                _mediaPlayer.Stop();
+                
+                // Grab references to the old pointers
+                var oldInput = _currentMediaInput;
+                var oldMedia = _currentMedia;
+
+                // 2. Wait slightly for VLC to spin down its native C-threads
+                await Task.Delay(150); 
+
+                // 3. Move the stream read head while no one is reading it
+                _liveTailStream.ForceSeek(seconds);
+
+                // 4. FIX: Delayed Disposal for the old wrappers!
+                _ = Task.Run(async () => 
+                {
+                    await Task.Delay(3000);
+                    oldMedia?.Dispose();
+                    oldInput?.Dispose();
+                });
+
+                // 5. Re-wrap the existing stream in fresh Media to reset the PCR clock
+                _currentMediaInput = new StreamMediaInput(_liveTailStream);
+                _currentMedia = new Media(MainWindow.SharedLibVLC, _currentMediaInput);
+                
+                _currentMedia.AddOption(":file-caching=1000"); 
+                _currentMedia.AddOption(":demux=ts");
+                _currentMedia.AddOption(":avcodec-hw=none");
+                _currentMedia.AddOption(":no-spu");
+                _currentMedia.AddOption(":no-sub-autodetect-file");
+                
+                // NEW: Tell VLC not to aggressively drop frames when it encounters the TS jump
+                _currentMedia.AddOption(":clock-jitter=0"); 
+
+                _mediaPlayer.Play(_currentMedia);
+            }
+            finally
+            {
+                _isRebuildingMedia = false;
+            }
+        }
+		
+		private async Task ForceClockResync()
+        {
+            if (_mediaPlayer != null)
+            {
+                bool wasPlaying = _mediaPlayer.IsPlaying;
+                
+                // Briefly toggle pause to flush the A/V pipeline
+                if (wasPlaying) _mediaPlayer.Pause();
+                
+                // Nudging the rate forces VLC's PCR clock to instantly reset to the new TS packets
+                _mediaPlayer.SetRate(1.05f); 
+                await Task.Delay(50);
+                _mediaPlayer.SetRate(1.0f);
+
+                if (wasPlaying) _mediaPlayer.Play();
             }
         }
 
@@ -607,7 +767,7 @@ namespace FeralCode
             Overlay_MouseMove(null!, null!); 
         }
 
-        private void PlayCurrentChannel()
+        private async void PlayCurrentChannel()
         {
             try
             {
@@ -682,27 +842,68 @@ namespace FeralCode
                 {
                     LogDebug("PlayCurrentChannel: Stopping previously playing _mediaPlayer.");
                     _mediaPlayer.Stop();
-                    if (_mediaPlayer.Media != null)
-                    {
-                        _mediaPlayer.Media.Dispose();
-                        _mediaPlayer.Media = null;
-                    }
+                    _mediaPlayer.Media = null; // Detach it, but do NOT dispose it here
                 }
 
-                LogDebug("PlayCurrentChannel: Creating new LibVLC Media object.");
-                var media = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
+                // CleanupSpooler will now handle the safe, delayed 3-second disposal
+                CleanupSpooler();
 
-                media.AddOption(":network-caching=2000");
-                media.AddOption(":live-caching=2000");
-                media.AddOption(":avcodec-hw=none");
-                
-                // --- CRITICAL VLC FIX: Disable Subtitles! ---
-                media.AddOption(":no-spu");
-                media.AddOption(":no-sub-autodetect-file");
+                bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
+
+                if (_settings.EnableTimeShiftBuffer && !isVirtualChannel)
+                {
+                    LogDebug("PlayCurrentChannel: Time-Shift enabled. Starting disk spooler.");
+                    _spoolCts = new CancellationTokenSource();
+                    _spoolFilePath = Path.Combine(Path.GetTempPath(), $"feral_spool_{Guid.NewGuid():N}.ts");
+                    
+                    // 1. Fire and forget the background download task
+                    _ = Task.Run(() => SpoolStreamAsync(streamUrl, _spoolFilePath, _spoolCts.Token));
+
+                    LoadingOverlay.Visibility = Visibility.Visible;
+                    LoadingText.Text = "Buffering Live Stream...";
+
+                    // 2. CRITICAL FIX: Wait until at least 64KB is written to disk so VLC can sniff the format
+                    int waitAttempts = 0;
+                    while (waitAttempts < 50) // Max 5 seconds wait
+                    {
+                        if (File.Exists(_spoolFilePath))
+                        {
+                            try 
+                            { 
+                                if (new FileInfo(_spoolFilePath).Length > 64000) break; 
+                            } 
+                            catch { } // Briefly ignore OS file lock exceptions
+                        }
+                        await Task.Delay(100);
+                        waitAttempts++;
+                    }
+
+                    // 3. Wrap the file and keep references alive
+                    // FIX: Use the class-level variable here so the GC doesn't delete it
+                    _liveTailStream = new LiveTailStream(_spoolFilePath, () => _isSpooling);
+                    _currentMediaInput = new StreamMediaInput(_liveTailStream);
+                    
+                    _currentMedia = new Media(MainWindow.SharedLibVLC, _currentMediaInput);
+                    _currentMedia.AddOption(":file-caching=2000"); 
+                    _currentMedia.AddOption(":demux=ts");
+                }
+                else
+                {
+                    if (isVirtualChannel) LogDebug("PlayCurrentChannel: Virtual Channel detected. Bypassing spooler.");
+                    else LogDebug("PlayCurrentChannel: Time-Shift disabled. Streaming directly.");
+                    
+                    _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
+                    _currentMedia.AddOption(":network-caching=2000");
+                    _currentMedia.AddOption(":live-caching=2000");
+                }
+
+                _currentMedia.AddOption(":avcodec-hw=none");
+                _currentMedia.AddOption(":no-spu");
+                _currentMedia.AddOption(":no-sub-autodetect-file");
 
                 if (offsetSeconds > 0)
                 {
-                    media.AddOption($":start-time={offsetSeconds}");
+                    _currentMedia.AddOption($":start-time={offsetSeconds}");
                 }
 
                 LoadingOverlay.Visibility = Visibility.Visible;
@@ -727,7 +928,8 @@ namespace FeralCode
                 _tuneTimeoutTimer?.Stop();
                 _tuneTimeoutTimer?.Start();
 
-                _mediaPlayer.Play(media);
+                // Play using our safely retained media object
+                _mediaPlayer.Play(_currentMedia);
                 LogDebug("PlayCurrentChannel: _mediaPlayer.Play() completed.");
             }
             catch (Exception ex)
@@ -774,21 +976,31 @@ namespace FeralCode
             Overlay_MouseMove(null!, null!); 
         }
 
-        private void Rewind_Click(object sender, RoutedEventArgs e)
+        private async void Rewind_Click(object sender, RoutedEventArgs e)
         {
-            if (_mediaPlayer.IsSeekable) 
+            if (_isMovieMode && _mediaPlayer.IsSeekable) 
             {
                 _mediaPlayer.Time -= 10000; 
                 ShowActionOverlay("⏪ -10s");
             }
+            else if (!_isMovieMode && _liveTailStream != null)
+            {
+                ShowActionOverlay("⏪ -10s");
+                await PerformSafeSeek(-10.0);
+            }
         }
 
-        private void FastForward_Click(object sender, RoutedEventArgs e)
+        private async void FastForward_Click(object sender, RoutedEventArgs e)
         {
-            if (_mediaPlayer.IsSeekable) 
+            if (_isMovieMode && _mediaPlayer.IsSeekable) 
             {
                 _mediaPlayer.Time += 30000;
                 ShowActionOverlay("⏩ +30s");
+            }
+            else if (!_isMovieMode && _liveTailStream != null)
+            {
+                ShowActionOverlay("⏩ +30s");
+                await PerformSafeSeek(30.0);
             }
         }
 
@@ -947,13 +1159,15 @@ namespace FeralCode
         
         public void StartRemoteScrub(string direction)
         {
-            if (!_isMovieMode || ControlBar.Visibility != Visibility.Collapsed) return;
+            if (ControlBar.Visibility != Visibility.Collapsed) return;
             
             _remoteScrubDirection = direction;
             if (!_isScrubbing)
             {
                 _isScrubbing = true;
-                _scrubTargetTime = _mediaPlayer.Time;
+                _scrubTargetTime = _mediaPlayer.Time; 
+                _accumulatedScrubSeconds = 0; // Reset live TV accumulation
+                
                 ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, null); 
                 ActionOverlayText.Opacity = 1.0;
             }
@@ -962,25 +1176,45 @@ namespace FeralCode
 
         private void RemoteScrubTimer_Tick(object? sender, EventArgs e)
         {
-            long jumpAmount = (_remoteScrubDirection == "right") ? 5000 : -5000;
-            _scrubTargetTime += jumpAmount;
-            
-            if (_scrubTargetTime < 0) _scrubTargetTime = 0;
-            if (_scrubTargetTime > _mediaPlayer.Length) _scrubTargetTime = _mediaPlayer.Length;
+            if (_isMovieMode)
+            {
+                long jumpAmount = (_remoteScrubDirection == "right") ? 5000 : -5000;
+                _scrubTargetTime += jumpAmount;
+                
+                if (_scrubTargetTime < 0) _scrubTargetTime = 0;
+                if (_scrubTargetTime > _mediaPlayer.Length) _scrubTargetTime = _mediaPlayer.Length;
 
-            TimelineSlider.Value = _scrubTargetTime;
-            CurrentTimeText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
-            ActionOverlayText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
+                TimelineSlider.Value = _scrubTargetTime;
+                CurrentTimeText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
+                ActionOverlayText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
+            }
+            else
+            {
+                // For Live TV, just accumulate the jump and show a relative indicator
+                double jumpSec = (_remoteScrubDirection == "right") ? 5.0 : -5.0;
+                _accumulatedScrubSeconds += jumpSec;
+                
+                string sign = _accumulatedScrubSeconds > 0 ? "+" : "";
+                ActionOverlayText.Text = $"Scrubbing: {sign}{_accumulatedScrubSeconds}s";
+            }
         }
 
-        public void StopRemoteScrub()
+        public async void StopRemoteScrub()
         {
             if (!_isScrubbing) return;
             
             _remoteScrubTimer.Stop();
             _isScrubbing = false;
             
-            if (_mediaPlayer.IsSeekable) _mediaPlayer.Time = _scrubTargetTime;
+            if (_isMovieMode && _mediaPlayer.IsSeekable) 
+            {
+                _mediaPlayer.Time = _scrubTargetTime;
+            }
+            else if (!_isMovieMode && _liveTailStream != null && _accumulatedScrubSeconds != 0)
+            {
+                // Execute ONE safe jump now that the user has let go of the button
+                await PerformSafeSeek(_accumulatedScrubSeconds);
+            }
 
             var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
             {
@@ -1087,6 +1321,7 @@ namespace FeralCode
                 LogDebug("PlayerWindow_Closed: Disposing _mediaPlayer.");
                 _mediaPlayer.Dispose();
             }
+			CleanupSpooler();
         }
         
         private void MediaPlayer_EndReached(object? sender, EventArgs e)

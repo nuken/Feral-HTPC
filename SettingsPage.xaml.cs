@@ -28,11 +28,10 @@ namespace FeralCode
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
             ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
-            ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;            
-            
+            ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;  
+            TimeShiftCheckBox.IsChecked = _settings.EnableTimeShiftBuffer;            
             // NEW: Load the Logging Setting
             EnableLoggingCheckBox.IsChecked = _settings.EnableDebugLogging;
-
             // NEW: Load Guide Duration
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
             else if (_settings.GuideDurationHours == 12) GuideDurationBox.SelectedIndex = 2;
@@ -338,6 +337,7 @@ namespace FeralCode
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
+			_settings.EnableTimeShiftBuffer = TimeShiftCheckBox.IsChecked ?? false;
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
             _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
