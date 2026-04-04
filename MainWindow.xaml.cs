@@ -270,7 +270,10 @@ namespace FeralCode
                         try {
                             var api = new ChannelsApi();
                             var channels = await api.GetChannelsAsync(settings.LastServerAddress);
-                            
+                            if (!settings.EnableVirtualChannels)
+                            {
+                               channels = channels.Where(c => !(c.Id != null && c.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))).ToList();
+                            }
                             var stations = await api.GetStationsAsync(settings.LastServerAddress);
                             var stationLogoDict = stations
                                 .Where(s => !string.IsNullOrWhiteSpace(s.Id) && !string.IsNullOrWhiteSpace(s.Logo))
@@ -323,7 +326,10 @@ namespace FeralCode
                         var settings = SettingsManager.Load();
                         var api = new ChannelsApi();
                         var channels = await api.GetChannelsAsync(settings.LastServerAddress);
-                        
+                        if (!settings.EnableVirtualChannels)
+                        {
+                            channels = channels.Where(c => !(c.Id != null && c.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))).ToList();
+                        }
                         int startIndex = channels.FindIndex(c => c.Number == channelNumber);
                         if (startIndex == -1) startIndex = 0;
 

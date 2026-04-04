@@ -38,7 +38,7 @@ namespace FeralCode
             else GuideDurationBox.SelectedIndex = 0; // Default to 4
             
             StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
-
+            VirtualChannelsCheckBox.IsChecked = _settings.EnableVirtualChannels;
             // --- FIX: Formatted Mobile Remote URL Display ---
             // Grabs local network IP and pairs it with WebServerPort (fallback to 8080 if 0)
             int currentPort = _settings.WebServerPort > 0 ? _settings.WebServerPort : 8080; 
@@ -339,6 +339,7 @@ namespace FeralCode
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
 			_settings.EnableTimeShiftBuffer = TimeShiftCheckBox.IsChecked ?? false;
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
+			_settings.EnableVirtualChannels = VirtualChannelsCheckBox.IsChecked ?? false;
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
             _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
 			_settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
