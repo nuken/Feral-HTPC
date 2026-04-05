@@ -27,6 +27,7 @@ namespace FeralCode
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
+			MinimizeOnPlayCheckBox.IsChecked = _settings.MinimizeOnPlay;
             ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
             ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;  
             TimeShiftCheckBox.IsChecked = _settings.EnableTimeShiftBuffer;            
@@ -45,7 +46,7 @@ namespace FeralCode
             LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{currentPort}";
 
             // --- Version Display ---
-            string localVersion = "1.0.0-beta"; // Fallback
+            string localVersion = "1.0.1-beta"; // Fallback
             try
             {
                 var versionAttr = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
@@ -337,6 +338,7 @@ namespace FeralCode
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
+			_settings.MinimizeOnPlay = MinimizeOnPlayCheckBox.IsChecked ?? false;
 			_settings.EnableTimeShiftBuffer = TimeShiftCheckBox.IsChecked ?? false;
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
 			_settings.EnableVirtualChannels = VirtualChannelsCheckBox.IsChecked ?? false;

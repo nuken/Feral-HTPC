@@ -191,7 +191,7 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="CurrentVersionText" Text="v1.0.0-beta" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                    <TextBlock x:Name="CurrentVersionText" Text="v1.0.1-beta" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
                     <Button x:Name="CheckVersionBtn" Content="Check for Updates" Click="CheckVersion_Click" Style="{StaticResource ModernButton}" Padding="15,8" FontSize="14"/>
                 </StackPanel>
             </Grid>
@@ -224,6 +224,7 @@
                         <TextBlock Text="Playback Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
                         <CheckBox x:Name="AutoSkipCheckBox" Content="Auto-Skip Commercials in Movies" Style="{StaticResource BigCheckBox}"/>
                         <CheckBox x:Name="FullscreenCheckBox" Content="Start Players in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
+<CheckBox x:Name="MinimizeOnPlayCheckBox" Content="Minimize Base App Instead of Hiding When Playing" Style="{StaticResource BigCheckBox}"/>
                         <CheckBox x:Name="ForceLocalTranscodeCheckBox" 
                   Content="Force Local FFmpeg Transcode (Proxy All Channels)" 
                   Style="{StaticResource BigCheckBox}" 

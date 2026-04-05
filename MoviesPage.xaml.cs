@@ -231,11 +231,14 @@ namespace FeralCode
                 mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                 {
                     mainWindow.ActivePlayerWindow = null; 
+                    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
                     mainWindow.Show(); 
                     Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                 };
                 
-                mainWindow.Hide(); 
+                if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
+                else mainWindow.Hide(); 
+                
                 mainWindow.ActivePlayerWindow.Show(); 
                 
                 ModalOverlay.Visibility = Visibility.Collapsed;

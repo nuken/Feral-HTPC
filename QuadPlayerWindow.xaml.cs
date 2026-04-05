@@ -218,19 +218,19 @@ _players[playerIndex].Play(media);
         }
 
         private void Overlay_MouseMove(object sender, MouseEventArgs e)
-        {
-            if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
-            _lastMouseMove = DateTime.Now;
+{
+    if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
+    _lastMouseMove = DateTime.Now;
 
-            if (ControlBar.Visibility != Visibility.Visible)
-            {
-                ControlBar.Visibility = Visibility.Visible;
-                Mouse.OverrideCursor = null;
-            }
+    if (ControlBar.Visibility != Visibility.Visible)
+    {
+        ControlBar.Visibility = Visibility.Visible;
+        Mouse.OverrideCursor = null; // Restore globally
+    }
 
-            _uiTimer.Stop();
-            _uiTimer.Start();
-        }
+    _uiTimer.Stop();
+    _uiTimer.Start();
+}
         
         private void SetupGlassOverlay()
         {
@@ -249,7 +249,11 @@ _players[playerIndex].Play(media);
 
             _glassOverlay.PreviewKeyDown += Window_PreviewKeyDown;
 
-            this.LocationChanged += (s, e) => SyncOverlay();
+// --- NEW: Safety rails for QuadPlayer ---
+_glassOverlay.MouseLeave += (s, ev) => Mouse.OverrideCursor = null;
+this.Deactivated += (s, ev) => Mouse.OverrideCursor = null;
+
+this.LocationChanged += (s, e) => SyncOverlay();
             this.SizeChanged += (s, e) => SyncOverlay();
             this.StateChanged += (s, e) => SyncOverlay();
 
@@ -279,7 +283,14 @@ _players[playerIndex].Play(media);
         private void UiTimer_Tick(object? sender, EventArgs e)
         {
             ControlBar.Visibility = Visibility.Collapsed;
-            Mouse.OverrideCursor = Cursors.None;
+            
+            // --- FIX: The native VLC video surface breaks WPF's "IsMouseOver" hit-testing.
+            // Checking "IsActive" guarantees we only hide the cursor if this window is currently in focus.
+            if (this.IsActive) 
+            {
+                System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.None;
+            }
+            
             _uiTimer.Stop();
         }
 
@@ -556,8 +567,9 @@ _players[playerIndex].Play(media);
         }
 
         protected override void OnClosed(EventArgs e)
-        {
-            LogDebug("QuadPlayerWindow: OnClosed triggered. Cleaning up resources.");
+{
+    LogDebug("QuadPlayerWindow: OnClosed triggered. Cleaning up resources.");
+    Mouse.OverrideCursor = null; // Restore globally
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
             
             _audioTimer?.Stop();

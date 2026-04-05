@@ -31,17 +31,33 @@ namespace FeralCode
         }
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
+{
+    _settings = SettingsManager.Load();
+    _baseUrl = _settings.LastServerAddress;
+
+    var api = new ChannelsApi();
+
+    // Try saved IP first. If blank, fallback to network discovery.
+    if (string.IsNullOrWhiteSpace(_baseUrl))
+    {
+        var servers = await api.DiscoverDvrServersAsync();
+        if (servers.Any())
         {
-            _baseUrl = _settings.LastServerAddress;
-            if (string.IsNullOrWhiteSpace(_baseUrl)) return;
+            _baseUrl = servers.First().BaseUrl;
+            _settings.LastServerAddress = _baseUrl;
+            SettingsManager.Save(_settings); // Auto-save the discovered IP
+        }
+        else
+        {
+            return; // Silently fail if no server is found, just like before
+        }
+    }
 
-            var api = new ChannelsApi();
-            var rawChannels = await api.GetChannelsAsync(_baseUrl);
-            
-            var cleanChannels = rawChannels.Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)).ToList();
+    var rawChannels = await api.GetChannelsAsync(_baseUrl);
+    var cleanChannels = rawChannels.Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)).ToList();
 
-            // --- Fetch 1 hour of guide data to get the currently airing shows ---
-            try
+    // --- Fetch 1 hour of guide data to get the currently airing shows ---
+    try
             {
                 // We pass '1' to only grab a tiny, fast slice of the timeline
                 var guideBlocks = await api.GetGuideAsync(_baseUrl, 1);
@@ -193,6 +209,7 @@ namespace FeralCode
             // --- Hide & Seek ---
             quadWindow.Closed += (s, args) => 
             {
+                if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
                 mainWindow.Show(); // 1. Bring the main basecamp back!
                 Application.Current.Dispatcher.InvokeAsync(() => 
                 {
@@ -200,7 +217,9 @@ namespace FeralCode
                 }, System.Windows.Threading.DispatcherPriority.Input);
             };
 
-            mainWindow.Hide(); // 2. Hide the basecamp
+            if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
+            else mainWindow.Hide(); // 2. Hide the basecamp
+            
             quadWindow.Show(); // 3. Launch the quad player
         }
 

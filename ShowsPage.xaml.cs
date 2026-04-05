@@ -27,18 +27,32 @@ namespace FeralCode
         }
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
-        {
-            _settings = SettingsManager.Load();
-            _baseUrl = _settings.LastServerAddress;
-            
-            if (string.IsNullOrWhiteSpace(_baseUrl))
-            {
-                LoadingText.Text = "⚠️ No DVR Server IP configured in Settings.";
-                return;
-            }
+{
+    _settings = SettingsManager.Load();
+    _baseUrl = _settings.LastServerAddress;
 
-            await LoadShowsAsync();
+    // Try saved IP first. If blank, fallback to network discovery.
+    if (string.IsNullOrWhiteSpace(_baseUrl))
+    {
+        LoadingText.Text = "Searching for DVR Server...";
+        var api = new ChannelsApi();
+        var servers = await api.DiscoverDvrServersAsync();
+        
+        if (servers.Any())
+        {
+            _baseUrl = servers.First().BaseUrl;
+            _settings.LastServerAddress = _baseUrl;
+            SettingsManager.Save(_settings); // Auto-save the discovered IP
         }
+        else
+        {
+            LoadingText.Text = "⚠️ No DVR Server found on network. Please enter IP in Settings.";
+            return;
+        }
+    }
+
+    await LoadShowsAsync();
+}
 
         private async Task LoadShowsAsync()
         {
@@ -309,12 +323,15 @@ namespace FeralCode
                     mainWin.ActivePlayerWindow.Closed += (s, args) => 
                     {
                         mainWin.ActivePlayerWindow = null;
+                        if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Normal;
                         mainWin.Show(); 
                         Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                     };
                     
-                    mainWin.Hide(); 
-                    mainWin.ActivePlayerWindow.Show(); 
+                    if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Minimized;
+                    else mainWin.Hide(); 
+                    
+                    mainWin.ActivePlayerWindow.Show();
                 }
             }
         }

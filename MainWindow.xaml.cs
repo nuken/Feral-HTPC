@@ -35,7 +35,9 @@ namespace FeralCode
                 _activePlayerWindow = value;
                 if (_activePlayerWindow != null)
                 {
-                    this.Hide(); 
+                    var settings = SettingsManager.Load();
+                    if (settings.MinimizeOnPlay) this.WindowState = WindowState.Minimized;
+                    else this.Hide(); 
 
                     _activePlayerWindow.Closed += (s, e) => 
                     {
@@ -43,6 +45,7 @@ namespace FeralCode
                         {
                             if (ActivePlayerWindow == null)
                             {
+                                if (settings.MinimizeOnPlay) this.WindowState = WindowState.Normal;
                                 this.Show();     
                                 this.Activate(); 
                             }

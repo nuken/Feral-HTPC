@@ -147,10 +147,17 @@
             
             <TextBlock Grid.Column="0" Text="CHANNELS" VerticalAlignment="Bottom" Margin="15,0,0,5" FontWeight="Bold" Foreground="{DynamicResource TextSecondary}" FontSize="12"/>
             
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,5">
-                <Button Content="&#x25C0; Earlier" Width="90" Height="30" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,10,0" Click="ScrollLeft_Click"/>
-                <Button Content="Later &#x25B6;" Width="90" Height="30" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Click="ScrollRight_Click"/>
-            </StackPanel>
+            <Grid Grid.Column="1" Margin="0,0,0,5">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="&#x25C0; Earlier" Width="90" Height="30" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,10,0" Click="ScrollLeft_Click"/>
+                    <Button Content="Later &#x25B6;" Width="90" Height="30" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Click="ScrollRight_Click"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
+                    <RepeatButton Content="&#x25B2; Up" Width="90" Height="30" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,10,0" Click="PageUp_Click" Delay="300" Interval="50"/>
+                    <RepeatButton Content="Down &#x25BC;" Width="90" Height="30" Background="{DynamicResource PanelBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Click="PageDown_Click" Delay="300" Interval="50"/>
+                </StackPanel>
+            </Grid>
         </Grid>
 
         <Grid Grid.Row="2">

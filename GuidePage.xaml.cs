@@ -56,6 +56,45 @@ namespace FeralCode
             
             this.Loaded += Page_Loaded;
         }
+		
+		// Caches the scroll viewer so we don't have to search the visual tree on every tick
+        private ScrollViewer? _guideScrollViewer;
+
+        // Helper to dig into the ListBox and find its internal ScrollViewer
+        private ScrollViewer? GetScrollViewer(System.Windows.DependencyObject depObj)
+        {
+            if (depObj is ScrollViewer sv) return sv;
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(depObj); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(depObj, i);
+                var result = GetScrollViewer(child);
+                if (result != null) return result;
+            }
+            return null;
+        }
+
+        private void PageUp_Click(object sender, RoutedEventArgs e)
+        {
+            _guideScrollViewer ??= GetScrollViewer(GuideItemsControl);
+            if (_guideScrollViewer != null)
+            {
+                // A single click jumps 250 pixels. Holding the button repeats this every 50ms!
+                double newOffset = _guideScrollViewer.VerticalOffset - 250;
+                if (newOffset < 0) newOffset = 0;
+                _guideScrollViewer.ScrollToVerticalOffset(newOffset);
+            }
+        }
+
+        private void PageDown_Click(object sender, RoutedEventArgs e)
+        {
+            _guideScrollViewer ??= GetScrollViewer(GuideItemsControl);
+            if (_guideScrollViewer != null)
+            {
+                double newOffset = _guideScrollViewer.VerticalOffset + 250;
+                if (newOffset > _guideScrollViewer.ScrollableHeight) newOffset = _guideScrollViewer.ScrollableHeight;
+                _guideScrollViewer.ScrollToVerticalOffset(newOffset);
+            }
+        }
         
         private void ChannelItemsControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
@@ -71,20 +110,6 @@ namespace FeralCode
 
             // 3. Fire it directly at the main Guide Scroller so they move together!
             TimelineScroller.RaiseEvent(eventArg);
-        }
-
-        // --- NEW: Helper to extract the internal ScrollViewer out of the virtualizing ListBoxes ---
-        private ScrollViewer? GetScrollViewer(DependencyObject depObj)
-        {
-            if (depObj == null) return null;
-            if (depObj is ScrollViewer scroll) return scroll;
-            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(depObj); i++)
-            {
-                var child = System.Windows.Media.VisualTreeHelper.GetChild(depObj, i);
-                var result = GetScrollViewer(child);
-                if (result != null) return result;
-            }
-            return null;
         }
 
         public List<string> GetCollections()
@@ -118,27 +143,41 @@ namespace FeralCode
         }
     
         private async void Page_Loaded(object sender, RoutedEventArgs e)
+{
+    ShowStatus("Scanning network for DVR servers...", "StatusConnecting");
+
+    var discoveredServers = await _api.DiscoverDvrServersAsync();
+
+    if (discoveredServers.Any())
+    {
+        foreach (var server in discoveredServers)
         {
-            ShowStatus("Scanning network for DVR servers...", "StatusConnecting");
-
-            var discoveredServers = await _api.DiscoverDvrServersAsync();
-
-            if (discoveredServers.Any())
-            {
-                foreach (var server in discoveredServers)
-                {
-                    ServerComboBox.Items.Add(server);
-                }
-                ServerComboBox.SelectedIndex = 0; 
-                
-                ShowStatus($"Found {discoveredServers.Count} server(s).", "StatusSuccess");
-                LoadData_Click(this, new RoutedEventArgs());
-            }
-            else
-            {
-                ShowStatus("No servers found. Please enter IP manually.", "StatusError");
-            }
+            ServerComboBox.Items.Add(server);
         }
+        
+        // --- NEW: Select the last used server if it was found, otherwise default to the first one ---
+        var match = discoveredServers.FirstOrDefault(s => s.BaseUrl == _settings.LastServerAddress);
+        if (match != null) ServerComboBox.SelectedItem = match;
+        else ServerComboBox.SelectedIndex = 0; 
+        
+        ShowStatus($"Found {discoveredServers.Count} server(s).", "StatusSuccess");
+        LoadData_Click(this, new RoutedEventArgs());
+    }
+    else
+    {
+        // --- NEW: Fallback to the saved IP if network discovery fails ---
+        if (!string.IsNullOrWhiteSpace(_settings.LastServerAddress))
+        {
+            ServerComboBox.Text = _settings.LastServerAddress;
+            ShowStatus("Using saved server address...", "StatusConnecting");
+            LoadData_Click(this, new RoutedEventArgs());
+        }
+        else
+        {
+            ShowStatus("No servers found. Please enter IP manually.", "StatusError");
+        }
+    }
+}
                      
         private void GenerateTimeHeaders(int durationHours)
         {
@@ -184,22 +223,26 @@ namespace FeralCode
             string rawInput = ServerComboBox.Text.Trim();
 
             if (ServerComboBox.SelectedItem is DvrServer selectedServer) baseUrl = selectedServer.BaseUrl;
-            else if (!string.IsNullOrWhiteSpace(rawInput))
-            {
-                if (!rawInput.Contains(":")) rawInput += ":8089";
-                if (!rawInput.StartsWith("http")) rawInput = "http://" + rawInput;
-                baseUrl = rawInput;
-            }
-            else
-            {
-                StatusText.Text = "Please select or enter a server address.";
-                StatusText.Foreground = System.Windows.Media.Brushes.Red;
-                return;
-            }
+           else if (!string.IsNullOrWhiteSpace(rawInput))
+    {
+        if (!rawInput.Contains(":")) rawInput += ":8089";
+        if (!rawInput.StartsWith("http")) rawInput = "http://" + rawInput;
+        baseUrl = rawInput;
+    }
+    else
+    {
+        StatusText.Text = "Please select or enter a server address.";
+        StatusText.Foreground = System.Windows.Media.Brushes.Red;
+        return;
+    }
 
-            try
-            {
-                var rawChannels = await _api.GetChannelsAsync(baseUrl);
+    // --- NEW: Automatically save the successfully used IP so it persists across restarts ---
+    _settings.LastServerAddress = baseUrl;
+    SettingsManager.Save(_settings);
+
+    try
+    {
+        var rawChannels = await _api.GetChannelsAsync(baseUrl);
 var cleanChannels = rawChannels
     .Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)) 
     // --- NEW: Filter out virtual channels if setting is disabled ---
@@ -751,12 +794,15 @@ var cleanChannels = rawChannels
                     mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                     {
                         mainWindow.ActivePlayerWindow = null; 
+                        if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
                         mainWindow.Show(); 
                         Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedAiringButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
                     }; 
                     
-                    mainWindow.Hide(); 
-                    mainWindow.ActivePlayerWindow.Show(); 
+                    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
+                    else mainWindow.Hide(); 
+                    
+                    mainWindow.ActivePlayerWindow.Show();
                 }
                 catch (Exception ex)
                 {

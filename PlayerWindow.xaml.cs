@@ -65,6 +65,8 @@ namespace FeralCode
         private bool _isWaitingToBuffer = false;
         private bool _isWaitingForCast = false;
         private DispatcherTimer? _tuneTimeoutTimer;
+		private int _tuneRetryCount = 0;
+        private const int MAX_TUNE_RETRIES = 3;
 
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
@@ -305,7 +307,7 @@ namespace FeralCode
             _mediaPlayer.Playing += MediaPlayer_Playing;
             _mediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
             
-            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(25) };
             _tuneTimeoutTimer.Tick += TuneTimeoutTimer_Tick;
 
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
@@ -506,7 +508,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
             _mediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
             _mediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
             
-            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(25) };
             _tuneTimeoutTimer.Tick += TuneTimeoutTimer_Tick;
 
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
@@ -616,6 +618,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
             LogDebug("VLC CALLBACK: MediaPlayer_Playing Fired!");
             Dispatcher.BeginInvoke(new Action(async () =>
             {
+                _tuneRetryCount = 0; // --- NEW: Reset retries on successful play! ---
                 _tuneTimeoutTimer?.Stop();
                 await Task.Delay(300);
 
@@ -626,33 +629,53 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
 
         private void TuneTimeoutTimer_Tick(object? sender, EventArgs e)
         {
-            LogDebug("TuneTimeoutTimer_Tick: Fired! 15 seconds elapsed without playback locking on.");
+            LogDebug("TuneTimeoutTimer_Tick: Fired! Time elapsed without playback locking on.");
             _tuneTimeoutTimer?.Stop();
             
-            if (_mediaPlayer != null && _mediaPlayer.IsPlaying)
+            if (_tuneRetryCount < MAX_TUNE_RETRIES)
             {
-                _mediaPlayer.Stop(); 
+                _tuneRetryCount++;
+                LogDebug($"Timeout. Retrying... Attempt {_tuneRetryCount} of {MAX_TUNE_RETRIES}");
+                LoadingText.Text = $"Tuning timeout. Retrying... ({_tuneRetryCount}/{MAX_TUNE_RETRIES})";
+                PlayCurrentChannel();
             }
+            else
+            {
+                if (_mediaPlayer != null && _mediaPlayer.IsPlaying)
+                {
+                    _mediaPlayer.Stop(); 
+                }
 
-            LoadingOverlay.Visibility = Visibility.Collapsed;
-            MessageBox.Show("Tuning timed out. The OTA signal might be too weak to lock onto.", 
-                            "Weak Signal", MessageBoxButton.OK, MessageBoxImage.Warning);
-            
-            this.Close(); 
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+                MessageBox.Show("Tuning timed out. The OTA signal might be too weak to lock onto.", 
+                                "Weak Signal", MessageBoxButton.OK, MessageBoxImage.Warning);
+                this.Close(); 
+            }
         }
 
         private void MediaPlayer_EncounteredError(object? sender, EventArgs e)
         {
             LogDebug("VLC CALLBACK: MediaPlayer_EncounteredError Fired!");
-            Dispatcher.InvokeAsync(() =>
+            Dispatcher.InvokeAsync(async () =>
             {
                 _tuneTimeoutTimer?.Stop();
-                LoadingOverlay.Visibility = Visibility.Collapsed;
-                
-                MessageBox.Show("A playback error occurred. The stream may be unavailable or the signal was lost.", 
-                                "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                
-                this.Close(); 
+
+                if (_tuneRetryCount < MAX_TUNE_RETRIES)
+                {
+                    _tuneRetryCount++;
+                    LogDebug($"Stream error. Retrying... Attempt {_tuneRetryCount} of {MAX_TUNE_RETRIES}");
+                    LoadingText.Text = $"Connection lost. Retrying... ({_tuneRetryCount}/{MAX_TUNE_RETRIES})";
+                    
+                    await Task.Delay(2000); // Give the server a moment to recover
+                    PlayCurrentChannel(); // Re-initialize the stream
+                }
+                else
+                {
+                    LoadingOverlay.Visibility = Visibility.Collapsed;
+                    MessageBox.Show("A playback error occurred. The stream may be unavailable or the signal was lost after multiple attempts.", 
+                                    "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    this.Close(); 
+                }
             });
         }
         
@@ -832,11 +855,14 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
         }
         
         private void PlayerWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            if (_isMovieMode) PlayMovie();
-            else PlayCurrentChannel();
-        }
+{
+    // --- NEW: Safety rails to restore the cursor if it leaves the player! ---
+    this.MouseLeave += (s, ev) => System.Windows.Input.Mouse.OverrideCursor = null;
+    this.Deactivated += (s, ev) => System.Windows.Input.Mouse.OverrideCursor = null;
 
+    if (_isMovieMode) PlayMovie();
+    else PlayCurrentChannel();
+}
         private void PlayMovie()
         {
             LogDebug("PlayMovie: Method invoked.");
@@ -1169,24 +1195,31 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
         }
 
         private void Overlay_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
-        {
-            if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
-            _lastMouseMove = DateTime.Now;
+{
+    if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
+    _lastMouseMove = DateTime.Now;
 
-            if (ControlBar.Visibility != Visibility.Visible)
-            {
-                ControlBar.Visibility = Visibility.Visible;
-                System.Windows.Input.Mouse.OverrideCursor = null;
-            }
+    if (ControlBar.Visibility != Visibility.Visible)
+    {
+        ControlBar.Visibility = Visibility.Visible;
+        System.Windows.Input.Mouse.OverrideCursor = null; // Restore globally
+    }
 
-            _uiTimer.Stop();
-            _uiTimer.Start();
-        }
+    _uiTimer.Stop();
+    _uiTimer.Start();
+}
 
         private void UiTimer_Tick(object? sender, EventArgs e)
         {
             ControlBar.Visibility = Visibility.Collapsed;
-            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.None;
+            
+            // --- FIX: The native VLC video surface breaks WPF's "IsMouseOver" hit-testing.
+            // Checking "IsActive" guarantees we only hide the cursor if this window is currently in focus.
+            if (this.IsActive) 
+            {
+                System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.None;
+            }
+            
             _uiTimer.Stop();
         }
 
@@ -1453,10 +1486,10 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
         }
 
         private async void PlayerWindow_Closed(object? sender, EventArgs e)
-        {
-            LogDebug("PlayerWindow_Closed: Cleaning up resources.");
-            System.Windows.Input.Mouse.OverrideCursor = null;
-            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
+{
+    LogDebug("PlayerWindow_Closed: Cleaning up resources.");
+    System.Windows.Input.Mouse.OverrideCursor = null; // Restore globally
+    Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
             
             _uiTimer?.Stop();
             _statsTimer?.Stop();
