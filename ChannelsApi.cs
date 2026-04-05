@@ -437,8 +437,23 @@ public bool IsExactMatch(string query)
         [JsonPropertyName("Source")] public string? Source { get; set; }
 
         [JsonIgnore]
-        public string DisplayTitle => !string.IsNullOrWhiteSpace(Title) ? Title : 
-                                      (!string.IsNullOrWhiteSpace(EpisodeTitle) ? EpisodeTitle : "No Title");
+        public string DisplayTitle 
+        {
+            get
+            {
+                // If both exist, combine them (e.g., "Show Name - Episode Name")
+                if (!string.IsNullOrWhiteSpace(Title) && !string.IsNullOrWhiteSpace(EpisodeTitle) && Title != EpisodeTitle)
+                {
+                    return $"{Title} - {EpisodeTitle}";
+                }
+                
+                // Otherwise, just return whichever one is available
+                if (!string.IsNullOrWhiteSpace(Title)) return Title;
+                if (!string.IsNullOrWhiteSpace(EpisodeTitle)) return EpisodeTitle;
+                
+                return "No Title";
+            }
+        }
 
         [JsonPropertyName("Summary")] public JsonElement? SummaryRaw { get; set; }
 
