@@ -1077,6 +1077,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                     _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
                     _currentMedia.AddOption(":network-caching=2000");
                     _currentMedia.AddOption(":live-caching=2000");
+					_currentMedia.AddOption(":ts-trust-pcr=0"); 
                 }
 
                 _currentMedia.AddOption(":avcodec-hw=none");

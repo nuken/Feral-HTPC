@@ -183,23 +183,23 @@ namespace FeralCode
         }
 
         private bool IsPortAvailable(int port)
-{
-    try
-    {
-        // Changed from IPAddress.Loopback to IPAddress.Any
-        // This ensures it checks all network interfaces, matching Kestrel's behavior.
-        using (var tcpListener = new TcpListener(IPAddress.Any, port))
         {
-            tcpListener.Start();
-            tcpListener.Stop();
-            return true;
+            try
+            {
+                // Passively scan the Windows network table for ALL active listeners (IPv4 and IPv6)
+                // This prevents the socket from getting locked in a TIME_WAIT state!
+                var ipGlobalProperties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
+                var tcpListeners = ipGlobalProperties.GetActiveTcpListeners();
+                
+                // If any endpoint in the table is using our target port, it's not available
+                return !tcpListeners.Any(endpoint => endpoint.Port == port);
+            }
+            catch
+            {
+                // If we can't read the network table for some reason, assume the port is unsafe
+                return false;
+            }
         }
-    }
-    catch
-    {
-        return false;
-    }
-}
 
         private int GetAvailablePort(int startPort = 12345, int endPort = 12445)
         {

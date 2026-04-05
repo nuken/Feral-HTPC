@@ -654,7 +654,8 @@ var cleanChannels = rawChannels
                 
                 if (!string.IsNullOrWhiteSpace(imgToUse))
                 {
-                    ModalImage.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(imgToUse));
+                    // FIX: Added UriKind.RelativeOrAbsolute to prevent crashes on malformed image links
+                    ModalImage.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(imgToUse, UriKind.RelativeOrAbsolute));
                     ModalImage.Visibility = Visibility.Visible;
                 }
                 else ModalImage.Visibility = Visibility.Collapsed;

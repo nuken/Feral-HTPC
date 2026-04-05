@@ -46,7 +46,7 @@ namespace FeralCode
             LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{currentPort}";
 
             // --- Version Display ---
-            string localVersion = "1.0.1-beta"; // Fallback
+            string localVersion = "1.0.2-beta"; // Fallback
             try
             {
                 var versionAttr = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
