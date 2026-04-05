@@ -4,13 +4,16 @@ Feral HTPC is a dedicated, feature-rich desktop client designed specifically for
 
 Powered by LibVLCSharp, Feral HTPC bypasses the limitations of standard web players by offering advanced A/V synchronization, raw stream handling, and robust network error recovery.
 
-## What is New in Beta
-The transition to the Beta phase introduces significant architectural improvements to playback stability and feature sets:
-* **Time-Shift Buffer:** Live TV can now be spooled to your local disk, allowing you to pause, rewind, and fast-forward live broadcasts.
-* **Local FFmpeg Proxy:** A lightweight, on-the-fly stream normalizer that fixes audio desync and frame-dropping issues caused by mixed-codec broadcasts.
-* **Virtual Channels Management:** You can now toggle the visibility of Virtual Channels in the guide to declutter your channel lineup.
-* **External App Deep Linking:** Directly launch and control external services like Netflix, Disney+, and YouTube natively from the Feral HTPC interface.
-* **Enhanced Web Remote:** The built-in mobile remote now supports full playback scrubbing, closed caption toggling, and multi-view quadrant control.
+## Table of Contents
+* [Core Features](#core-features)
+* [Installation Process](#installation-process)
+* [Using the Settings Page](#using-the-settings-page)
+* [Using the Mobile Remote Control](#using-the-mobile-remote-control)
+* [Keyboard Shortcuts](#keyboard-shortcuts)
+* [Changelog](#changelog)
+* [Gallery](#gallery)
+
+---
 
 ## Core Features
 * **Custom Video Player:** Built on VLC's engine, optimized for MPEG-TS and HLS streams.
@@ -73,6 +76,23 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **C:** Toggle Closed Captions
 * **Escape / Backspace:** Close the player / Return to the previous screen
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
+
+# Changelog
+
+## [1.0.1-beta] 
+
+### New Features
+* **Minimize on Play:** Introduced a new playback preference allowing users to choose the behavior of the main application window when media launches. Users can now choose to minimize the base application to the Windows taskbar instead of completely hiding it.
+* **Fast-Scroll Guide Controls:** Replaced standard scrollbars with dedicated vertical `RepeatButton` controls on the Live TV Guide. Users can single-click to jump down the guide, or hold the button for rapid, continuous scrolling that perfectly respects D-pad navigation.
+
+### Improvements
+* **Smart Server Connection Logic:** Completely overhauled how the application handles DVR server connections. If network auto-discovery fails (such as across different subnets or VLANs), all media pages will now automatically fall back to the last successfully saved IP address. Successful connections are also silently auto-saved for future sessions.
+* **Tuning Resiliency for TVE:** Increased the underlying stream initialization timeout to 25 seconds to better accommodate slow-starting TV Everywhere (TVE) streams. 
+* **Automatic Reconnection Loop:** The video player now features an automatic retry mechanism. If a live stream drops or takes too long to spin up, the player will automatically attempt to reconnect up to 3 times before displaying a playback error.
+
+### Bug Fixes
+* **Global Cursor Override (Airspace Bug):** Fixed a native WPF rendering issue where the mouse cursor would occasionally fail to hide during video playback, or would incorrectly remain hidden when moving the mouse to a secondary monitor. The cursor will now reliably disappear over active video and instantly restore when the player is closed or loses focus.
+* **Guide Page Focus Loss:** Resolved an issue where enabling native scrollbars broke the D-pad focus tracking. The guide now smoothly translates coordinates to ensure the selected program block always remains visible on the screen.
 
 ### Gallery
 
@@ -199,4 +219,3 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
     </td>
   </tr>		  
 </table>
-
