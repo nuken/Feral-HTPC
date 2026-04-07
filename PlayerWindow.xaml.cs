@@ -246,6 +246,8 @@ namespace FeralCode
                 // NEW: Tell VLC not to aggressively drop frames when it encounters the TS jump
                 _currentMedia.AddOption(":clock-jitter=0"); 
                 _currentMedia.AddOption(":freetype-rel-fontsize=12");
+                _currentMedia.AddOption(":deinterlace=1");             // <-- ADD THIS
+                _currentMedia.AddOption(":deinterlace-mode=yadif");    // <-- ADD THIS
                 _mediaPlayer.Play(_currentMedia);
             }
             finally
@@ -357,7 +359,7 @@ namespace FeralCode
                 // CLEANED UP: We removed the aggressive -r 30 and -fps_mode commands. 
                 // This is now a lightweight, hyper-fast proxy strictly for normalizing 
                 // standard Live TV audio/video codecs.
-                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -c:v libx264 -preset ultrafast -tune zerolatency {audioArgs} -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
+                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -vf yadif -c:v libx264 -preset ultrafast -tune zerolatency {audioArgs} -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
                 
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -1045,6 +1047,8 @@ namespace FeralCode
                     _currentMedia.AddOption(":network-caching=5000"); 
                     _currentMedia.AddOption(":live-caching=5000");
                     _currentMedia.AddOption(":demux=ts");
+					_currentMedia.AddOption(":deinterlace=1");
+					_currentMedia.AddOption(":deinterlace-mode=yadif");
                 }
                 else
                 {
@@ -1053,6 +1057,8 @@ namespace FeralCode
                     _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
                     _currentMedia.AddOption(":network-caching=3000");
                     _currentMedia.AddOption(":live-caching=3000");
+					_currentMedia.AddOption(":deinterlace=1");
+					_currentMedia.AddOption(":deinterlace-mode=yadif");
                     
                     // --- THE NUCLEAR OPTION FOR CORRUPTED TIMESTAMPS ---
                     _currentMedia.AddOption(":ts-trust-pcr=0");       // Ignore the master clock reference entirely
