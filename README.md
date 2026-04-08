@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.0.6-beta)
+# Feral HTPC (Version 1.0.7-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,17 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.0.7-beta] 
+
+### New Features & UI Improvements
+* **Per-Channel Transcoding (Right-Click Menu):** Added a context menu to the Live TV Guide. You can now right-click any channel block to toggle "Force FFmpeg Transcode" exclusively for that specific station. This allows you to use CPU-efficient Direct Play for 99% of your channels, while deploying the heavy-duty FFmpeg sanitizer only on rogue, corrupted stations.
+* **Enhanced Simplified Guide:** Refined the Simplified Guide layout. When activated, the UI now cleanly stacks a bolded Show Title directly on top of the Episode Title, perfectly centered vertically in the row for a modern, highly readable "10-foot" TV experience.
+
+### Engine Fixes & Resiliency
+* **True Stream Leniency (Syntax Fix):** Corrected a backend LibVLC API syntax issue where the engine was silently ignoring the new packet-drop rules. The player now properly applies the boolean flags, officially preventing VLC from dropping frames during Pluto TV commercial break jumps and corrupted broadcasts.
+* **Time-Shift Armor:** The advanced stream resiliency flags (and the OTA-specific "Nuclear Option") have been properly injected into the Time-Shift buffer and the Rewind/Fast-Forward seek engine. Jumping around the timeline will no longer cause the player to revert to strict, frame-dropping default rules.
+* **FFmpeg Proxy OTA Crash Fix:** Removed an incompatible closed-caption flag (`-a53cc 1`) that was causing the FFmpeg proxy to immediately crash (Exit Code -22) when attempting to transcode certain older MPEG-2 OTA broadcasts. FFmpeg will now successfully bind and play these channels.
 
 ## [1.0.6-beta] 
 
