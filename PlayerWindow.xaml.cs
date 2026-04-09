@@ -250,12 +250,11 @@ namespace FeralCode
                 // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT SEEKS ---
                 _currentMedia.AddOption(":clock-jitter=5000");      
                 _currentMedia.AddOption(":no-ts-cc-check");         
-                _currentMedia.AddOption(":no-drop-late-frames");    
-                _currentMedia.AddOption(":no-skip-frames");         
+                // _currentMedia.AddOption(":no-drop-late-frames");    
+                // _currentMedia.AddOption(":no-skip-frames");         
                 _currentMedia.AddOption(":no-avcodec-hurry-up"); 
 
                 // --- TIER 2: OTA NUCLEAR OPTION FOR TIMESHIFT SEEKS ---
-                // We define what an OTA channel is right here so this method understands it!
                 bool isOtaChannel = _channels != null && _channels[_currentIndex].Number != null && _channels[_currentIndex].Number.Contains(".");
 
                 if (isOtaChannel)
@@ -263,6 +262,10 @@ namespace FeralCode
                     _currentMedia.AddOption(":no-ts-trust-pcr");       
                     _currentMedia.AddOption(":no-ts-seek-percent");    
                     _currentMedia.AddOption(":clock-synchro=0");
+                    
+                    // NEW: Forcing OTA to never drop frames due to broadcast jitter
+                    _currentMedia.AddOption(":no-drop-late-frames");    
+                    _currentMedia.AddOption(":no-skip-frames"); 
                 }
 
                 _mediaPlayer.Play(_currentMedia);
@@ -1072,8 +1075,8 @@ namespace FeralCode
                     // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT ---
                     _currentMedia.AddOption(":clock-jitter=5000");      
                     _currentMedia.AddOption(":no-ts-cc-check");         
-                    _currentMedia.AddOption(":no-drop-late-frames");    
-                    _currentMedia.AddOption(":no-skip-frames");         
+                    // _currentMedia.AddOption(":no-drop-late-frames");    
+                    // _currentMedia.AddOption(":no-skip-frames");         
                     _currentMedia.AddOption(":no-avcodec-hurry-up");    
                     
                     // --- TIER 2: OTA NUCLEAR OPTION FOR TIMESHIFT ---
@@ -1081,7 +1084,11 @@ namespace FeralCode
                     {
                         _currentMedia.AddOption(":no-ts-trust-pcr");       
                         _currentMedia.AddOption(":no-ts-seek-percent");    
-                        _currentMedia.AddOption(":clock-synchro=0");       
+                        _currentMedia.AddOption(":clock-synchro=0");
+                        
+                        // NEW: Forcing OTA to never drop frames due to broadcast jitter
+                        _currentMedia.AddOption(":no-drop-late-frames");    
+                        _currentMedia.AddOption(":no-skip-frames");         
                     }
                 }
                 else
@@ -1098,18 +1105,21 @@ namespace FeralCode
                     LogDebug("Applying global stream leniency flags.");
                     _currentMedia.AddOption(":clock-jitter=5000");      // Integer value, so =5000 is correct
                     _currentMedia.AddOption(":no-ts-cc-check");         // Boolean flag (False)
-                    _currentMedia.AddOption(":no-drop-late-frames");    // Boolean flag (False)
-                    _currentMedia.AddOption(":no-skip-frames");         // Boolean flag (False)
+                    // _currentMedia.AddOption(":no-drop-late-frames");    // Boolean flag (False)
+                    // _currentMedia.AddOption(":no-skip-frames");         // Boolean flag (False)
                     _currentMedia.AddOption(":no-avcodec-hurry-up");    // Boolean flag (False)
                     
                     // --- TIER 2: THE TRUE NUCLEAR OPTION (Only for broken antenna clocks) ---
-                                       
                     if (currentChannel.Number != null && currentChannel.Number.Contains("."))
                     {
                         LogDebug("Applying strict clock overrides for OTA broadcast.");
-                        _currentMedia.AddOption(":no-ts-trust-pcr");       // Boolean flag (False)
-                        _currentMedia.AddOption(":no-ts-seek-percent");    // Boolean flag (False)
-                        _currentMedia.AddOption(":clock-synchro=0");       // Integer mode (-1, 0, 1), so =0 is correct
+                        _currentMedia.AddOption(":no-ts-trust-pcr");       
+                        _currentMedia.AddOption(":no-ts-seek-percent");    
+                        _currentMedia.AddOption(":clock-synchro=0");       
+                        
+                        // NEW: Forcing OTA to never drop frames due to broadcast jitter
+                        _currentMedia.AddOption(":no-drop-late-frames");    
+                        _currentMedia.AddOption(":no-skip-frames"); 
                     }
                 }
 
