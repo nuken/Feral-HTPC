@@ -104,7 +104,8 @@
         </Grid.LayoutTransform>
 
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> 
+            <RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/> 
             <RowDefinition Height="*"/>   
         </Grid.RowDefinitions>
@@ -142,8 +143,52 @@
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="13" FontWeight="SemiBold"/>
             </StackPanel>
         </Border>
+     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,15">
+            <StackPanel Orientation="Horizontal" x:Name="TagPanel">
+                
+                <StackPanel.Resources>
+                    <Style TargetType="Button" x:Key="TagChipStyle">
+                        <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                        <Setter Property="FontSize" Value="14"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Padding" Value="15,8"/>
+                        <Setter Property="Margin" Value="0,0,10,0"/>
+                        <Setter Property="BorderThickness" Value="1"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="ChipBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="16">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ChipBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </StackPanel.Resources>
 
-        <Grid Grid.Row="1" Margin="0,0,0,5">
+                <Button Content="All Channels" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Sports" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Movie" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="News" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Children" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Series" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Drama" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Action" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Reality" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Mystery" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+				<Button Content="Live" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                
+            </StackPanel>
+        </ScrollViewer>
+        <Grid Grid.Row="2" Margin="0,0,0,5">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200"/>
                 <ColumnDefinition Width="*"/>
@@ -164,7 +209,7 @@
             </Grid>
         </Grid>
 
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200"/>
                 <ColumnDefinition Width="*"/>
@@ -326,7 +371,7 @@
             </ScrollViewer>
         </Grid>
 
-        <Border x:Name="ModalOverlay" Grid.RowSpan="3" Background="#CC000000" Visibility="Collapsed" Panel.ZIndex="1000">
+        <Border x:Name="ModalOverlay" Grid.RowSpan="4" Background="#CC000000" Visibility="Collapsed" Panel.ZIndex="1000">
             <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Width="750" Height="400" VerticalAlignment="Center" HorizontalAlignment="Center" KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle">
                 <Border.Effect>
                     <DropShadowEffect Color="Black" Opacity="0.4" BlurRadius="25" ShadowDepth="8"/>

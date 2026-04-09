@@ -346,7 +346,7 @@ namespace FeralCode
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
 			_settings.SimplifiedGuide = SimplifiedGuideCheckBox.IsChecked ?? false;
 			_settings.UiScale = UiScaleSlider.Value;
-            _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
+            _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? false;
 			_settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
 			            
             if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))

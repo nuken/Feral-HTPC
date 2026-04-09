@@ -33,7 +33,8 @@ namespace FeralCode
         private DateTime _lastTimeFocus = DateTime.MinValue;
         private DateTime _lastLeftKeyPressTime = DateTime.MinValue; 
         private System.Windows.Threading.DispatcherTimer _searchTimer = new System.Windows.Threading.DispatcherTimer();
-        
+        private string _activeTag = "All Channels";
+		
         public GuidePage()
         {
             InitializeComponent();
@@ -400,8 +401,14 @@ var cleanChannels = rawChannels
                 }
             }
 
-            // Keep HasIdentifier here so typing "Fox" still finds "Fox Sports"
+// Keep HasIdentifier here so typing "Fox" still finds "Fox Sports"
             if (!string.IsNullOrWhiteSpace(query)) filtered = filtered.Where(c => c.HasIdentifier(query));
+
+            // --- NEW: Sort the filtered list to bring the active tag to the top! ---
+            if (_activeTag != "All Channels") 
+            {
+                filtered = filtered.OrderByDescending(c => DoesChannelMatchTag(c, _activeTag)).ThenBy(c => c.Number);
+            }
 
             _currentFilteredList = filtered.ToList();
             
@@ -631,6 +638,32 @@ var cleanChannels = rawChannels
                     (System.Windows.Input.Keyboard.FocusedElement as UIElement)?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Down));
                 e.Handled = true;
             }
+        }
+		
+		// --- NEW: TAG CHIP LOGIC ---
+        private void TagChip_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.Content is string clickedTag)
+            {
+                _activeTag = clickedTag;
+                
+                // Show a quick status message so the user knows it worked
+                if (_activeTag == "All Channels") ShowStatus("Restored default channel sorting.", "StatusSuccess", true);
+                else ShowStatus($"Moved '{_activeTag}' programming to the top.", "StatusSuccess", true);
+
+                ApplyFilters(); // Re-run the master filter!
+            }
+        }
+
+        private bool DoesChannelMatchTag(Channel channel, string tag)
+        {
+            var currentAiring = channel.CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
+            if (currentAiring == null) return false;
+
+            if (currentAiring.Categories != null && currentAiring.Categories.Contains(tag)) return true;
+            if (currentAiring.Genres != null && currentAiring.Genres.Contains(tag)) return true;
+
+            return false;
         }
 
         private void AiringBlock_Click(object sender, RoutedEventArgs e)
