@@ -143,7 +143,7 @@
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="13" FontWeight="SemiBold"/>
             </StackPanel>
         </Border>
-     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,15">
+     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,15" Focusable="False" IsTabStop="False">
             <StackPanel Orientation="Horizontal" x:Name="TagPanel">
                 
                 <StackPanel.Resources>
@@ -154,9 +154,8 @@
                         <Setter Property="FontWeight" Value="SemiBold"/>
                         <Setter Property="Padding" Value="15,8"/>
                         <Setter Property="Margin" Value="0,0,10,0"/>
-                        <Setter Property="BorderThickness" Value="1"/>
-                        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
-                        <Setter Property="Cursor" Value="Hand"/>
+                        <Setter Property="BorderThickness" Value="2"/> <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/> <Setter Property="Cursor" Value="Hand"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="Button">
@@ -166,6 +165,10 @@
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter TargetName="ChipBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsKeyboardFocused" Value="True">
+                                            <Setter TargetName="ChipBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                                            <Setter TargetName="ChipBorder" Property="BorderBrush" Value="#FFD700"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -184,7 +187,7 @@
                 <Button Content="Action" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
                 <Button Content="Reality" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
                 <Button Content="Mystery" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
-				<Button Content="Live" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
+                <Button Content="Live" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
                 
             </StackPanel>
         </ScrollViewer>

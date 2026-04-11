@@ -518,14 +518,66 @@ var cleanChannels = rawChannels
 
             bool isArrowKey = e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right;
             bool isFocusedOnAiring = Keyboard.FocusedElement is Button fBtn && fBtn.Tag is Airing;
+            bool isFocusedOnTag = Keyboard.FocusedElement is Button tBtn && TagPanel.Children.Contains(tBtn);
+            bool isFocusedOnTopMenu = Keyboard.FocusedElement is ComboBox || Keyboard.FocusedElement is TextBox || 
+                                      (Keyboard.FocusedElement is Button topBtn && (topBtn.Content?.ToString()?.Contains("Home") == true || topBtn.Content?.ToString()?.Contains("Connect") == true || topBtn.Content?.ToString()?.Contains("🌙") == true));
 
-            if (isArrowKey && !isFocusedOnAiring)
+            // Only trap arrows if focus is completely lost in the void
+            if (isArrowKey && !isFocusedOnAiring && !isFocusedOnTag && !isFocusedOnTopMenu)
             {
                 if (_displayedChannels.Count > 0 && _displayedChannels[0].CurrentAirings?.Count > 0)
                 {
                     var targetBtn = FindButtonForAiring(GuideItemsControl, _displayedChannels[0].CurrentAirings![0]);
                     targetBtn?.Focus();
                     e.Handled = true; 
+                    return;
+                }
+            }
+			
+			// --- NEW: Routing from Top Menu DOWN to Tags ---
+            if (isFocusedOnTopMenu && e.Key == System.Windows.Input.Key.Down)
+            {
+                e.Handled = true;
+                var activeTagBtn = TagPanel.Children.OfType<Button>().FirstOrDefault(b => b.Content.ToString() == _activeTag);
+                if (activeTagBtn != null) activeTagBtn.Focus();
+                else TagPanel.Children.OfType<Button>().FirstOrDefault()?.Focus();
+                return;
+            }
+
+            // --- NEW: Navigating while focused on a Tag Pill ---
+            if (isFocusedOnTag)
+            {
+                if (e.Key == System.Windows.Input.Key.Down)
+                {
+                    e.Handled = true;
+                    // Jump down into the Guide (to the currently airing show)
+                    if (_displayedChannels.Count > 0 && _displayedChannels[0].CurrentAirings?.Count > 0)
+                    {
+                        var targetAiring = _displayedChannels[0].CurrentAirings!.FirstOrDefault(a => 
+                            a.StartTime <= _lastTimeFocus && 
+                            a.StartTime.AddSeconds(a.Duration ?? 0) > _lastTimeFocus) ?? _displayedChannels[0].CurrentAirings![0];
+
+                        var targetBtn = FindButtonForAiring(GuideItemsControl, targetAiring);
+                        targetBtn?.Focus();
+                    }
+                    return;
+                }
+                else if (e.Key == System.Windows.Input.Key.Up)
+                {
+                    e.Handled = true;
+                    // Jump up to the Dropdowns
+                    if (CollectionComboBox.Visibility == Visibility.Visible) CollectionComboBox.Focus();
+                    else ServerComboBox.Focus();
+                    return;
+                }
+                else if (e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right)
+                {
+                    e.Handled = true;
+                    var tagBtn = (Button)Keyboard.FocusedElement;
+                    tagBtn.MoveFocus(new System.Windows.Input.TraversalRequest(e.Key == System.Windows.Input.Key.Left ? System.Windows.Input.FocusNavigationDirection.Left : System.Windows.Input.FocusNavigationDirection.Right));
+                    
+                    // Auto-scroll the horizontal Tag bar so the focused pill is always visible!
+                    if (Keyboard.FocusedElement is Button newBtn) newBtn.BringIntoView();
                     return;
                 }
             }
@@ -619,6 +671,12 @@ var cleanChannels = rawChannels
                         {
                             var guideScroll = GetScrollViewer(GuideItemsControl);
                             if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
+                            
+                            // --- NEW: Jump UP to the active Tag Pill! ---
+                            var activeTagBtn = TagPanel.Children.OfType<Button>().FirstOrDefault(b => b.Content.ToString() == _activeTag);
+                            if (activeTagBtn != null) activeTagBtn.Focus();
+                            else TagPanel.Children.OfType<Button>().FirstOrDefault()?.Focus();
+                            
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     }
                     return; 
