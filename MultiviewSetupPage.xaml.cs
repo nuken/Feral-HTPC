@@ -70,6 +70,9 @@ namespace FeralCode
                 {
                     if (channel.Number != null && guideDict.TryGetValue(channel.Number.Trim(), out var guideData))
                     {
+                        // --- NEW: Inject the clean Favorite flag directly from the Guide payload! ---
+                        channel.Favorite = guideData.IsFavorite;
+
                         // Filter the airings to strictly the show playing RIGHT NOW
                         channel.CurrentAirings = guideData.Airings?
                             .Where(a => a.StartTime <= now && a.StartTime.AddSeconds(a.Duration ?? 0) > now)
@@ -90,6 +93,7 @@ namespace FeralCode
                 _collections = await api.GetChannelCollectionsAsync(_baseUrl);
                 CollectionComboBox.Items.Clear();
                 CollectionComboBox.Items.Add("All Channels");
+                CollectionComboBox.Items.Add("Favorites"); // --- NEW: Add to Multiview Dropdown ---
                 
                 foreach (var collection in _collections)
                 {
@@ -108,6 +112,7 @@ namespace FeralCode
             catch
             {
                 CollectionComboBox.Items.Add("All Channels");
+                CollectionComboBox.Items.Add("Favorites"); // --- NEW: Add to fallback as well ---
                 CollectionComboBox.SelectedIndex = 0;
             }
 
@@ -142,7 +147,12 @@ namespace FeralCode
             
             IEnumerable<Channel> filtered = _masterChannelList;
 
-            if (selectedCollectionName != "All Channels")
+            if (selectedCollectionName == "Favorites")
+            {
+                // --- NEW: Filter by the native Channels DVR Favorite flag ---
+                filtered = filtered.Where(c => c.Favorite);
+            }
+            else if (selectedCollectionName != "All Channels")
             {
                 var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedCollectionName);
                 if (selectedCollection != null && selectedCollection.items != null)
