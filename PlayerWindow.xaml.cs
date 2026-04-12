@@ -356,7 +356,7 @@ namespace FeralCode
             {
                 FileName = targetExecutable, 
                 // Instructs FFmpeg to copy the video, normalize the audio, and output an infinite HLS playlist (hls_list_size 0)
-                Arguments = $"-nostdin -hide_banner -loglevel warning -i \"{sourceUrl}\" -c:v copy {audioArgs} -f hls -hls_time 2 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
+                Arguments = $"-nostdin -hide_banner -loglevel warning -i \"{sourceUrl}\" -c:v copy {audioArgs} -f hls -hls_time 4 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true
@@ -1142,11 +1142,17 @@ namespace FeralCode
                     // Feed the local playlist directly to VLC!
                     _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(m3u8LocalPath));
                     
-                    _currentMedia.AddOption(":network-caching=1500"); 
-                    _currentMedia.AddOption(":live-caching=1500");
+                    _currentMedia.AddOption(":network-caching=3000"); // Bumped up for fatter segments
+                    _currentMedia.AddOption(":live-caching=3000");
                     _currentMedia.AddOption(":deinterlace=1");
                     _currentMedia.AddOption(":deinterlace-mode=yadif");
                     _currentMedia.AddOption(":avcodec-hw=none");
+
+                    // --- NEW: Apply Clock Leniency so VLC ignores wonky broadcast timestamps ---
+                    _currentMedia.AddOption(":clock-jitter=5000");     
+                    _currentMedia.AddOption(":no-ts-cc-check");         
+                    _currentMedia.AddOption(":no-ts-trust-pcr");       
+                    _currentMedia.AddOption(":clock-synchro=0");
                 }
                 else
                 {
