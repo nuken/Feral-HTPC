@@ -103,8 +103,7 @@ namespace FeralCode
                 "--network-caching=3000",
                 "--live-caching=3000",
                 "--file-caching=3000",
-                "--spdif",            // NEW: Enables raw audio bitstream passthrough to AVRs
-                "--aout=wasapi"       // NEW: Forces Windows Audio Session API for exclusive audio access
+                
             );
 
             // A list of harmless native VLC errors/warnings to hide from end-users
