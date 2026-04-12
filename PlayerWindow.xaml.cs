@@ -18,15 +18,10 @@ namespace FeralCode
     {
         // --- NEW: Toggle this to false to disable logging! ---
         private bool _enableLogging;
-		private CancellationTokenSource? _spoolCts;
-        private string _spoolFilePath = "";
-        private bool _isSpooling = false;
-        private StreamMediaInput? _currentMediaInput;
-		private Media? _currentMedia;
-		private LiveTailStream? _liveTailStream;
-		private bool _isRebuildingMedia = false;
-        private double _accumulatedScrubSeconds = 0;
-
+        private Media? _currentMedia;
+        private string _timeShiftDir = ""; // NEW: Tracks the FFmpeg HLS folder so we can delete it!
+        private System.Net.HttpListener? _hlsServer; // NEW: The micro web server!
+		private double _accumulatedScrubSeconds = 0;
         private MediaPlayer _mediaPlayer;
         private string _baseUrl = ""; 
         private List<Channel>? _channels;
@@ -46,6 +41,7 @@ namespace FeralCode
         // --- Auto-Scrubbing Trackers ---
         private bool _isScrubbing = false;
         private long _scrubTargetTime = 0;
+		private long _lastPauseTime = -1;
         private DispatcherTimer _remoteScrubTimer;
         private string _remoteScrubDirection = "";
         
@@ -106,195 +102,49 @@ namespace FeralCode
             return port;
         }
 		
-		private async Task SpoolStreamAsync(string streamUrl, string filePath, CancellationToken token)
-        {
-            try
-            {
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromHours(12); 
-
-                using var response = await client.GetAsync(streamUrl, HttpCompletionOption.ResponseHeadersRead, token);
-                response.EnsureSuccessStatusCode();
-
-                _isSpooling = true; 
-                using var networkStream = await response.Content.ReadAsStreamAsync();
-                
-                // Restored to a sensible 64KB buffer
-                using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 65536, useAsync: true);
-
-                byte[] buffer = new byte[81920]; 
-                int bytesRead;
-                
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-
-                while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length, token)) > 0)
-                {
-                    token.ThrowIfCancellationRequested();
-                    await fileStream.WriteAsync(buffer, 0, bytesRead, token);
-                    
-                    // CRITICAL FIX: Flush every 200ms. This updates the NTFS file size 
-                    // so the reader thread can instantly see and play the new video bytes.
-                    if (sw.ElapsedMilliseconds > 200)
-                    {
-                        await fileStream.FlushAsync(token);
-                        sw.Restart();
-                    }
-                }
-                
-                await fileStream.FlushAsync(token);
-            }
-            catch (OperationCanceledException)
-            {
-                LogDebug("SpoolStreamAsync: Download canceled via CancellationToken.");
-            }
-            catch (Exception ex)
-            {
-                LogDebug($"SpoolStreamAsync Error: {ex.Message}");
-            }
-            finally
-            {
-                _isSpooling = false;
-            }
-        }
-
-        private void CleanupSpooler()
+		private void CleanupSpooler()
         {
             StopFfmpegProxy();
-            _spoolCts?.Cancel();
 
             // Grab references to the active objects
-            var oldInput = _currentMediaInput;
             var oldMedia = _currentMedia;
-            var oldStream = _liveTailStream;
-            var oldCts = _spoolCts;
-            var tempFilePath = _spoolFilePath; // Capture local path
+            var oldServer = _hlsServer; // Capture the server
+            var dirToDelete = _timeShiftDir;
 
             // Clear the active pointers so the app can move on
-            _currentMediaInput = null;
             _currentMedia = null;
-            _liveTailStream = null;
-            _spoolCts = null;
+            _hlsServer = null; 
+            _timeShiftDir = "";
 
-            // --- FIX: Safely spin down threads AND delete file in background ---
+            // Safely spin down threads AND delete the folder in the background
             _ = Task.Run(async () => 
             {
-                // Give VLC's native C-threads plenty of time to detach from the file
+                // Stop serving HTTP requests immediately
+                oldServer?.Stop();
+                oldServer?.Close();
+
+                // Give VLC's native C-threads plenty of time to detach from the files
                 await Task.Delay(3000); 
                 
                 oldMedia?.Dispose();
-                oldInput?.Dispose();
-                oldStream?.Dispose();
-                oldCts?.Dispose();
 
-                // NOW safely delete the temp file after all handles are released
-                if (!string.IsNullOrEmpty(tempFilePath) && File.Exists(tempFilePath))
+                // NOW safely delete the entire HLS directory after VLC releases it
+                if (!string.IsNullOrEmpty(dirToDelete) && Directory.Exists(dirToDelete))
                 {
                     try
                     {
-                        File.Delete(tempFilePath);
-                        LogDebug($"CleanupSpooler: Deleted temp file {tempFilePath}");
+                        Directory.Delete(dirToDelete, true);
+                        LogDebug($"CleanupSpooler: Deleted TimeShift folder {dirToDelete}");
                     }
                     catch (Exception ex)
                     {
-                        LogDebug($"CleanupSpooler: Could not delete temp file. {ex.Message}");
+                        LogDebug($"CleanupSpooler: Could not delete TimeShift folder. {ex.Message}");
                     }
                 }
             });
         }
 		
-		private async Task PerformSafeSeek(double seconds)
-        {
-            if (_liveTailStream == null || _isRebuildingMedia) return;
-            
-            _isRebuildingMedia = true;
-            LoadingOverlay.Visibility = Visibility.Visible;
-            LoadingText.Text = "Seeking...";
-
-            try
-            {
-                // 1. Stop playback to release the imem native pointers cleanly
-                _mediaPlayer.Stop();
-                
-                // Grab references to the old pointers
-                var oldInput = _currentMediaInput;
-                var oldMedia = _currentMedia;
-
-                // 2. Wait slightly for VLC to spin down its native C-threads
-                await Task.Delay(150); 
-
-                // 3. Move the stream read head while no one is reading it
-                _liveTailStream.ForceSeek(seconds);
-
-                // 4. FIX: Delayed Disposal for the old wrappers!
-                _ = Task.Run(async () => 
-                {
-                    await Task.Delay(3000);
-                    oldMedia?.Dispose();
-                    oldInput?.Dispose();
-                });
-
-                // 5. Re-wrap the existing stream in fresh Media to reset the PCR clock
-                _currentMediaInput = new StreamMediaInput(_liveTailStream);
-                _currentMedia = new Media(MainWindow.SharedLibVLC, _currentMediaInput);
-                
-                _currentMedia.AddOption(":file-caching=1000"); 
-                _currentMedia.AddOption(":demux=ts");
-                _currentMedia.AddOption(":avcodec-hw=none");
-                _currentMedia.AddOption(":no-spu");
-                _currentMedia.AddOption(":no-sub-autodetect-file");
-                
-                _currentMedia.AddOption(":freetype-rel-fontsize=12");
-                _currentMedia.AddOption(":deinterlace=1");             
-                _currentMedia.AddOption(":deinterlace-mode=yadif");    
-                
-                // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT SEEKS ---
-                _currentMedia.AddOption(":clock-jitter=5000");      
-                _currentMedia.AddOption(":no-ts-cc-check");         
-                // _currentMedia.AddOption(":no-drop-late-frames");    
-                // _currentMedia.AddOption(":no-skip-frames");         
-                _currentMedia.AddOption(":no-avcodec-hurry-up"); 
-
-                // --- TIER 2: OTA NUCLEAR OPTION FOR TIMESHIFT SEEKS ---
-                bool isOtaChannel = _channels != null && _channels[_currentIndex].Number != null && _channels[_currentIndex].Number.Contains(".");
-
-                if (isOtaChannel)
-                {
-                    _currentMedia.AddOption(":no-ts-trust-pcr");       
-                    _currentMedia.AddOption(":no-ts-seek-percent");    
-                    _currentMedia.AddOption(":clock-synchro=0");
-                    
-                    // NEW: Forcing OTA to never drop frames due to broadcast jitter
-                    _currentMedia.AddOption(":no-drop-late-frames");    
-                    _currentMedia.AddOption(":no-skip-frames"); 
-                }
-
-                _mediaPlayer.Play(_currentMedia);
-            }
-            finally
-            {
-                _isRebuildingMedia = false;
-            }
-        }
-		
-		private async Task ForceClockResync()
-        {
-            if (_mediaPlayer != null)
-            {
-                bool wasPlaying = _mediaPlayer.IsPlaying;
-                
-                // Briefly toggle pause to flush the A/V pipeline
-                if (wasPlaying) _mediaPlayer.Pause();
-                
-                // Nudging the rate forces VLC's PCR clock to instantly reset to the new TS packets
-                _mediaPlayer.SetRate(1.05f); 
-                await Task.Delay(50);
-                _mediaPlayer.SetRate(1.0f);
-
-                if (wasPlaying) _mediaPlayer.Play();
-            }
-        }
-
-        // --- ORIGINAL CONSTRUCTOR: Live TV Mode ---
+		// --- ORIGINAL CONSTRUCTOR: Live TV Mode ---
         public PlayerWindow(string baseUrl, List<Channel> channels, int startIndex)
         {
             LogDebug($"PlayerWindow Constructor (Live TV): Initializing for baseUrl {baseUrl}, startIndex {startIndex}");
@@ -440,6 +290,121 @@ namespace FeralCode
             return clientUrl;
         }
 		
+		private void StartHlsServer(string dir, int port)
+        {
+            try
+            {
+                _hlsServer = new System.Net.HttpListener();
+                _hlsServer.Prefixes.Add($"http://127.0.0.1:{port}/");
+                _hlsServer.Start();
+
+                Task.Run(async () =>
+                {
+                    while (_hlsServer != null && _hlsServer.IsListening)
+                    {
+                        try
+                        {
+                            var context = await _hlsServer.GetContextAsync();
+                            var requestPath = context.Request.Url!.AbsolutePath.TrimStart('/');
+                            var filePath = Path.Combine(dir, requestPath);
+                            
+                            if (File.Exists(filePath))
+                            {
+                                // Tell VLC if it's reading the playlist or the video data
+                                if (requestPath.EndsWith(".m3u8")) context.Response.ContentType = "application/vnd.apple.mpegurl";
+                                else if (requestPath.EndsWith(".ts")) context.Response.ContentType = "video/MP2T";
+
+                                // Safely read the file even if FFmpeg is currently writing to it
+                                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                                {
+                                    context.Response.ContentLength64 = fs.Length;
+                                    await fs.CopyToAsync(context.Response.OutputStream);
+                                }
+                                context.Response.OutputStream.Close();
+                            }
+                            else
+                            {
+                                context.Response.StatusCode = 404;
+                                context.Response.Close();
+                            }
+                        }
+                        catch { } // Ignore normal client disconnects
+                    }
+                });
+            }
+            catch (Exception ex) { LogDebug($"Failed to start local HLS server: {ex.Message}"); }
+        }
+		
+		private async Task<string> StartTimeShiftFfmpegAsync(string sourceUrl, string targetAudioCodec)
+        {
+            await Task.Delay(150);
+            StopFfmpegProxy(); 
+
+            // Create a dedicated folder for the segments
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            _timeShiftDir = System.IO.Path.Combine(appData, "FeralHTPC", "TimeShift", Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(_timeShiftDir);
+
+            string m3u8Path = System.IO.Path.Combine(_timeShiftDir, "live.m3u8");
+            string segmentPath = System.IO.Path.Combine(_timeShiftDir, "segment_%05d.ts");
+            string localFfmpegPath = System.IO.Path.Combine(appData, "FeralHTPC", "ffmpeg", "ffmpeg.exe");
+            string targetExecutable = System.IO.File.Exists(localFfmpegPath) ? localFfmpegPath : "ffmpeg";
+
+            string audioArgs = targetAudioCodec == "copy" ? "-c:a copy" : "-c:a aac -ac 2";
+
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = targetExecutable, 
+                // Instructs FFmpeg to copy the video, normalize the audio, and output an infinite HLS playlist (hls_list_size 0)
+                Arguments = $"-nostdin -hide_banner -loglevel warning -i \"{sourceUrl}\" -c:v copy {audioArgs} -f hls -hls_time 2 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
+
+            _ffmpegProcess = new System.Diagnostics.Process { StartInfo = startInfo };
+            _ffmpegProcess.EnableRaisingEvents = true; 
+           _ffmpegProcess.Start();
+            LogDebug($"Started FFmpeg TimeShift Engine. Writing to {_timeShiftDir}");
+
+            // --- NEW: Start our local web server to host the folder for VLC! ---
+            int dynamicPort = GetAvailablePort();
+            StartHlsServer(_timeShiftDir, dynamicPort);
+            string localHlsUrl = $"http://127.0.0.1:{dynamicPort}/live.m3u8";
+
+            // Wait for FFmpeg to generate a healthy buffer (at least 3 segments)
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (sw.ElapsedMilliseconds < 15000) 
+            {
+                if (System.IO.File.Exists(m3u8Path))
+                {
+                    try
+                    {
+                        // Safely read the playlist while FFmpeg is writing to it
+                        using (var fs = new FileStream(m3u8Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var sr = new StreamReader(fs))
+                        {
+                            string content = await sr.ReadToEndAsync();
+                            
+                            // Count how many video segments FFmpeg has finished writing
+                            int segmentCount = content.Split(new string[] { ".ts" }, StringSplitOptions.None).Length - 1;
+                            
+                            if (segmentCount >= 3) // Wait for 3 chunks (approx 6 seconds of video)
+                            {
+                                return localHlsUrl; 
+                            }
+                        }
+                    }
+                    catch { } // Ignore read collisions, just wait and loop again
+                }
+                await Task.Delay(250);
+            }
+
+            StopFfmpegProxy();
+            return "";
+			
+		}
+		
         private void StopFfmpegProxy()
         {
             if (_ffmpegProcess != null && !_ffmpegProcess.HasExited)
@@ -479,11 +444,18 @@ namespace FeralCode
             var currentChannel = _channels[_currentIndex];
             var currentAiring = currentChannel.CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
 
-            if (currentAiring != null && currentAiring.Duration.HasValue && !_isDraggingTimeline)
+            if (currentAiring != null && currentAiring.Duration.HasValue && !_isDraggingTimeline && !_isScrubbing)
             {
                 double elapsedMs = (DateTime.Now - currentAiring.StartTime).TotalMilliseconds;
-                double maxMs = currentAiring.Duration.Value * 1000;
 
+                // --- NEW: Subtract the TimeShift delay from the real-world clock! ---
+                if (_mediaPlayer != null && _mediaPlayer.Length > 0)
+                {
+                    long delayMs = _mediaPlayer.Length - _mediaPlayer.Time;
+                    if (delayMs > 0) elapsedMs -= delayMs;
+                }
+
+                double maxMs = currentAiring.Duration.Value * 1000;
                 if (elapsedMs > maxMs) elapsedMs = maxMs;
                 if (elapsedMs < 0) elapsedMs = 0;
 
@@ -1007,9 +979,30 @@ namespace FeralCode
 
         private void TimelineSlider_PreviewMouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
+            if (_mediaPlayer.IsSeekable) 
             {
-                _mediaPlayer.Time = (long)TimelineSlider.Value;
+                if (_isMovieMode)
+                {
+                    _mediaPlayer.Time = (long)TimelineSlider.Value;
+                }
+                else if (_channels != null && _channels.Any())
+                {
+                    // --- NEW: Convert UI Guide Time to VLC Buffer Time ---
+                    var currentAiring = _channels[_currentIndex].CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
+                    if (currentAiring != null)
+                    {
+                        double liveEdgeEpgMs = (DateTime.Now - currentAiring.StartTime).TotalMilliseconds;
+                        double millisecondsBehindLive = liveEdgeEpgMs - TimelineSlider.Value;
+                        
+                        long targetVlcTime = _mediaPlayer.Length - (long)millisecondsBehindLive;
+                        
+                        if (targetVlcTime < 0) targetVlcTime = 0;
+                        if (targetVlcTime > _mediaPlayer.Length) targetVlcTime = _mediaPlayer.Length;
+                        
+                        _mediaPlayer.Time = targetVlcTime;
+						if (!_mediaPlayer.IsPlaying) _lastPauseTime = targetVlcTime;
+                    }
+                }
             }
             _isDraggingTimeline = false;
         }
@@ -1063,7 +1056,8 @@ namespace FeralCode
                 // Use the proxy if the global setting is checked OR if this specific channel was right-clicked and flagged
                 bool useProxy = _settings.ForceLocalTranscode || 
                 (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
-                string audioCodec = "copy"; 
+                if (_settings.EnableTimeShiftBuffer) useProxy = false;
+				string audioCodec = "copy"; 
 
                 bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
 
@@ -1130,56 +1124,29 @@ namespace FeralCode
 
                 if (_settings.EnableTimeShiftBuffer && !isVirtualChannel)
                 {
-                    LogDebug("PlayCurrentChannel: Time-Shift enabled. Starting disk spooler.");
-                    _spoolCts = new CancellationTokenSource();
-                    _spoolFilePath = Path.Combine(Path.GetTempPath(), $"feral_spool_{Guid.NewGuid():N}.ts");
+                    LogDebug("PlayCurrentChannel: Time-Shift enabled. Starting FFmpeg HLS Spooler.");
                     
-                    _ = Task.Run(() => SpoolStreamAsync(activeStreamUrl, _spoolFilePath, _spoolCts.Token));
-
                     LoadingOverlay.Visibility = Visibility.Visible;
                     LoadingText.Text = "Buffering Live Stream...";
 
-                    int waitAttempts = 0;
-                    while (waitAttempts < 150) 
+                    // Start FFmpeg and get the path to the local .m3u8 file
+                    string m3u8LocalPath = await StartTimeShiftFfmpegAsync(activeStreamUrl, audioCodec);
+
+                    if (string.IsNullOrEmpty(m3u8LocalPath))
                     {
-                        if (File.Exists(_spoolFilePath))
-                        {
-                            try { if (new FileInfo(_spoolFilePath).Length > 2000000) break; } 
-                            catch { } 
-                        }
-                        await Task.Delay(100);
-                        waitAttempts++;
+                        MessageBox.Show("Failed to initialize TimeShift buffer.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        this.Close();
+                        return;
                     }
 
-                    _liveTailStream = new LiveTailStream(_spoolFilePath, () => _isSpooling);
-                    _currentMediaInput = new StreamMediaInput(_liveTailStream);
+                    // Feed the local playlist directly to VLC!
+                    _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(m3u8LocalPath));
                     
-                    _currentMedia = new Media(MainWindow.SharedLibVLC, _currentMediaInput);
-                    
-                    _currentMedia.AddOption(":network-caching=5000"); 
-                    _currentMedia.AddOption(":live-caching=5000");
-                    _currentMedia.AddOption(":demux=ts");
+                    _currentMedia.AddOption(":network-caching=1500"); 
+                    _currentMedia.AddOption(":live-caching=1500");
                     _currentMedia.AddOption(":deinterlace=1");
                     _currentMedia.AddOption(":deinterlace-mode=yadif");
-                    
-                    // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT ---
-                    _currentMedia.AddOption(":clock-jitter=5000");      
-                    _currentMedia.AddOption(":no-ts-cc-check");         
-                    // _currentMedia.AddOption(":no-drop-late-frames");    
-                    // _currentMedia.AddOption(":no-skip-frames");         
-                    _currentMedia.AddOption(":no-avcodec-hurry-up");    
-                    
-                    // --- TIER 2: OTA NUCLEAR OPTION FOR TIMESHIFT ---
-                    if (currentChannel.Number != null && currentChannel.Number.Contains("."))
-                    {
-                        _currentMedia.AddOption(":no-ts-trust-pcr");       
-                        _currentMedia.AddOption(":no-ts-seek-percent");    
-                        _currentMedia.AddOption(":clock-synchro=0");
-                        
-                        // NEW: Forcing OTA to never drop frames due to broadcast jitter
-                        _currentMedia.AddOption(":no-drop-late-frames");    
-                        _currentMedia.AddOption(":no-skip-frames");         
-                    }
+                    _currentMedia.AddOption(":avcodec-hw=none");
                 }
                 else
                 {
@@ -1258,13 +1225,31 @@ namespace FeralCode
         {
             if (_mediaPlayer.IsPlaying)
             {
+                _lastPauseTime = _mediaPlayer.Time; 
                 _mediaPlayer.Pause();
-                BtnPlayPause.Content = "\u23F8"; 
+                BtnPlayPause.Content = "\u25B6"; 
             }
             else
             {
                 _mediaPlayer.Play();
-                BtnPlayPause.Content = "\u25B6"; 
+                BtnPlayPause.Content = "\u23F8"; 
+
+                if (!_isMovieMode && _lastPauseTime > 0)
+                {
+                    long targetTime = _lastPauseTime;
+                    _lastPauseTime = -1; // Clear it out so it only fires once
+                    
+                    // --- NEW: Wait for VLC's engine to wake up before forcing the time! ---
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(400); // 400ms is the sweet spot for HLS streams
+                        
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            if (_mediaPlayer.IsSeekable) _mediaPlayer.Time = targetTime;
+                        });
+                    });
+                }
             }
         }
         
@@ -1290,31 +1275,21 @@ namespace FeralCode
             Overlay_MouseMove(null!, null!); 
         }
 
-        private async void Rewind_Click(object sender, RoutedEventArgs e)
+        private void Rewind_Click(object sender, RoutedEventArgs e)
         {
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
+            if (_mediaPlayer.IsSeekable) 
             {
                 _mediaPlayer.Time -= 10000; 
                 ShowActionOverlay("⏪ -10s");
             }
-            else if (!_isMovieMode && _liveTailStream != null)
-            {
-                ShowActionOverlay("⏪ -10s");
-                await PerformSafeSeek(-10.0);
-            }
         }
 
-        private async void FastForward_Click(object sender, RoutedEventArgs e)
+        private void FastForward_Click(object sender, RoutedEventArgs e)
         {
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
+            if (_mediaPlayer.IsSeekable) 
             {
                 _mediaPlayer.Time += 30000;
                 ShowActionOverlay("⏩ +30s");
-            }
-            else if (!_isMovieMode && _liveTailStream != null)
-            {
-                ShowActionOverlay("⏩ +30s");
-                await PerformSafeSeek(30.0);
             }
         }
 
@@ -1359,12 +1334,13 @@ namespace FeralCode
         {
             if (e.Key == System.Windows.Input.Key.Right || e.Key == System.Windows.Input.Key.Left)
             {
-                if (ControlBar.Visibility == Visibility.Collapsed && _isMovieMode)
+                if (ControlBar.Visibility == Visibility.Collapsed)
                 {
                     if (!_isScrubbing)
                     {
                         _isScrubbing = true;
                         _scrubTargetTime = _mediaPlayer.Time;
+                        _accumulatedScrubSeconds = 0; // Reset for live TV
                         ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, null); 
                         ActionOverlayText.Opacity = 1.0;
                     }
@@ -1376,11 +1352,22 @@ namespace FeralCode
                     _scrubTargetTime += jumpAmount;
                     
                     if (_scrubTargetTime < 0) _scrubTargetTime = 0;
-                    if (_scrubTargetTime > _mediaPlayer.Length) _scrubTargetTime = _mediaPlayer.Length;
+                    if (_mediaPlayer.Length > 0 && _scrubTargetTime > _mediaPlayer.Length) 
+                        _scrubTargetTime = _mediaPlayer.Length;
 
-                    TimelineSlider.Value = _scrubTargetTime;
-                    CurrentTimeText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
-                    ActionOverlayText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
+                    if (_isMovieMode)
+                    {
+                        TimelineSlider.Value = _scrubTargetTime;
+                        CurrentTimeText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
+                        ActionOverlayText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
+                    }
+                    else
+                    {
+                        // Live TV: Show the relative scrub jump (+/- seconds) so it doesn't snap the EPG slider
+                        _accumulatedScrubSeconds += (jumpAmount / 1000.0);
+                        string sign = _accumulatedScrubSeconds > 0 ? "+" : "";
+                        ActionOverlayText.Text = $"Scrubbing: {sign}{_accumulatedScrubSeconds}s";
+                    }
                     
                     e.Handled = true;
                     return;
@@ -1492,8 +1479,7 @@ namespace FeralCode
             {
                 _isScrubbing = true;
                 _scrubTargetTime = _mediaPlayer.Time; 
-                _accumulatedScrubSeconds = 0; // Reset live TV accumulation
-                
+                               
                 ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, null); 
                 ActionOverlayText.Opacity = 1.0;
             }
@@ -1502,44 +1488,44 @@ namespace FeralCode
 
         private void RemoteScrubTimer_Tick(object? sender, EventArgs e)
         {
+            long jumpAmount = (_remoteScrubDirection == "right") ? 5000 : -5000;
+            _scrubTargetTime += jumpAmount;
+            
+            if (_scrubTargetTime < 0) _scrubTargetTime = 0;
+            
+            // Prevent scrubbing past the live edge
+            if (_mediaPlayer.Length > 0 && _scrubTargetTime > _mediaPlayer.Length) 
+                _scrubTargetTime = _mediaPlayer.Length;
+
             if (_isMovieMode)
             {
-                long jumpAmount = (_remoteScrubDirection == "right") ? 5000 : -5000;
-                _scrubTargetTime += jumpAmount;
-                
-                if (_scrubTargetTime < 0) _scrubTargetTime = 0;
-                if (_scrubTargetTime > _mediaPlayer.Length) _scrubTargetTime = _mediaPlayer.Length;
-
                 TimelineSlider.Value = _scrubTargetTime;
                 CurrentTimeText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
                 ActionOverlayText.Text = TimeSpan.FromMilliseconds(_scrubTargetTime).ToString(@"h\:mm\:ss");
             }
             else
             {
-                // For Live TV, just accumulate the jump and show a relative indicator
-                double jumpSec = (_remoteScrubDirection == "right") ? 5.0 : -5.0;
-                _accumulatedScrubSeconds += jumpSec;
-                
+                // Live TV: Show the relative scrub jump (+/- seconds) so it doesn't snap the EPG slider
+                _accumulatedScrubSeconds += (jumpAmount / 1000.0);
                 string sign = _accumulatedScrubSeconds > 0 ? "+" : "";
                 ActionOverlayText.Text = $"Scrubbing: {sign}{_accumulatedScrubSeconds}s";
             }
         }
 
-        public async void StopRemoteScrub()
+        public void StopRemoteScrub()
         {
             if (!_isScrubbing) return;
             
             _remoteScrubTimer.Stop();
             _isScrubbing = false;
             
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
+            // --- FIX: Removed _isMovieMode so Live TV uses standard VLC seeking too! ---
+            if (_mediaPlayer.IsSeekable) 
             {
                 _mediaPlayer.Time = _scrubTargetTime;
-            }
-            else if (!_isMovieMode && _liveTailStream != null && _accumulatedScrubSeconds != 0)
-            {
-                // Execute ONE safe jump now that the user has let go of the button
-                await PerformSafeSeek(_accumulatedScrubSeconds);
+                
+                // --- NEW: If we are paused, update the lock so play resumes from here! ---
+                if (!_mediaPlayer.IsPlaying) _lastPauseTime = _scrubTargetTime;
             }
 
             var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
