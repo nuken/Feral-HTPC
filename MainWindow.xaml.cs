@@ -540,6 +540,11 @@ namespace FeralCode
                                     0, System.Windows.Input.Key.F) { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent };
                                 ActivePlayerWindow.RaiseEvent(keyArgs);
                             }
+                            else
+                            {
+                                // --- NEW: If no videos are playing, toggle the MainWindow! ---
+                                ToggleFullscreen();
+                            }
                         });
                         return Results.Ok();
                     });
