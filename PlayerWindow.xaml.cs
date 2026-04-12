@@ -372,9 +372,11 @@ namespace FeralCode
             StartHlsServer(_timeShiftDir, dynamicPort);
             string localHlsUrl = $"http://127.0.0.1:{dynamicPort}/live.m3u8";
 
-            // Wait for FFmpeg to generate a healthy buffer (at least 3 segments)
+            // Wait for FFmpeg to generate a healthy buffer (at least 2 segments)
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            while (sw.ElapsedMilliseconds < 15000) 
+            
+            // --- FIX: Increased timeout to 35 seconds to allow TVE/Web streams to tune! ---
+            while (sw.ElapsedMilliseconds < 35000) 
             {
                 if (System.IO.File.Exists(m3u8Path))
                 {
@@ -389,7 +391,8 @@ namespace FeralCode
                             // Count how many video segments FFmpeg has finished writing
                             int segmentCount = content.Split(new string[] { ".ts" }, StringSplitOptions.None).Length - 1;
                             
-                            if (segmentCount >= 3) // Wait for 3 chunks (approx 6 seconds of video)
+                            // --- FIX: Reduced to 2 segments (8 seconds of buffer) so channels load faster ---
+                            if (segmentCount >= 2) 
                             {
                                 return localHlsUrl; 
                             }

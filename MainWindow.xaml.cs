@@ -55,6 +55,9 @@ namespace FeralCode
             }
         }
 
+        // --- NEW: Tracks if the main UI is in fullscreen mode ---
+        private bool _isFullscreen = false;
+
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int X, int Y);
 
@@ -78,8 +81,19 @@ namespace FeralCode
         public MainWindow()
         {
             InitializeComponent();
+            
+            // --- NEW: Make the entire app fullscreen if the setting is checked! ---
+            var settings = SettingsManager.Load();
+            if (settings.StartPlayersFullscreen)
+            {
+                this.WindowState = WindowState.Maximized;
+                this.WindowStyle = WindowStyle.None;
+                this.ResizeMode = ResizeMode.NoResize;
+				_isFullscreen = true;
+            }
+
             Core.Initialize(); 
-            AppLogger.IsEnabled = SettingsManager.Load().EnableDebugLogging;
+            AppLogger.IsEnabled = settings.EnableDebugLogging;
             AppLogger.Log("=== APPLICATION STARTED ===");
 
             SharedLibVLC = new LibVLC(
@@ -149,6 +163,22 @@ namespace FeralCode
 
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            // --- NEW: Global Fullscreen Toggle for the Main UI ---
+            if (e.Key == System.Windows.Input.Key.F || e.Key == System.Windows.Input.Key.F11)
+            {
+                ToggleFullscreen();
+                e.Handled = true;
+                return;
+            }
+
+            // Let Escape easily exit fullscreen
+            if (_isFullscreen && e.Key == System.Windows.Input.Key.Escape)
+            {
+                ToggleFullscreen();
+                e.Handled = true;
+                return;
+            }
+
             bool isNavKey = e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down || 
                             e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right ||
                             e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack;
@@ -171,6 +201,25 @@ namespace FeralCode
                         e.Handled = true; 
                     }
                 }
+            }
+        }
+		
+		// --- NEW: The method to safely jump in and out of fullscreen ---
+        public void ToggleFullscreen()
+        {
+            if (!_isFullscreen)
+            {
+                this.WindowStyle = WindowStyle.None;
+                this.ResizeMode = ResizeMode.NoResize;
+                this.WindowState = WindowState.Maximized;
+                _isFullscreen = true;
+            }
+            else
+            {
+                this.WindowStyle = WindowStyle.SingleBorderWindow;
+                this.ResizeMode = ResizeMode.CanResize;
+                this.WindowState = WindowState.Normal;
+                _isFullscreen = false;
             }
         }
 

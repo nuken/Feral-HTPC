@@ -759,6 +759,9 @@ public bool IsExactMatch(string query)
 
         [System.Text.Json.Serialization.JsonPropertyName("created_at")] 
         public long CreatedAt { get; set; }
+		
+		[System.Text.Json.Serialization.JsonPropertyName("last_recorded_at")] 
+        public long LastRecordedAt { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("number_unwatched")] 
         public int NumberUnwatched { get; set; }

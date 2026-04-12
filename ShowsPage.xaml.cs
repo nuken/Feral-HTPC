@@ -14,45 +14,69 @@ namespace FeralCode
     public partial class ShowsPage : Page
     {
         private List<Episode> _allEpisodes = new List<Episode>();
-        private List<TvShow> _allShows = new List<TvShow>(); 
+		private List<TvShow> _allShows = new List<TvShow>();
+       // --- Lazy Loading Trackers ---
+        private List<TvShow> _currentFilteredShows = new List<TvShow>();
+        private int _currentShowIndex = 0;
+        private bool _isLoadingShows = false;
+        private bool _isInitializing = false;
+
         private string _baseUrl = "";
         private UserSettings _settings;
-        private Button? _lastFocusedShowButton; 
+        private Button? _lastFocusedShowButton;
 
         public ShowsPage()
         {
             InitializeComponent();
             _settings = SettingsManager.Load(); 
             this.Loaded += Page_Loaded;
+
+            // --- NEW: Global Scroll Listener ---
+            this.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ShowsScrollViewer_ScrollChanged), true);
+        }
+
+        private void ShowsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            if (e.OriginalSource is ScrollViewer sv)
+            {
+                if (Math.Abs(e.VerticalChange) > 0 || e.ExtentHeightChange > 0)
+                {
+                    double threshold = e.ExtentHeight > 200 ? 800 : 15;
+                    if (e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - threshold)
+                    {
+                        LoadNextShowBatch(sv);
+                    }
+                }
+            }
         }
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
-{
-    _settings = SettingsManager.Load();
-    _baseUrl = _settings.LastServerAddress;
-
-    // Try saved IP first. If blank, fallback to network discovery.
-    if (string.IsNullOrWhiteSpace(_baseUrl))
-    {
-        LoadingText.Text = "Searching for DVR Server...";
-        var api = new ChannelsApi();
-        var servers = await api.DiscoverDvrServersAsync();
-        
-        if (servers.Any())
         {
-            _baseUrl = servers.First().BaseUrl;
-            _settings.LastServerAddress = _baseUrl;
-            SettingsManager.Save(_settings); // Auto-save the discovered IP
-        }
-        else
-        {
-            LoadingText.Text = "⚠️ No DVR Server found on network. Please enter IP in Settings.";
-            return;
-        }
-    }
+            _settings = SettingsManager.Load();
+            _baseUrl = _settings.LastServerAddress;
 
-    await LoadShowsAsync();
-}
+            // Try saved IP first. If blank, fallback to network discovery.
+            if (string.IsNullOrWhiteSpace(_baseUrl))
+            {
+                LoadingText.Text = "Searching for DVR Server...";
+                var api = new ChannelsApi();
+                var servers = await api.DiscoverDvrServersAsync();
+                
+                if (servers.Any())
+                {
+                    _baseUrl = servers.First().BaseUrl;
+                    _settings.LastServerAddress = _baseUrl;
+                    SettingsManager.Save(_settings); // Auto-save the discovered IP
+                }
+                else
+                {
+                    LoadingText.Text = "⚠️ No DVR Server found on network. Please enter IP in Settings.";
+                    return;
+                }
+            }
+
+            await LoadShowsAsync();
+        }
 
         private async Task LoadShowsAsync()
         {
@@ -71,9 +95,11 @@ namespace FeralCode
                                   .Distinct()
                                   .OrderBy(g => g).ToList();
             
+            _isInitializing = true; // Lock the event
             GenreBox.Items.Clear();
             GenreBox.Items.Add(new ComboBoxItem { Content = "All Genres", IsSelected = true });
             foreach (var g in genres) GenreBox.Items.Add(new ComboBoxItem { Content = g });
+            _isInitializing = false; // Unlock
 
             ApplyFilters(); 
             LoadingText.Visibility = Visibility.Collapsed;
@@ -81,6 +107,7 @@ namespace FeralCode
         
         private void Filter_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return; // Ignore event if we are building the UI
             if (_allShows.Count > 0) ApplyFilters();
         }
         
@@ -132,20 +159,26 @@ namespace FeralCode
                 filtered = filtered.OrderByDescending(s => s.ReleaseYear);
             else if (SortBox.SelectedIndex == 3) 
             {
-                // --- NEW: Sort shows by looking at their episodes and finding the highest timestamp! ---
-                filtered = filtered.OrderByDescending(s => 
-                    _allEpisodes.Where(e => e.ShowId == s.Id)
-                                .Max(e => (long?)e.CreatedAt) ?? 0);
+                filtered = filtered.OrderByDescending(s => s.LastRecordedAt);
             }
 
-            RenderShowsGrid(filtered.ToList());
-        }
-        
-        private void RenderShowsGrid(List<TvShow> showsToRender)
-        {
+            // --- NEW: Reset the lazy loader and start drawing ---
+            _currentFilteredShows = filtered.ToList();
             ShowsWrapPanel.Children.Clear();
+            _currentShowIndex = 0;
+            _isLoadingShows = false; 
+            
+            LoadNextShowBatch(null);
+        } // End of ApplyFilters
+        
+        private async void LoadNextShowBatch(ScrollViewer? sv)
+        {
+            if (_isLoadingShows || _currentShowIndex >= _currentFilteredShows.Count) return;
+            _isLoadingShows = true;
 
-            foreach (var show in showsToRender)
+            var batch = _currentFilteredShows.Skip(_currentShowIndex).Take(50).ToList();
+
+            foreach (var show in batch)
             {
                 var btn = new Button { Style = (Style)FindResource("PosterButton"), Tag = show };
 
@@ -173,9 +206,21 @@ namespace FeralCode
                 ShowsWrapPanel.Children.Add(btn);
             }
 
-            if (ShowsWrapPanel.Children.Count > 0 && !SearchBox.IsKeyboardFocusWithin)
+            bool wasFirstBatch = (_currentShowIndex == 0);
+            _currentShowIndex += batch.Count;
+
+            if (wasFirstBatch && ShowsWrapPanel.Children.Count > 0 && !SearchBox.IsKeyboardFocusWithin)
             {
                 ((UIElement)ShowsWrapPanel.Children[0]).Focus();
+            }
+
+            await Task.Delay(50); // Let the UI draw
+            _isLoadingShows = false;
+
+            // --- FIX: If 50 items didn't fill the screen, keep loading! ---
+            if (sv != null && sv.ViewportHeight >= sv.ExtentHeight - 100)
+            {
+                LoadNextShowBatch(sv);
             }
         }
 

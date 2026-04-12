@@ -9,6 +9,7 @@ using System.Windows.Input;
 using System.Windows.Navigation;
 using System.Globalization;
 using System.Windows.Data;
+using System.Windows.Media;
 
 namespace FeralCode
 {
@@ -19,8 +20,12 @@ namespace FeralCode
         private UserSettings _settings;
         private Button? _lastFocusedMovieButton;
         private Movie? _selectedMovie;
-
         private List<Movie> _allMovies = new List<Movie>();
+        // --- Lazy Loading Trackers ---
+        private List<Movie> _currentFilteredMovies = new List<Movie>();
+        private int _currentMovieIndex = 0;
+        private bool _isLoadingMovies = false;
+        private bool _isInitializing = false;
 
         public MoviesPage()
         {
@@ -29,6 +34,39 @@ namespace FeralCode
             _settings = SettingsManager.Load();
             
             this.Loaded += Page_Loaded;
+            
+            // --- NEW: Global Scroll Listener ---
+            this.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(MoviesScrollViewer_ScrollChanged), true);
+        }
+
+        // --- NEW: A helper to dynamically find the ScrollViewer inside your XAML ---
+        private ScrollViewer? FindScrollViewer(DependencyObject depObj)
+        {
+            if (depObj is ScrollViewer sv) return sv;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
+            {
+                var child = VisualTreeHelper.GetChild(depObj, i);
+                var result = FindScrollViewer(child);
+                if (result != null) return result;
+            }
+            return null;
+        }
+
+        private void MoviesScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            // Capture the specific ScrollViewer that fired the event
+            if (e.OriginalSource is ScrollViewer sv)
+            {
+                // Only trigger if the user scrolled vertically OR if the layout just expanded
+                if (Math.Abs(e.VerticalChange) > 0 || e.ExtentHeightChange > 0)
+                {
+                    double threshold = e.ExtentHeight > 200 ? 800 : 15;
+                    if (e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - threshold)
+                    {
+                        LoadNextMovieBatch(sv); // Pass the scrollviewer down!
+                    }
+                }
+            }
         }
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
@@ -62,18 +100,17 @@ namespace FeralCode
 
             if (_allMovies.Any())
             {
-                StatusText.Text = $"{_allMovies.Count} Movies Loaded.";
-                StatusText.Foreground = System.Windows.Media.Brushes.LimeGreen;
-
                 // Dynamically build the Genre Dropdown
                 var genres = _allMovies.Where(m => m.Genres != null)
                                        .SelectMany(m => m.Genres!)
                                        .Distinct()
                                        .OrderBy(g => g).ToList();
                 
+                _isInitializing = true; // Lock the event
                 GenreBox.Items.Clear();
                 GenreBox.Items.Add(new ComboBoxItem { Content = "All Genres", IsSelected = true });
                 foreach (var g in genres) GenreBox.Items.Add(new ComboBoxItem { Content = g });
+                _isInitializing = false; // Unlock
 
                 ApplyFilters();
             }
@@ -110,6 +147,7 @@ namespace FeralCode
 
         private void Filter_Changed(object sender, RoutedEventArgs e)
         {
+            if (_isInitializing) return; // Ignore event if we are building the UI
             if (_allMovies.Count > 0) ApplyFilters();
         }
 
@@ -136,21 +174,49 @@ namespace FeralCode
             else if (SortBox.SelectedIndex == 1) filtered = filtered.OrderByDescending(m => m.CreatedAt);
             else if (SortBox.SelectedIndex == 2) filtered = filtered.OrderByDescending(m => m.ReleaseYear);
 
+            // --- NEW: Reset the lazy loader and start drawing ---
+            _currentFilteredMovies = filtered.ToList();
             _movies.Clear();
-            foreach (var m in filtered)
+            _currentMovieIndex = 0;
+            _isLoadingMovies = false; 
+
+            LoadNextMovieBatch(null);
+        } // End of ApplyFilters
+
+        // Note: We added the (ScrollViewer? sv) parameter!
+        private async void LoadNextMovieBatch(ScrollViewer? sv)
+        {
+            if (_isLoadingMovies || _currentMovieIndex >= _currentFilteredMovies.Count) return;
+            _isLoadingMovies = true;
+
+            var batch = _currentFilteredMovies.Skip(_currentMovieIndex).Take(50).ToList();
+            foreach (var m in batch)
             {
                 _movies.Add(m);
             }
 
-            StatusText.Text = $"{_movies.Count} Movies Loaded.";
+            bool wasFirstBatch = (_currentMovieIndex == 0);
+            _currentMovieIndex += batch.Count;
+            
+            StatusText.Text = $"{_movies.Count} of {_currentFilteredMovies.Count} Movies Loaded.";
+            StatusText.Foreground = System.Windows.Media.Brushes.LimeGreen;
 
-            if (!SearchBox.IsKeyboardFocusWithin)
+            if (wasFirstBatch && !SearchBox.IsKeyboardFocusWithin)
             {
                 _ = Dispatcher.BeginInvoke(new Action(() =>
                 {
                     var request = new TraversalRequest(FocusNavigationDirection.First);
                     MoviesItemsControl.MoveFocus(request);
                 }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
+
+            await Task.Delay(50); // Give the UI time to physically draw the items
+            _isLoadingMovies = false;
+
+            // --- FIX: If the screen is so big that 50 items didn't create a scrollbar, load more! ---
+            if (sv != null && sv.ViewportHeight >= sv.ExtentHeight - 100)
+            {
+                LoadNextMovieBatch(sv);
             }
         }
 
@@ -284,14 +350,14 @@ namespace FeralCode
                 }
                 return;
             }
-			
+            
             if (e.Key == Key.BrowserHome)
             {
                 NavigationService?.Navigate(new StartPage());
                 e.Handled = true;
                 return;
             }
-			
+            
             if (e.Key == Key.Apps || e.Key == Key.System)
             {
                 ToggleFilters_Click(null!, null!);
@@ -328,7 +394,7 @@ namespace FeralCode
                 e.Handled = true;
             }
         }
-		
+        
         private System.Windows.Media.Imaging.BitmapImage LoadOptimizedImage(string imageUrl, int width = 300)
         {
             var bitmap = new System.Windows.Media.Imaging.BitmapImage();
@@ -337,7 +403,7 @@ namespace FeralCode
             bitmap.DecodePixelWidth = width; 
             bitmap.EndInit();
             return bitmap;
-        }		
+        }       
 
         private async void LoadModalImageAsync(System.Windows.Controls.Image imgControl, string url, int width)
         {
@@ -362,7 +428,7 @@ namespace FeralCode
             catch { }
         }
     }
-	
+    
     public class ImageUrlToOptimizedBitmapConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -385,5 +451,5 @@ namespace FeralCode
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) 
             => throw new NotImplementedException();
-    }	
+    }   
 }
