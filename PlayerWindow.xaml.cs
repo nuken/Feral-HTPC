@@ -355,8 +355,8 @@ namespace FeralCode
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = targetExecutable, 
-                // Instructs FFmpeg to copy the video, normalize the audio, and output an infinite HLS playlist (hls_list_size 0)
-                Arguments = $"-nostdin -hide_banner -loglevel warning -i \"{sourceUrl}\" -c:v copy {audioArgs} -f hls -hls_time 4 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
+               // Instructs FFmpeg to copy the video, normalize the audio, and output an infinite HLS playlist
+            Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -ignore_unknown -max_muxing_queue_size 4096 -c:v copy {audioArgs} -f hls -hls_time 4 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true
@@ -364,7 +364,16 @@ namespace FeralCode
 
             _ffmpegProcess = new System.Diagnostics.Process { StartInfo = startInfo };
             _ffmpegProcess.EnableRaisingEvents = true; 
-           _ffmpegProcess.Start();
+            
+            // NEW: Capture FFmpeg's internal errors and write them to your log file!
+            _ffmpegProcess.ErrorDataReceived += (s, e) => 
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data)) LogDebug($"[FFMPEG-TS] {e.Data}");
+            };
+
+            _ffmpegProcess.Start();
+            _ffmpegProcess.BeginErrorReadLine(); // MUST call this to start reading the stream
+            
             LogDebug($"Started FFmpeg TimeShift Engine. Writing to {_timeShiftDir}");
 
             // --- NEW: Start our local web server to host the folder for VLC! ---
