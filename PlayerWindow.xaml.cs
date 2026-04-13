@@ -356,7 +356,7 @@ namespace FeralCode
             {
                 FileName = targetExecutable, 
                // Instructs FFmpeg to copy the video, normalize the audio, and output an infinite HLS playlist
-            Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -ignore_unknown -max_muxing_queue_size 4096 -c:v copy {audioArgs} -f hls -hls_time 4 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
+            Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -ignore_unknown -max_muxing_queue_size 4096 -c:v copy {audioArgs} -f hls -hls_time 4 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true
