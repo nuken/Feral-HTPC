@@ -366,7 +366,7 @@ namespace FeralCode
         {
             if (sender is Button btn && btn.Tag is Episode ep)
             {
-                string streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{ep.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+                string streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{ep.Id}/hls/stream.m3u8";
                 string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
 
                 if (Application.Current.MainWindow is MainWindow mainWin)

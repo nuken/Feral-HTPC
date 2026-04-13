@@ -543,6 +543,7 @@ namespace FeralCode
             if (!_isMovieMode) return; 
 
             long currentTime = e.Time;
+            long safeLength = _mediaPlayer.Length; // --- NEW: Grab the length directly from the engine
 
             if (_isMovieMode && _movieCommercials != null && _movieCommercials.Count >= 2 && _settings.AutoSkipCommercials)
             {
@@ -565,6 +566,13 @@ namespace FeralCode
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                // --- NEW: Fallback in case VLC failed to fire the LengthChanged event on startup!
+                if (safeLength > 0 && TimelineSlider.Maximum != safeLength)
+                {
+                    TimelineSlider.Maximum = safeLength;
+                    TotalTimeText.Text = TimeSpan.FromMilliseconds(safeLength).ToString(@"h\:mm\:ss");
+                }
+
                 if (!_isDraggingTimeline && !_isScrubbing) 
                 {
                     TimelineSlider.Value = currentTime;
@@ -991,31 +999,29 @@ namespace FeralCode
 
         private void TimelineSlider_PreviewMouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (_mediaPlayer.IsSeekable) 
+            if (_isMovieMode)
             {
-                if (_isMovieMode)
+                _mediaPlayer.Time = (long)TimelineSlider.Value;
+            }
+            else if (_channels != null && _channels.Any())
+            {
+                // --- NEW: Convert UI Guide Time to VLC Buffer Time ---
+                var currentAiring = _channels[_currentIndex].CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
+                if (currentAiring != null)
                 {
-                    _mediaPlayer.Time = (long)TimelineSlider.Value;
-                }
-                else if (_channels != null && _channels.Any())
-                {
-                    // --- NEW: Convert UI Guide Time to VLC Buffer Time ---
-                    var currentAiring = _channels[_currentIndex].CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
-                    if (currentAiring != null)
-                    {
-                        double liveEdgeEpgMs = (DateTime.Now - currentAiring.StartTime).TotalMilliseconds;
-                        double millisecondsBehindLive = liveEdgeEpgMs - TimelineSlider.Value;
+                    double liveEdgeEpgMs = (DateTime.Now - currentAiring.StartTime).TotalMilliseconds;
+                    double millisecondsBehindLive = liveEdgeEpgMs - TimelineSlider.Value;
                         
-                        long targetVlcTime = _mediaPlayer.Length - (long)millisecondsBehindLive;
+                    long targetVlcTime = _mediaPlayer.Length - (long)millisecondsBehindLive;
                         
-                        if (targetVlcTime < 0) targetVlcTime = 0;
-                        if (targetVlcTime > _mediaPlayer.Length) targetVlcTime = _mediaPlayer.Length;
+                    if (targetVlcTime < 0) targetVlcTime = 0;
+                    if (targetVlcTime > _mediaPlayer.Length && _mediaPlayer.Length > 0) targetVlcTime = _mediaPlayer.Length;
                         
-                        _mediaPlayer.Time = targetVlcTime;
-						if (!_mediaPlayer.IsPlaying) _lastPauseTime = targetVlcTime;
-                    }
+                    _mediaPlayer.Time = targetVlcTime;
+                    if (!_mediaPlayer.IsPlaying) _lastPauseTime = targetVlcTime;
                 }
             }
+            
             _isDraggingTimeline = false;
         }
 
@@ -1264,7 +1270,7 @@ namespace FeralCode
                         
                         Application.Current.Dispatcher.Invoke(() => 
                         {
-                            if (_mediaPlayer.IsSeekable) _mediaPlayer.Time = targetTime;
+                            _mediaPlayer.Time = targetTime; // Removed IsSeekable check
                         });
                     });
                 }
@@ -1295,20 +1301,14 @@ namespace FeralCode
 
         private void Rewind_Click(object sender, RoutedEventArgs e)
         {
-            if (_mediaPlayer.IsSeekable) 
-            {
-                _mediaPlayer.Time -= 10000; 
-                ShowActionOverlay("⏪ -10s");
-            }
+            _mediaPlayer.Time -= 10000; 
+            ShowActionOverlay("⏪ -10s");
         }
 
         private void FastForward_Click(object sender, RoutedEventArgs e)
         {
-            if (_mediaPlayer.IsSeekable) 
-            {
-                _mediaPlayer.Time += 30000;
-                ShowActionOverlay("⏩ +30s");
-            }
+            _mediaPlayer.Time += 30000;
+            ShowActionOverlay("⏩ +30s");
         }
 
         private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -1474,7 +1474,7 @@ namespace FeralCode
             if ((e.Key == System.Windows.Input.Key.Right || e.Key == System.Windows.Input.Key.Left) && _isScrubbing)
             {
                 _isScrubbing = false;
-                if (_mediaPlayer.IsSeekable) _mediaPlayer.Time = _scrubTargetTime;
+                _mediaPlayer.Time = _scrubTargetTime; // Removed IsSeekable check
 
                 var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
                 {
@@ -1530,21 +1530,17 @@ namespace FeralCode
             }
         }
 
-        public void StopRemoteScrub()
+       public void StopRemoteScrub()
         {
             if (!_isScrubbing) return;
             
             _remoteScrubTimer.Stop();
             _isScrubbing = false;
             
-            // --- FIX: Removed _isMovieMode so Live TV uses standard VLC seeking too! ---
-            if (_mediaPlayer.IsSeekable) 
-            {
-                _mediaPlayer.Time = _scrubTargetTime;
+            _mediaPlayer.Time = _scrubTargetTime; // Removed IsSeekable check
                 
-                // --- NEW: If we are paused, update the lock so play resumes from here! ---
-                if (!_mediaPlayer.IsPlaying) _lastPauseTime = _scrubTargetTime;
-            }
+            // --- NEW: If we are paused, update the lock so play resumes from here! ---
+            if (!_mediaPlayer.IsPlaying) _lastPauseTime = _scrubTargetTime;
 
             var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
             {
