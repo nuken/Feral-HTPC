@@ -29,12 +29,14 @@ namespace FeralCode
 		public bool ShowExtendedMetadata { get; set; } = false;
 		public bool ForceAacAudio { get; set; } = true;
 		public bool ForceLocalTranscode { get; set; } = false;
+		public bool ForceLocalRemux { get; set; } = false;
 		public bool EnableVirtualChannels { get; set; } = false;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
 		public bool EnableDebugLogging { get; set; } = false;
 		public double UiScale { get; set; } = 1.0;
 		public bool SimplifiedGuide { get; set; } = false;
 		public List<string> ForcedFfmpegChannels { get; set; } = new List<string>();
+		public List<string> ForcedFfmpegRemuxChannels { get; set; } = new List<string>();
     }
 
    public static class SettingsManager

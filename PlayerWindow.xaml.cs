@@ -37,6 +37,7 @@ namespace FeralCode
         private List<double>? _movieCommercials;
         private UserSettings _settings;
         private bool _isDraggingTimeline = false;
+		private HashSet<int> _disabledCommercialBlocks = new HashSet<int>();
         
         // --- Auto-Scrubbing Trackers ---
         private bool _isScrubbing = false;
@@ -203,11 +204,9 @@ namespace FeralCode
             }
         }
 		
-		// Update the method signature to accept the offset
-        private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSeconds, string targetAudioCodec)
+		// --- NEW: Added boolean flag 'useTranscode' ---
+        private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSeconds, string targetAudioCodec, bool useTranscode)
         {
-            // Give VLC's native thread 150ms to gracefully close the HTTP socket 
-            // before we forcefully kill the old FFmpeg process feeding it.
             await Task.Delay(150);
             StopFfmpegProxy(); 
 
@@ -215,22 +214,21 @@ namespace FeralCode
             string ffmpegBindUrl = $"http://127.0.0.1:{dynamicPort}";
             string clientUrl = $"http://127.0.0.1:{dynamicPort}/stream.ts";
 
-            // --- FIX: Point to the new AppData directory instead of Program Files ---
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string localFfmpegPath = System.IO.Path.Combine(appData, "FeralHTPC", "ffmpeg", "ffmpeg.exe");
-            string audioArgs = targetAudioCodec == "copy" ? "-c:a copy" : "-c:a aac -ac 2";
-            // Fallback to global PATH if the auto-download somehow failed
             string targetExecutable = System.IO.File.Exists(localFfmpegPath) ? localFfmpegPath : "ffmpeg";
+            
+            string audioArgs = targetAudioCodec == "copy" ? "-c:a copy" : "-c:a aac -ac 2";
+
+            // --- THE MAGIC SWITCH ---
+            // If transcode is true, use heavy x264 and ignore DTS. If false, copy video and keep DTS.
+            string videoArgs = useTranscode ? "-vf yadif -c:v libx264 -preset ultrafast -tune zerolatency" : "-c:v copy";
+            string timeFlags = useTranscode ? "+genpts+igndts+discardcorrupt" : "+genpts+discardcorrupt";
 
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = targetExecutable, 
-                
-                // CLEANED UP: We removed the aggressive -r 30 and -fps_mode commands. 
-                // This is now a lightweight, hyper-fast proxy strictly for normalizing 
-                // standard Live TV audio/video codecs.
-                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -map 0:s? -vf yadif -c:v libx264 -preset ultrafast -tune zerolatency {audioArgs} -c:s copy -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
-                
+                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags {timeFlags} -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -map 0:s? {videoArgs} {audioArgs} -c:s copy -ignore_unknown -max_muxing_queue_size 4096 -f mpegts -listen 1 {ffmpegBindUrl}",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true
@@ -244,34 +242,19 @@ namespace FeralCode
                 if (!string.IsNullOrWhiteSpace(e.Data)) LogDebug($"[FFMPEG] {e.Data}");
             };
 
-            _ffmpegProcess.Exited += (s, e) =>
-            {
-                if (_ffmpegProcess != null && _ffmpegProcess.ExitCode != 0)
-                {
-                    LogDebug($"[FFMPEG FATAL] Process exited unexpectedly with code: {_ffmpegProcess.ExitCode}");
-                }
-            };
-
             _ffmpegProcess.Start();
             _ffmpegProcess.BeginErrorReadLine(); 
             
-            LogDebug($"Started FFmpeg local proxy. Waiting for port {dynamicPort} to bind...");
+            string modeName = useTranscode ? "Transcode" : "Remux";
+            LogDebug($"Started FFmpeg local proxy ({modeName}). Waiting for port {dynamicPort} to bind...");
 
+            // ... (keep the rest of the while loop and port binding logic exactly the same) ...
             var sw = System.Diagnostics.Stopwatch.StartNew();
             bool isBound = false;
-            
             while (sw.ElapsedMilliseconds < 20000) 
             {
-                if (_ffmpegProcess == null || _ffmpegProcess.HasExited)
-                {
-                    LogDebug("FFmpeg exited before port bind.");
-                    break;
-                }
-
-                var properties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
-                var listeners = properties.GetActiveTcpListeners();
-                
-                if (listeners.Any(l => l.Port == dynamicPort))
+                if (_ffmpegProcess == null || _ffmpegProcess.HasExited) break;
+                if (System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(l => l.Port == dynamicPort))
                 {
                     isBound = true;
                     break;
@@ -281,12 +264,9 @@ namespace FeralCode
 
             if (!isBound)
             {
-                LogDebug("FFmpeg proxy failed to bind within the timeout period.");
                 StopFfmpegProxy();
                 return "";
             }
-
-            LogDebug($"FFmpeg successfully bound to port {dynamicPort}. Proceeding to playback.");
             return clientUrl;
         }
 		
@@ -543,7 +523,7 @@ namespace FeralCode
             if (!_isMovieMode) return; 
 
             long currentTime = e.Time;
-            long safeLength = _mediaPlayer.Length; // --- NEW: Grab the length directly from the engine
+            long safeLength = _mediaPlayer.Length; // Grab the length directly from the engine
 
             if (_isMovieMode && _movieCommercials != null && _movieCommercials.Count >= 2 && _settings.AutoSkipCommercials)
             {
@@ -551,8 +531,30 @@ namespace FeralCode
                 {
                     long startMs = (long)(_movieCommercials[i] * 1000);
                     long endMs = (long)(_movieCommercials[i + 1] * 1000);
+                    int blockIndex = i / 2; // Identify which commercial block this is
 
-                    if (currentTime >= startMs && currentTime < endMs - 1000)
+                    // --- NEW: Smart Commercial Skip Logic ---
+                    // If the user manually scrubbed into the commercial, disable auto-skip for this block
+                    if ((_isDraggingTimeline || _isScrubbing) && currentTime >= startMs - 5000 && currentTime <= endMs)
+                    {
+                        if (!_disabledCommercialBlocks.Contains(blockIndex))
+                        {
+                            _disabledCommercialBlocks.Add(blockIndex);
+                            LogDebug($"Disabled auto-skip for commercial block {blockIndex}");
+                        }
+                    }
+                    // If they rewind well before the commercial, re-enable auto-skip for it
+                    else if (currentTime < startMs - 30000)
+                    {
+                        if (_disabledCommercialBlocks.Contains(blockIndex))
+                        {
+                            _disabledCommercialBlocks.Remove(blockIndex);
+                            LogDebug($"Re-enabled auto-skip for commercial block {blockIndex}");
+                        }
+                    }
+
+                    // Perform the skip if the block is active and NOT disabled
+                    if (!_disabledCommercialBlocks.Contains(blockIndex) && currentTime >= startMs && currentTime < endMs - 1000)
                     {
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
@@ -566,7 +568,7 @@ namespace FeralCode
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // --- NEW: Fallback in case VLC failed to fire the LengthChanged event on startup!
+                // Fallback in case VLC failed to fire the LengthChanged event on startup!
                 if (safeLength > 0 && TimelineSlider.Maximum != safeLength)
                 {
                     TimelineSlider.Maximum = safeLength;
@@ -1122,7 +1124,7 @@ namespace FeralCode
             }
         }
 
-        private Task PlayHlsStream(Channel currentChannel, Airing? currentAiring)
+        private async Task PlayHlsStream(Channel currentChannel, Airing? currentAiring)
         {
             string streamUrl = "";
             int offsetSeconds = 0;
@@ -1143,7 +1145,7 @@ namespace FeralCode
                 {
                     MessageBox.Show("No active media is scheduled for this Virtual Channel right now.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     this.Close();
-                    return Task.CompletedTask;
+                    return;
                 }
             }
             else
@@ -1155,7 +1157,32 @@ namespace FeralCode
             
             LogDebug($"PlayHlsStream: Final HLS URL: {streamUrl}");
 
-            _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
+            string activeStreamUrl = streamUrl;
+            
+            // --- NEW: Check if the user is forcing a transcode or remux! ---
+            bool useTranscode = _settings.ForceLocalTranscode || 
+            (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
+
+            bool useRemux = _settings.ForceLocalRemux || 
+            (_settings.ForcedFfmpegRemuxChannels != null && _settings.ForcedFfmpegRemuxChannels.Contains(currentChannel.Number!));
+            
+            if (useTranscode || useRemux)
+            {
+                LogDebug($"Routing HLS stream through FFmpeg proxy (Transcode: {useTranscode}).");
+                string audioCodec = _settings.ForceAacAudio ? "aac" : "copy";
+                
+                // Pass the useTranscode flag so FFmpeg knows which arguments to use
+                activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, offsetSeconds, audioCodec, useTranscode);
+                
+                if (string.IsNullOrEmpty(activeStreamUrl))
+                {
+                    MessageBox.Show("Failed to start the proxy stream.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    this.Close();
+                    return;
+                }
+            }
+
+            _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
             _currentMedia.AddOption(":network-caching=3000");
             _currentMedia.AddOption(":live-caching=3000");
             _currentMedia.AddOption(":deinterlace=1");
@@ -1164,14 +1191,19 @@ namespace FeralCode
             _currentMedia.AddOption(":no-spu");
             _currentMedia.AddOption(":no-sub-autodetect-file");
             _currentMedia.AddOption(":freetype-rel-fontsize=12");
+            
+            // Only force 4k if we aren't routing it through the local proxy
+            if (!useTranscode && !useRemux) 
+            {
+                _currentMedia.AddOption(":preferred-resolution=2160"); 
+            }
 
-            if (offsetSeconds > 0)
+            if (offsetSeconds > 0 && !useTranscode && !useRemux)
             {
                 _currentMedia.AddOption($":start-time={offsetSeconds}");
             }
 
             _mediaPlayer.Play(_currentMedia);
-            return Task.CompletedTask;
         }
 
         private async Task PlayTsStream(Channel currentChannel, Airing? currentAiring)
@@ -1191,15 +1223,24 @@ namespace FeralCode
 
             string activeStreamUrl = streamUrl;
             
-            bool useProxy = _settings.ForceLocalTranscode || 
+            // --- NEW: Evaluate Proxy Settings ---
+            bool useTranscode = _settings.ForceLocalTranscode || 
             (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
-            
-            if (_settings.EnableTimeShiftBuffer) useProxy = false;
 
-            if (useProxy)
+            bool useRemux = _settings.ForceLocalRemux || 
+            (_settings.ForcedFfmpegRemuxChannels != null && _settings.ForcedFfmpegRemuxChannels.Contains(currentChannel.Number!));
+            
+            // TimeShift has its own FFmpeg engine, so disable standard proxy if TimeShift is on
+            if (_settings.EnableTimeShiftBuffer) 
             {
-                LogDebug("Routing stream through FFmpeg proxy to normalize formats.");
-                activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, 0, audioCodec);
+                useTranscode = false;
+                useRemux = false;
+            }
+
+            if (useTranscode || useRemux)
+            {
+                LogDebug($"Routing stream through FFmpeg proxy (Transcode: {useTranscode}).");
+                activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, 0, audioCodec, useTranscode);
                 
                 if (string.IsNullOrEmpty(activeStreamUrl))
                 {
@@ -1265,7 +1306,7 @@ namespace FeralCode
 
             _mediaPlayer.Play(_currentMedia);
         }
-
+		
         private void PlayPause_Click(object sender, RoutedEventArgs e)
         {
             if (_mediaPlayer.IsPlaying)

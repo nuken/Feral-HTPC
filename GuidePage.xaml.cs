@@ -998,14 +998,14 @@ var cleanChannels = rawChannels
             // WPF Trick: Get the exact Channel Border that the user right-clicked
             if (sender is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
             {
-                var menuItem = menu.Items[0] as MenuItem;
+                var transcodeItem = menu.Items[0] as MenuItem;
+                var remuxItem = menu.Items[1] as MenuItem; // Assumes your Remux option is the second item in the XAML
                 
-                // Make sure our list exists
-                if (_settings.ForcedFfmpegChannels == null) 
-                    _settings.ForcedFfmpegChannels = new List<string>();
+                if (_settings.ForcedFfmpegChannels == null) _settings.ForcedFfmpegChannels = new List<string>();
+                if (_settings.ForcedFfmpegRemuxChannels == null) _settings.ForcedFfmpegRemuxChannels = new List<string>();
 
-                // Put a checkmark next to it if this channel is already in the FFmpeg list
-                menuItem!.IsChecked = _settings.ForcedFfmpegChannels.Contains(channel.Number!);
+                transcodeItem!.IsChecked = _settings.ForcedFfmpegChannels.Contains(channel.Number!);
+                remuxItem!.IsChecked = _settings.ForcedFfmpegRemuxChannels.Contains(channel.Number!);
             }
         }
 
@@ -1032,6 +1032,32 @@ var cleanChannels = rawChannels
                 SettingsManager.Save(_settings);
                 
                 // Optional: Fade out the status text after a few seconds
+                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation { From = 1.0, To = 0.0, Duration = new Duration(TimeSpan.FromSeconds(1)), BeginTime = TimeSpan.FromSeconds(3) };
+                StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            }
+        }
+		
+		private void ForceFfmpegRemux_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+            {
+                if (_settings.ForcedFfmpegRemuxChannels == null) 
+                    _settings.ForcedFfmpegRemuxChannels = new List<string>();
+
+                // Toggle the setting
+                if (_settings.ForcedFfmpegRemuxChannels.Contains(channel.Number!))
+                {
+                    _settings.ForcedFfmpegRemuxChannels.Remove(channel.Number!);
+                    StatusText.Text = $"Removed FFmpeg Remux for CH {channel.Number}";
+                }
+                else
+                {
+                    _settings.ForcedFfmpegRemuxChannels.Add(channel.Number!);
+                    StatusText.Text = $"Forced FFmpeg Remux for CH {channel.Number}";
+                }
+
+                SettingsManager.Save(_settings);
+                
                 var fadeOut = new System.Windows.Media.Animation.DoubleAnimation { From = 1.0, To = 0.0, Duration = new Duration(TimeSpan.FromSeconds(1)), BeginTime = TimeSpan.FromSeconds(3) };
                 StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             }

@@ -234,10 +234,11 @@
                             <Border Height="70" Background="{DynamicResource CardBackground}" CornerRadius="4" Margin="0,5,10,5" Padding="5">
     
     <Border.ContextMenu>
-        <ContextMenu Opened="ChannelContextMenu_Opened">
-            <MenuItem x:Name="ForceFfmpegMenuItem" Header="Force FFmpeg Transcode" Click="ForceFfmpeg_Click" FontSize="14" Padding="5"/>
-        </ContextMenu>
-    </Border.ContextMenu>
+                                <ContextMenu Opened="ChannelContextMenu_Opened">
+                                    <MenuItem x:Name="ForceFfmpegMenuItem" Header="Force FFmpeg Transcode" Click="ForceFfmpeg_Click" FontSize="14" Padding="5"/>
+                                    <MenuItem x:Name="ForceFfmpegRemuxMenuItem" Header="Force FFmpeg Remux" Click="ForceFfmpegRemux_Click" FontSize="14" Padding="5"/>
+                                </ContextMenu>
+                            </Border.ContextMenu>
     
     <Grid>
                                

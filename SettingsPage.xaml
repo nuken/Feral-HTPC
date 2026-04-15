@@ -226,9 +226,14 @@
                         <CheckBox x:Name="FullscreenCheckBox" Content="Start in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
 <CheckBox x:Name="MinimizeOnPlayCheckBox" Content="Minimize Base App Instead of Hiding When Playing" Style="{StaticResource BigCheckBox}"/>
                         <CheckBox x:Name="ForceLocalTranscodeCheckBox" 
-                  Content="Force Local FFmpeg Transcode (Proxy All Channels)" 
-                  Style="{StaticResource BigCheckBox}" 
-                  Click="ForceLocalTranscodeCheckBox_Click"/>
+                                  Content="Force Local FFmpeg Transcode (Heavy: Fix Codecs, High CPU)" 
+                                  Style="{StaticResource BigCheckBox}" 
+                                  Click="ForceLocalTranscodeCheckBox_Click"/>
+                                  
+                        <CheckBox x:Name="ForceLocalRemuxCheckBox" 
+                                  Content="Force Local FFmpeg Remux (Light: Fix Timestamps, Low CPU)" 
+                                  Style="{StaticResource BigCheckBox}" 
+                                  Click="ForceLocalRemuxCheckBox_Click"/>
                         <CheckBox x:Name="TimeShiftCheckBox" Content="Enable Live TV Time-Shifting (Pause/Rewind)" Style="{StaticResource BigCheckBox}"/>
                         <TextBlock Text="Downloads live TV to a temporary file on your disk, allowing you to pause, rewind, and fast-forward raw streams." Foreground="Gray" FontSize="12" Margin="40,-5,0,15" TextWrapping="Wrap" />
 
