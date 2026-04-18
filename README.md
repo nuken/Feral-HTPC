@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.1.1-beta)
+# Feral HTPC (Version 1.1.2-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,12 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.1.2]
+
+### New Features & Enhancements
+* **Added Remux Option:** Added a context menu to the Live TV Guide to allow for per-channel remux mode (works great on Pluto channels) and a global remux setting. 
+* **Improved Time-Shift Behavior:** This is still a very rough implementation. 
 
 ## [1.1.1]
 
