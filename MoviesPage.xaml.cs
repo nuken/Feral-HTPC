@@ -38,6 +38,16 @@ namespace FeralCode
             // --- NEW: Global Scroll Listener ---
             this.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(MoviesScrollViewer_ScrollChanged), true);
         }
+		
+		private string StripArticles(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return "";
+            string lower = title.ToLower();
+            if (lower.StartsWith("the ")) return title.Substring(4);
+            if (lower.StartsWith("a ")) return title.Substring(2);
+            if (lower.StartsWith("an ")) return title.Substring(3);
+            return title;
+        }
 
         // --- NEW: A helper to dynamically find the ScrollViewer inside your XAML ---
         private ScrollViewer? FindScrollViewer(DependencyObject depObj)
@@ -110,6 +120,13 @@ namespace FeralCode
                 GenreBox.Items.Clear();
                 GenreBox.Items.Add(new ComboBoxItem { Content = "All Genres", IsSelected = true });
                 foreach (var g in genres) GenreBox.Items.Add(new ComboBoxItem { Content = g });
+                
+                // --- NEW: Load Persistent Settings ---
+                var savedGenre = GenreBox.Items.OfType<ComboBoxItem>().FirstOrDefault(g => g.Content.ToString() == _settings.LastMovieGenre);
+                if (savedGenre != null) savedGenre.IsSelected = true;
+                
+                SortBox.SelectedIndex = _settings.LastMovieSortIndex;
+                WatchedBox.SelectedIndex = _settings.LastMovieWatchedIndex;
                 _isInitializing = false; // Unlock
 
                 ApplyFilters();
@@ -170,9 +187,18 @@ namespace FeralCode
             if (WatchedBox.SelectedIndex == 1) filtered = filtered.Where(m => !m.Watched);
             if (WatchedBox.SelectedIndex == 2) filtered = filtered.Where(m => m.Watched);
 
-            if (SortBox.SelectedIndex == 0) filtered = filtered.OrderBy(m => m.Title);
+            if (SortBox.SelectedIndex == 0) filtered = filtered.OrderBy(m => StripArticles(m.Title));
             else if (SortBox.SelectedIndex == 1) filtered = filtered.OrderByDescending(m => m.CreatedAt);
             else if (SortBox.SelectedIndex == 2) filtered = filtered.OrderByDescending(m => m.ReleaseYear);
+
+            // --- NEW: Save the Persistent Settings silently ---
+            if (!_isInitializing)
+            {
+                _settings.LastMovieSortIndex = SortBox.SelectedIndex;
+                _settings.LastMovieWatchedIndex = WatchedBox.SelectedIndex;
+                if (GenreBox.SelectedItem is ComboBoxItem giSave) _settings.LastMovieGenre = giSave.Content.ToString() ?? "All Genres";
+                SettingsManager.Save(_settings);
+            }
 
             // --- NEW: Reset the lazy loader and start drawing ---
             _currentFilteredMovies = filtered.ToList();

@@ -24,6 +24,13 @@ namespace FeralCode
     public class UserSettings
     {
         public bool AutoSkipCommercials { get; set; } = true;
+		public int LastShowSortIndex { get; set; } = 3; // 3 = Recently Updated (Last Recorded)
+        public int LastShowWatchedIndex { get; set; } = 0;
+        public string LastShowGenre { get; set; } = "All Genres";
+
+        public int LastMovieSortIndex { get; set; } = 1; // 1 = Recently Added
+        public int LastMovieWatchedIndex { get; set; } = 0;
+        public string LastMovieGenre { get; set; } = "All Genres";
         public bool IsLightTheme { get; set; } = false; 
         public string LastServerAddress { get; set; } = ""; 
 		public List<SavedServerProfile> SavedServers { get; set; } = new List<SavedServerProfile>();

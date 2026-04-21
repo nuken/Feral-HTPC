@@ -34,6 +34,17 @@ namespace FeralCode
             // --- NEW: Global Scroll Listener ---
             this.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ShowsScrollViewer_ScrollChanged), true);
         }
+		
+		// --- NEW: Helper to ignore articles when sorting ---
+        private string StripArticles(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return "";
+            string lower = title.ToLower();
+            if (lower.StartsWith("the ")) return title.Substring(4);
+            if (lower.StartsWith("a ")) return title.Substring(2);
+            if (lower.StartsWith("an ")) return title.Substring(3);
+            return title;
+        }
 
         private void ShowsScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
@@ -99,6 +110,13 @@ namespace FeralCode
             GenreBox.Items.Clear();
             GenreBox.Items.Add(new ComboBoxItem { Content = "All Genres", IsSelected = true });
             foreach (var g in genres) GenreBox.Items.Add(new ComboBoxItem { Content = g });
+            
+            // --- NEW: Load Persistent Settings ---
+            var savedGenre = GenreBox.Items.OfType<ComboBoxItem>().FirstOrDefault(g => g.Content.ToString() == _settings.LastShowGenre);
+            if (savedGenre != null) savedGenre.IsSelected = true;
+            
+            SortBox.SelectedIndex = _settings.LastShowSortIndex;
+            WatchedBox.SelectedIndex = _settings.LastShowWatchedIndex;
             _isInitializing = false; // Unlock
 
             ApplyFilters(); 
@@ -152,7 +170,7 @@ namespace FeralCode
             if (WatchedBox.SelectedIndex == 2) filtered = filtered.Where(s => s.IsWatched);  
 
             if (SortBox.SelectedIndex == 0) 
-                filtered = filtered.OrderBy(s => s.Name);
+                filtered = filtered.OrderBy(s => StripArticles(s.Name));
             else if (SortBox.SelectedIndex == 1) 
                 filtered = filtered.OrderByDescending(s => s.CreatedAt);
             else if (SortBox.SelectedIndex == 2) 
@@ -160,6 +178,15 @@ namespace FeralCode
             else if (SortBox.SelectedIndex == 3) 
             {
                 filtered = filtered.OrderByDescending(s => s.LastRecordedAt);
+            }
+
+            // --- NEW: Save the Persistent Settings silently ---
+            if (!_isInitializing)
+            {
+                _settings.LastShowSortIndex = SortBox.SelectedIndex;
+                _settings.LastShowWatchedIndex = WatchedBox.SelectedIndex;
+                if (GenreBox.SelectedItem is ComboBoxItem giSave) _settings.LastShowGenre = giSave.Content.ToString() ?? "All Genres";
+                SettingsManager.Save(_settings);
             }
 
             // --- NEW: Reset the lazy loader and start drawing ---
