@@ -58,8 +58,13 @@ namespace FeralCode
             var servers = new List<DvrServer>();
             try
             {
-                // Discover all broadcasted DVRs on the local network
-                IReadOnlyList<IZeroconfHost> results = await ZeroconfResolver.ResolveAsync("_channels_dvr._tcp.local.");
+                // FIX: Increased scan time to 4 seconds and added 2 retries to catch slow network responses
+                IReadOnlyList<IZeroconfHost> results = await ZeroconfResolver.ResolveAsync(
+                    "_channels_dvr._tcp.local.", 
+                    scanTime: TimeSpan.FromSeconds(4), 
+                    retries: 2, 
+                    retryDelayMilliseconds: 2000);
+
                 foreach (var host in results)
                 {
                     int port = 8089;

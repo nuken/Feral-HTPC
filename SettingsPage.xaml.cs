@@ -149,9 +149,39 @@ namespace FeralCode
                     .Select(g => g.First())
                     .ToList();
 
+                // --- NEW: Merge Saved Servers from history into the Settings UI! ---
+                if (_settings.SavedServers != null)
+                {
+                    foreach (var savedIp in _settings.SavedServers)
+                    {
+                        if (!uniqueServers.Any(s => s.BaseUrl.Equals(savedIp, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            string parsedIp = savedIp;
+                            int parsedPort = 8089;
+                            try 
+                            {
+                                if (Uri.TryCreate(savedIp, UriKind.Absolute, out var uri))
+                                {
+                                    parsedIp = uri.Host;
+                                    parsedPort = uri.Port > 0 ? uri.Port : 8089;
+                                }
+                            }
+                            catch { }
+
+                            uniqueServers.Add(new DvrServer 
+                            { 
+                                Ip = parsedIp,
+                                Port = parsedPort,
+                                Name = "Saved Server" 
+                            });
+                        }
+                    }
+                }
+                // -------------------------------------------------------------------
+
                 if (uniqueServers.Count == 0)
                 {
-                    var noServersText = new TextBlock { Text = "No local servers found.", FontStyle = FontStyles.Italic };
+                    var noServersText = new TextBlock { Text = "No servers found. Enter an IP below.", FontStyle = FontStyles.Italic };
                     noServersText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
                     DiscoveredServersPanel.Children.Add(noServersText);
                 }

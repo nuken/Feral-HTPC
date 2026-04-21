@@ -150,47 +150,60 @@ namespace FeralCode
     ShowStatus("Scanning network for DVR servers...", "StatusConnecting");
 
     var discoveredServers = await _api.DiscoverDvrServersAsync();
+    
+    // --- FIX 1: Filter out duplicate network interface broadcasts ---
+    var uniqueServers = discoveredServers
+        .GroupBy(s => s.BaseUrl.TrimEnd('/'))
+        .Select(g => g.First())
+        .ToList();
+
     ServerComboBox.Items.Clear();
 
     // 1. Add dynamically discovered local servers
-    foreach (var server in discoveredServers)
+    foreach (var server in uniqueServers)
     {
         ServerComboBox.Items.Add(server);
     }
     
     // 2. Add saved manual servers that weren't broadcasted via Zeroconf
-    foreach (var savedIp in _settings.SavedServers)
+    if (_settings.SavedServers != null)
     {
-        if (!discoveredServers.Any(s => s.BaseUrl.Equals(savedIp, StringComparison.OrdinalIgnoreCase)))
+        foreach (var savedIp in _settings.SavedServers)
         {
-            // Parse the saved URL string back into an IP and Port
-            string parsedIp = savedIp;
-            int parsedPort = 8089;
-            
-            try 
-            {
-                if (Uri.TryCreate(savedIp, UriKind.Absolute, out var uri))
-                {
-                    parsedIp = uri.Host;
-                    parsedPort = uri.Port > 0 ? uri.Port : 8089;
-                }
-            }
-            catch { }
+            // --- FIX 2: Trim trailing slashes so the comparison perfectly matches ---
+            string cleanSavedIp = savedIp.TrimEnd('/');
 
-            // Create a mock DvrServer object so the ComboBox displays it properly
-            ServerComboBox.Items.Add(new DvrServer 
-            { 
-                Ip = parsedIp,
-                Port = parsedPort,
-                Name = "Saved Server" 
-            });
+            if (!uniqueServers.Any(s => s.BaseUrl.TrimEnd('/').Equals(cleanSavedIp, StringComparison.OrdinalIgnoreCase)))
+            {
+                // Parse the saved URL string back into an IP and Port
+                string parsedIp = cleanSavedIp;
+                int parsedPort = 8089;
+                
+                try 
+                {
+                    if (Uri.TryCreate(cleanSavedIp, UriKind.Absolute, out var uri))
+                    {
+                        parsedIp = uri.Host;
+                        parsedPort = uri.Port > 0 ? uri.Port : 8089;
+                    }
+                }
+                catch { }
+
+                // Create a mock DvrServer object so the ComboBox displays it properly
+                ServerComboBox.Items.Add(new DvrServer 
+                { 
+                    Ip = parsedIp,
+                    Port = parsedPort,
+                    Name = "Saved Server" 
+                });
+            }
         }
     }
 
     if (ServerComboBox.Items.Count > 0)
     {
         // Select the last used server, or default to the first in the list
-        var match = ServerComboBox.Items.OfType<DvrServer>().FirstOrDefault(s => s.BaseUrl == _settings.LastServerAddress);
+        var match = ServerComboBox.Items.OfType<DvrServer>().FirstOrDefault(s => s.BaseUrl.TrimEnd('/') == _settings.LastServerAddress?.TrimEnd('/'));
         if (match != null) ServerComboBox.SelectedItem = match;
         else ServerComboBox.SelectedIndex = 0; 
         
