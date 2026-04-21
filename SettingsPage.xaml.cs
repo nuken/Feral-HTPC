@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Net.Http;
 using System.Reflection;
+using System.Collections.Generic;
 
 namespace FeralCode
 {
@@ -23,7 +24,6 @@ namespace FeralCode
             _settings = SettingsManager.Load();
             
             // Populate the UI with current settings
-            ManualServerIpBox.Text = _settings.LastServerAddress;
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
@@ -42,8 +42,8 @@ namespace FeralCode
             StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
             VirtualChannelsCheckBox.IsChecked = _settings.EnableVirtualChannels;
             // --- FIX: Formatted Mobile Remote URL Display ---
-            // Grabs local network IP and pairs it with WebServerPort (fallback to 8080 if 0)
-            int currentPort = _settings.WebServerPort > 0 ? _settings.WebServerPort : 8080; 
+            // Grabs local network IP and pairs it with WebServerPort (fallback to 12345 if 0)
+            int currentPort = _settings.WebServerPort > 0 ? _settings.WebServerPort : 12345; 
             LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{currentPort}";
             SimplifiedGuideCheckBox.IsChecked = _settings.SimplifiedGuide;
 			UiScaleSlider.Value = _settings.UiScale > 0 ? _settings.UiScale : 1.0;
@@ -133,106 +133,119 @@ namespace FeralCode
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
         {
-            ManualServerIpBox.Focus(); 
             RefreshStreamsList(); 
 
-            // --- Auto-Discover Local Channels DVR Servers ---
+            // --- Auto-Discover Local Servers & Add to Address Book ---
             try
             {
                 var api = new ChannelsApi();
                 var discoveredServers = await api.DiscoverDvrServersAsync();
                 
-                DiscoveredServersPanel.Children.Clear(); // Remove "Searching..." text
+                if (_settings.SavedServers == null) _settings.SavedServers = new List<SavedServerProfile>();
 
-                var uniqueServers = discoveredServers
-                    .GroupBy(s => s.BaseUrl)
-                    .Select(g => g.First())
-                    .ToList();
-
-                // --- NEW: Merge Saved Servers from history into the Settings UI! ---
-                if (_settings.SavedServers != null)
+                bool addedNew = false;
+                foreach (var server in discoveredServers)
                 {
-                    foreach (var savedIp in _settings.SavedServers)
+                    // If the discovered server isn't in our address book yet, add it!
+                    if (!_settings.SavedServers.Any(s => s.Url.TrimEnd('/').Equals(server.BaseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)))
                     {
-                        if (!uniqueServers.Any(s => s.BaseUrl.Equals(savedIp, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            string parsedIp = savedIp;
-                            int parsedPort = 8089;
-                            try 
-                            {
-                                if (Uri.TryCreate(savedIp, UriKind.Absolute, out var uri))
-                                {
-                                    parsedIp = uri.Host;
-                                    parsedPort = uri.Port > 0 ? uri.Port : 8089;
-                                }
-                            }
-                            catch { }
-
-                            uniqueServers.Add(new DvrServer 
-                            { 
-                                Ip = parsedIp,
-                                Port = parsedPort,
-                                Name = "Saved Server" 
-                            });
-                        }
+                        _settings.SavedServers.Add(new SavedServerProfile { Url = server.BaseUrl, CustomName = server.Name, IsHidden = false });
+                        addedNew = true;
                     }
                 }
-                // -------------------------------------------------------------------
-
-                if (uniqueServers.Count == 0)
-                {
-                    var noServersText = new TextBlock { Text = "No servers found. Enter an IP below.", FontStyle = FontStyles.Italic };
-                    noServersText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
-                    DiscoveredServersPanel.Children.Add(noServersText);
-                }
-                else
-                {
-                    foreach (var server in uniqueServers) 
-                    {
-                        var rb = new RadioButton
-                        {
-                            Content = $"{server.Name} ({server.BaseUrl})",
-                            Tag = server.BaseUrl,
-                            FontSize = 16,
-                            Margin = new Thickness(0, 5, 0, 5)
-                        };
-                        rb.SetResourceReference(RadioButton.ForegroundProperty, "TextPrimary");
-                        
-                        rb.Checked += (s, ev) => 
-                        { 
-                            ManualServerIpBox.Text = ""; 
-                        };
-
-                        if (server.BaseUrl == _settings.LastServerAddress)
-                        {
-                            rb.IsChecked = true;
-                            ManualServerIpBox.Text = "";
-                        }
-
-                        DiscoveredServersPanel.Children.Add(rb);
-                    }
-                }
+                
+                if (addedNew) SettingsManager.Save(_settings);
             }
-            catch 
-            { 
-                DiscoveredServersPanel.Children.Clear();
-                var errorText = new TextBlock { Text = "Network discovery unavailable.", FontStyle = FontStyles.Italic };
-                errorText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
-                DiscoveredServersPanel.Children.Add(errorText);
-            }
+            catch { }
+
+            RefreshSavedServersList();
         }
-
-        private void ManualServerIpBox_TextChanged(object sender, TextChangedEventArgs e)
+		
+		private void RefreshSavedServersList()
         {
-            if (!string.IsNullOrWhiteSpace(ManualServerIpBox.Text) && DiscoveredServersPanel != null)
+            SavedServersPanel.Children.Clear();
+            
+            if (_settings.SavedServers == null || _settings.SavedServers.Count == 0) return;
+
+            foreach (var server in _settings.SavedServers)
             {
-                foreach (var child in DiscoveredServersPanel.Children)
-                {
-                    if (child is RadioButton rb) rb.IsChecked = false;
-                }
+                var border = new Border { CornerRadius = new CornerRadius(6), Padding = new Thickness(15, 10, 15, 10), Margin = new Thickness(0, 0, 0, 8) };
+                border.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+                
+                // Editable Name Box
+                var nameBox = new TextBox { Text = server.CustomName, FontSize = 16, FontWeight = FontWeights.Bold, Background = Brushes.Transparent, BorderThickness = new Thickness(0,0,0,1), Margin = new Thickness(0,0,0,5) };
+                nameBox.SetResourceReference(TextBox.ForegroundProperty, "TextPrimary");
+                nameBox.SetResourceReference(TextBox.BorderBrushProperty, "BorderBrush");
+                nameBox.TextChanged += (s, e) => { server.CustomName = nameBox.Text; }; // Auto-updates the model!
+                
+                var urlText = new TextBlock { Text = server.Url, FontSize = 12 };
+                urlText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
+                
+                textStack.Children.Add(nameBox);
+                textStack.Children.Add(urlText);
+
+                // Hidden Toggle
+                var hideCheck = new CheckBox { Content = "Hide", IsChecked = server.IsHidden, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(15,0,15,0) };
+                hideCheck.SetResourceReference(CheckBox.ForegroundProperty, "TextPrimary");
+                hideCheck.Click += (s, e) => { server.IsHidden = hideCheck.IsChecked ?? false; };
+
+                var delBtn = new Button { Content = "❌", Background = Brushes.Transparent, BorderThickness = new Thickness(0), FontSize = 16, Cursor = Cursors.Hand, Tag = server.Url };
+                delBtn.SetResourceReference(Button.ForegroundProperty, "StatusError");
+                delBtn.Click += DeleteServer_Click;
+
+                Grid.SetColumn(textStack, 0);
+                Grid.SetColumn(hideCheck, 1);
+                Grid.SetColumn(delBtn, 2);
+                grid.Children.Add(textStack);
+                grid.Children.Add(hideCheck);
+                grid.Children.Add(delBtn);
+                border.Child = grid;
+
+                SavedServersPanel.Children.Add(border);
             }
         }
 
+        private void AddServer_Click(object sender, RoutedEventArgs e)
+        {
+            string input = AddServerIpBox.Text.Trim();
+            if (string.IsNullOrWhiteSpace(input)) return;
+
+            if (!input.StartsWith("http", StringComparison.OrdinalIgnoreCase)) input = "http://" + input;
+            int colonIndex = input.IndexOf(':', input.IndexOf("://") + 3);
+            if (colonIndex == -1) input += ":8089";
+
+            if (_settings.SavedServers == null) _settings.SavedServers = new List<SavedServerProfile>();
+
+            if (!_settings.SavedServers.Any(s => s.Url.Equals(input, StringComparison.OrdinalIgnoreCase)))
+            {
+                _settings.SavedServers.Add(new SavedServerProfile { Url = input, CustomName = "Manual Server", IsHidden = false });
+                SettingsManager.Save(_settings);
+                RefreshSavedServersList();
+                AddServerIpBox.Text = "";
+            }
+        }
+		
+		private void DeleteServer_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string url)
+            {
+                var server = _settings.SavedServers.FirstOrDefault(s => s.Url == url);
+                if (server != null)
+                {
+                    _settings.SavedServers.Remove(server);
+                    SettingsManager.Save(_settings);
+                    RefreshSavedServersList();
+                }
+            }
+        }
+		
         // --- EXTERNAL STREAM LOGIC ---
         private void RefreshStreamsList()
         {
@@ -331,67 +344,25 @@ namespace FeralCode
             }
         }
 
-        private void SaveButton_Click(object sender, RoutedEventArgs e)
+       private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            string serverInput = ManualServerIpBox.Text.Trim();
-
-            if (string.IsNullOrWhiteSpace(serverInput))
-            {
-                var selectedRadio = DiscoveredServersPanel.Children.OfType<RadioButton>().FirstOrDefault(r => r.IsChecked == true);
-                if (selectedRadio != null)
-                {
-                    serverInput = selectedRadio.Tag?.ToString() ?? "";
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(serverInput))
-            {
-                MessageBox.Show("Please select a discovered server or enter one manually.", "Missing Server Address", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            if (!string.IsNullOrWhiteSpace(serverInput))
-            {
-                if (!serverInput.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                {
-                    serverInput = "http://" + serverInput;
-                }
-
-                int colonIndex = serverInput.IndexOf(':', serverInput.IndexOf("://") + 3);
-                if (colonIndex == -1)
-                {
-                    serverInput += ":8089";
-                }
-
-                ManualServerIpBox.Text = serverInput;
-            }
-            
-           _settings.LastServerAddress = serverInput;
-            
-            // --- NEW: Add this block to permanently save the IP to the history list! ---
-            if (_settings.SavedServers == null) 
-            {
-                _settings.SavedServers = new System.Collections.Generic.List<string>();
-            }
-            if (!_settings.SavedServers.Contains(serverInput, StringComparer.OrdinalIgnoreCase))
-            {
-                _settings.SavedServers.Add(serverInput);
-            }
+            // Because AddServer_Click and the UI dynamically handle server changes now,
+            // we only need to save the checkboxes here!
             
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
-			_settings.MinimizeOnPlay = MinimizeOnPlayCheckBox.IsChecked ?? false;
-			_settings.EnableTimeShiftBuffer = TimeShiftCheckBox.IsChecked ?? false;
+            _settings.MinimizeOnPlay = MinimizeOnPlayCheckBox.IsChecked ?? false;
+            _settings.EnableTimeShiftBuffer = TimeShiftCheckBox.IsChecked ?? false;
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
-			_settings.EnableVirtualChannels = VirtualChannelsCheckBox.IsChecked ?? false;
+            _settings.EnableVirtualChannels = VirtualChannelsCheckBox.IsChecked ?? false;
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
-			_settings.SimplifiedGuide = SimplifiedGuideCheckBox.IsChecked ?? false;
-			_settings.UiScale = UiScaleSlider.Value;
+            _settings.SimplifiedGuide = SimplifiedGuideCheckBox.IsChecked ?? false;
+            _settings.UiScale = UiScaleSlider.Value;
             _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? false;
-			_settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
-			_settings.ForceLocalRemux = ForceLocalRemuxCheckBox.IsChecked ?? false;
-			            
+            _settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
+            _settings.ForceLocalRemux = ForceLocalRemuxCheckBox.IsChecked ?? false;
+                        
             if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
                 _settings.GuideDurationHours = parsedHours;

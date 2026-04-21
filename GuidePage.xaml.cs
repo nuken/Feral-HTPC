@@ -146,75 +146,64 @@ namespace FeralCode
         }
     
         private async void Page_Loaded(object sender, RoutedEventArgs e)
-{
-    ShowStatus("Scanning network for DVR servers...", "StatusConnecting");
-
-    var discoveredServers = await _api.DiscoverDvrServersAsync();
-    
-    // --- FIX 1: Filter out duplicate network interface broadcasts ---
-    var uniqueServers = discoveredServers
-        .GroupBy(s => s.BaseUrl.TrimEnd('/'))
-        .Select(g => g.First())
-        .ToList();
-
-    ServerComboBox.Items.Clear();
-
-    // 1. Add dynamically discovered local servers
-    foreach (var server in uniqueServers)
-    {
-        ServerComboBox.Items.Add(server);
-    }
-    
-    // 2. Add saved manual servers that weren't broadcasted via Zeroconf
-    if (_settings.SavedServers != null)
-    {
-        foreach (var savedIp in _settings.SavedServers)
         {
-            // --- FIX 2: Trim trailing slashes so the comparison perfectly matches ---
-            string cleanSavedIp = savedIp.TrimEnd('/');
+            ShowStatus("Scanning network for DVR servers...", "StatusConnecting");
 
-            if (!uniqueServers.Any(s => s.BaseUrl.TrimEnd('/').Equals(cleanSavedIp, StringComparison.OrdinalIgnoreCase)))
+            var discoveredServers = await _api.DiscoverDvrServersAsync();
+            if (_settings.SavedServers == null) _settings.SavedServers = new List<SavedServerProfile>();
+
+            // 1. Silently log any new discoveries to the address book
+            bool needsSave = false;
+            foreach (var server in discoveredServers)
             {
-                // Parse the saved URL string back into an IP and Port
-                string parsedIp = cleanSavedIp;
+                if (!_settings.SavedServers.Any(s => s.Url.TrimEnd('/').Equals(server.BaseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)))
+                {
+                    _settings.SavedServers.Add(new SavedServerProfile { Url = server.BaseUrl, CustomName = server.Name, IsHidden = false });
+                    needsSave = true;
+                }
+            }
+            if (needsSave) SettingsManager.Save(_settings);
+
+            // 2. Populate the Dropdown using ONLY non-hidden profiles
+            ServerComboBox.Items.Clear();
+            
+            foreach (var profile in _settings.SavedServers.Where(p => !p.IsHidden))
+            {
+                string cleanIp = profile.Url.TrimEnd('/');
+                string parsedIp = cleanIp;
                 int parsedPort = 8089;
                 
                 try 
-                {
-                    if (Uri.TryCreate(cleanSavedIp, UriKind.Absolute, out var uri))
-                    {
-                        parsedIp = uri.Host;
-                        parsedPort = uri.Port > 0 ? uri.Port : 8089;
-                    }
-                }
-                catch { }
+                { 
+                    if (Uri.TryCreate(cleanIp, UriKind.Absolute, out var uri)) 
+                    { 
+                        parsedIp = uri.Host; 
+                        parsedPort = uri.Port > 0 ? uri.Port : 8089; 
+                    } 
+                } catch { }
 
-                // Create a mock DvrServer object so the ComboBox displays it properly
                 ServerComboBox.Items.Add(new DvrServer 
                 { 
                     Ip = parsedIp,
                     Port = parsedPort,
-                    Name = "Saved Server" 
+                    Name = string.IsNullOrWhiteSpace(profile.CustomName) ? "Saved Server" : profile.CustomName 
                 });
             }
-        }
-    }
 
-    if (ServerComboBox.Items.Count > 0)
-    {
-        // Select the last used server, or default to the first in the list
-        var match = ServerComboBox.Items.OfType<DvrServer>().FirstOrDefault(s => s.BaseUrl.TrimEnd('/') == _settings.LastServerAddress?.TrimEnd('/'));
-        if (match != null) ServerComboBox.SelectedItem = match;
-        else ServerComboBox.SelectedIndex = 0; 
-        
-        ShowStatus("Ready.", "StatusSuccess");
-        LoadData_Click(this, new RoutedEventArgs());
-    }
-    else
-    {
-        ShowStatus("No servers found. Please enter IP manually.", "StatusError");
-    }
-}
+            if (ServerComboBox.Items.Count > 0)
+            {
+                var match = ServerComboBox.Items.OfType<DvrServer>().FirstOrDefault(s => s.BaseUrl.TrimEnd('/') == _settings.LastServerAddress?.TrimEnd('/'));
+                if (match != null) ServerComboBox.SelectedItem = match;
+                else ServerComboBox.SelectedIndex = 0; 
+                
+                ShowStatus("Ready.", "StatusSuccess");
+                LoadData_Click(this, new RoutedEventArgs());
+            }
+            else
+            {
+                ShowStatus("No servers found. Manage servers in Settings.", "StatusError");
+            }
+        }
                      
         private void GenerateTimeHeaders(int durationHours)
         {
@@ -281,11 +270,13 @@ namespace FeralCode
 
     // NEW: Automatically save the successfully used IP so it persists across restarts
 _settings.LastServerAddress = baseUrl;
-if (!_settings.SavedServers.Contains(baseUrl, StringComparer.OrdinalIgnoreCase))
-{
-    _settings.SavedServers.Add(baseUrl);
-}
-SettingsManager.Save(_settings);
+    if (_settings.SavedServers == null) _settings.SavedServers = new List<SavedServerProfile>();
+
+    if (!_settings.SavedServers.Any(s => s.Url.TrimEnd('/').Equals(baseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)))
+    {
+        _settings.SavedServers.Add(new SavedServerProfile { Url = baseUrl, CustomName = ServerComboBox.Text });
+    }
+    SettingsManager.Save(_settings);
 
     try
     {

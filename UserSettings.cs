@@ -4,7 +4,14 @@ using System.IO;
 using System.Text.Json;
 
 namespace FeralCode
-{
+{	
+	public class SavedServerProfile
+    {
+        public string Url { get; set; } = "";
+        public string CustomName { get; set; } = "Channels DVR";
+        public bool IsHidden { get; set; } = false;
+    }
+	
     // --- NEW: The Data Model for your Custom App Links ---
     public class ExternalStream
     {
@@ -19,7 +26,7 @@ namespace FeralCode
         public bool AutoSkipCommercials { get; set; } = true;
         public bool IsLightTheme { get; set; } = false; 
         public string LastServerAddress { get; set; } = ""; 
-		public List<string> SavedServers { get; set; } = new List<string>();
+		public List<SavedServerProfile> SavedServers { get; set; } = new List<SavedServerProfile>();
         public string LastCollection { get; set; } = "All Channels";
 		public bool StartPlayersFullscreen { get; set; } = false;
 		public bool EnableTimeShiftBuffer { get; set; } = false;

@@ -205,15 +205,21 @@
                         <TextBlock Text="Mobile Remote Control URL" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
                         <TextBox x:Name="LocalRemoteUrlBox" FontSize="18" Padding="10" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource StatusConnecting}" BorderBrush="Transparent" BorderThickness="0" Margin="0,0,0,30" IsReadOnly="True"/>
                         
-                        <TextBlock Text="Discovered Local DVR Servers" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
-                        <Border Background="{DynamicResource CardBackground}" CornerRadius="6" Padding="10" Margin="0,0,0,15" MinHeight="45">
-                            <StackPanel x:Name="DiscoveredServersPanel">
-                                <TextBlock x:Name="SearchingText" Text="Searching network..." FontStyle="Italic" Foreground="{DynamicResource TextSecondary}"/>
-                            </StackPanel>
-                        </Border>
+                        <TextBlock Text="Add Remote / VPN Server" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="AddServerIpBox" FontSize="18" Padding="10" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,10,0"/>
+                            <Button Grid.Column="1" Content="➕ Add Server" Click="AddServer_Click" Background="{DynamicResource LiveBorder}" Foreground="White" FontSize="16" FontWeight="Bold" Padding="15,0" BorderThickness="0" Cursor="Hand"/>
+                        </Grid>
 
-                        <TextBlock Text="Manual DVR Server Address (VPN / Remote)" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
-                        <TextBox x:Name="ManualServerIpBox" FontSize="18" Padding="10" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Margin="0,0,0,30" TextChanged="ManualServerIpBox_TextChanged"/>
+                        <TextBlock Text="Server Address Book" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,20,0,5"/>
+                        <TextBlock Text="Edit names or hide inactive servers from the Guide dropdown." FontSize="12" Foreground="Gray" Margin="5,0,0,10"/>
+                        
+                        <StackPanel x:Name="SavedServersPanel"/>
+                        
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

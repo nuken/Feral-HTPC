@@ -62,7 +62,7 @@ namespace FeralCode
                 IReadOnlyList<IZeroconfHost> results = await ZeroconfResolver.ResolveAsync(
                     "_channels_dvr._tcp.local.", 
                     scanTime: TimeSpan.FromSeconds(4), 
-                    retries: 2, 
+                    retries: 3, 
                     retryDelayMilliseconds: 2000);
 
                 foreach (var host in results)

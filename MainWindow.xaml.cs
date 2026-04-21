@@ -232,32 +232,31 @@ namespace FeralCode
             base.OnClosed(e);
         }
 
-        private bool IsPortAvailable(int port)
+        private int FindAvailablePort(int startingPort)
         {
-            try
-            {
-                // Passively scan the Windows network table for ALL active listeners (IPv4 and IPv6)
-                // This prevents the socket from getting locked in a TIME_WAIT state!
-                var ipGlobalProperties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
-                var tcpListeners = ipGlobalProperties.GetActiveTcpListeners();
-                
-                // If any endpoint in the table is using our target port, it's not available
-                return !tcpListeners.Any(endpoint => endpoint.Port == port);
-            }
-            catch
-            {
-                // If we can't read the network table for some reason, assume the port is unsafe
-                return false;
-            }
-        }
+            int port = startingPort;
+            bool isAvailable = false;
 
-        private int GetAvailablePort(int startPort = 12345, int endPort = 12445)
-        {
-            for (int port = startPort; port <= endPort; port++)
+            while (!isAvailable && port <= 65535)
             {
-                if (IsPortAvailable(port)) return port;
+                try
+                {
+                    // Try to briefly start a listener on the port. If it succeeds, the port is truly free!
+                    using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Any, port))
+                    {
+                        listener.Start();
+                        listener.Stop();
+                        isAvailable = true;
+                    }
+                }
+                catch
+                {
+                    // Port is actually in use! Increment and try the next one instantly.
+                    AppLogger.Log($"Port {port} in use, trying {port + 1}...");
+                    port++;
+                }
             }
-            throw new Exception($"No available ports found in the range {startPort}-{endPort}.");
+            return port;
         }
 
         private void StartWebServer()
@@ -268,26 +267,24 @@ namespace FeralCode
                 {
                     var settings = SettingsManager.Load();
                     
-                    int portToUse = settings.WebServerPort == 0 ? 12345 : settings.WebServerPort;
+                    // 1. Get the target port (saved preference, or default to 12345)
+                    int targetPort = settings.WebServerPort > 0 ? settings.WebServerPort : 12345;
 
-                    int retry = 0;
-                    while (!IsPortAvailable(portToUse) && retry < 3)
-                    {
-                        await Task.Delay(1000);
-                        retry++;
-                    }
+                    // 2. Actively scan for the first truly available port (hops instantly if blocked)
+                    int activePort = FindAvailablePort(targetPort);
 
-                    if (!IsPortAvailable(portToUse))
+                    // 3. If we had to hop to a new port, save it permanently to user_settings.json!
+                    if (settings.WebServerPort != activePort)
                     {
-                        portToUse = GetAvailablePort(12345, 12445); 
-                        settings.WebServerPort = portToUse;
+                        settings.WebServerPort = activePort;
                         SettingsManager.Save(settings);
                     }
 
                     var options = new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory };
                     var builder = WebApplication.CreateBuilder(options);
                     
-                    builder.WebHost.UseUrls($"http://*:{portToUse}");
+                    // 4. Bind the web server to the successfully tested port
+                    builder.WebHost.UseUrls($"http://*:{activePort}");
 
                     builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(opt => 
                     {
