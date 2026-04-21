@@ -281,34 +281,83 @@ namespace FeralCode
             _lastFocusedMovieButton?.Focus(); 
         }
 
-        private void PlayButton_Click(object sender, RoutedEventArgs e)
+        private async void PlayButton_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedMovie != null)
             {
                 string baseUrl = _settings.LastServerAddress;
+                string targetUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+                bool isExternal = false;
 
-                string streamUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
-                
-                var mainWindow = (MainWindow)Application.Current.MainWindow;
-                if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
-
-                mainWindow.ActivePlayerWindow = new PlayerWindow(streamUrl, _selectedMovie.Title, _selectedMovie.PosterUrl, _selectedMovie.Commercials);
-                
-                mainWindow.ActivePlayerWindow.Closed += (s, args) => 
+                // --- NEW: Detect and fetch STRM/STRMLNK details on demand ---
+                if (!string.IsNullOrWhiteSpace(_selectedMovie.Path) && 
+                   (_selectedMovie.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
+                    _selectedMovie.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
                 {
-                    mainWindow.ActivePlayerWindow = null; 
-                    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
-                    mainWindow.Show(); 
-                    Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
-                };
-                
-                if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
-                else mainWindow.Hide(); 
-                
-                mainWindow.ActivePlayerWindow.Show(); 
-                
-                ModalOverlay.Visibility = Visibility.Collapsed;
-                ToggleFiltersButton.Visibility = Visibility.Visible;
+                    var fileDetails = await _api.GetFileDetailsAsync(baseUrl, _selectedMovie.Id);
+                    if (fileDetails != null)
+                    {
+                        if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
+                        {
+                            targetUrl = fileDetails.StreamLinks[0];
+                            isExternal = true;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
+                        {
+                            targetUrl = fileDetails.VideoUrl;
+                        }
+                    }
+                }
+
+                if (isExternal)
+                {
+                    // Launch in Edge/Browser
+                    var windowStyle = _settings.StartPlayersFullscreen ? System.Diagnostics.ProcessWindowStyle.Maximized : System.Diagnostics.ProcessWindowStyle.Normal;
+                    try
+                    {
+                        if (targetUrl.Contains("netflix.com") || targetUrl.Contains("disneyplus.com") || targetUrl.Contains("youtube.com"))
+                        {
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { 
+                                FileName = "msedge", 
+                                Arguments = $"--app=\"{targetUrl}\" --start-fullscreen", 
+                                UseShellExecute = true, 
+                                WindowStyle = windowStyle 
+                            });
+                        }
+                        else
+                        {
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(targetUrl) { UseShellExecute = true, WindowStyle = windowStyle });
+                        }
+                    }
+                    catch { }
+                    
+                    ModalOverlay.Visibility = Visibility.Collapsed;
+                    ToggleFiltersButton.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    // Launch in VLC PlayerWindow
+                    var mainWindow = (MainWindow)Application.Current.MainWindow;
+                    if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
+
+                    mainWindow.ActivePlayerWindow = new PlayerWindow(targetUrl, _selectedMovie.Title, _selectedMovie.PosterUrl, _selectedMovie.Commercials);
+                    
+                    mainWindow.ActivePlayerWindow.Closed += (s, args) => 
+                    {
+                        mainWindow.ActivePlayerWindow = null; 
+                        if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
+                        mainWindow.Show(); 
+                        Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                    };
+                    
+                    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
+                    else mainWindow.Hide(); 
+                    
+                    mainWindow.ActivePlayerWindow.Show(); 
+                    
+                    ModalOverlay.Visibility = Visibility.Collapsed;
+                    ToggleFiltersButton.Visibility = Visibility.Visible;
+                }
             }
         }
 

@@ -362,31 +362,79 @@ namespace FeralCode
             }
         }
         
-        private void Episode_Click(object sender, RoutedEventArgs e)
+        private async void Episode_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is Episode ep)
             {
-                string streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{ep.Id}/hls/stream.m3u8";
+                string targetUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{ep.Id}/hls/stream.m3u8";
                 string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
+                bool isExternal = false;
 
-                if (Application.Current.MainWindow is MainWindow mainWin)
+                // --- NEW: Detect and fetch STRM/STRMLNK details on demand ---
+                if (!string.IsNullOrWhiteSpace(ep.Path) && 
+                   (ep.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
+                    ep.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
                 {
-                    if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
-
-                    mainWin.ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
-                    
-                    mainWin.ActivePlayerWindow.Closed += (s, args) => 
+                    var api = new ChannelsApi();
+                    var fileDetails = await api.GetFileDetailsAsync(_baseUrl, ep.Id);
+                    if (fileDetails != null)
                     {
-                        mainWin.ActivePlayerWindow = null;
-                        if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Normal;
-                        mainWin.Show(); 
-                        Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
-                    };
-                    
-                    if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Minimized;
-                    else mainWin.Hide(); 
-                    
-                    mainWin.ActivePlayerWindow.Show();
+                        if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
+                        {
+                            targetUrl = fileDetails.StreamLinks[0];
+                            isExternal = true;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
+                        {
+                            targetUrl = fileDetails.VideoUrl;
+                        }
+                    }
+                }
+
+                if (isExternal)
+                {
+                    // Launch in Edge/Browser
+                    var windowStyle = _settings.StartPlayersFullscreen ? System.Diagnostics.ProcessWindowStyle.Maximized : System.Diagnostics.ProcessWindowStyle.Normal;
+                    try
+                    {
+                        if (targetUrl.Contains("netflix.com") || targetUrl.Contains("disneyplus.com") || targetUrl.Contains("youtube.com"))
+                        {
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { 
+                                FileName = "msedge", 
+                                Arguments = $"--app=\"{targetUrl}\" --start-fullscreen", 
+                                UseShellExecute = true, 
+                                WindowStyle = windowStyle 
+                            });
+                        }
+                        else
+                        {
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(targetUrl) { UseShellExecute = true, WindowStyle = windowStyle });
+                        }
+                    }
+                    catch { }
+                }
+                else
+                {
+                    // Launch in VLC PlayerWindow
+                    if (Application.Current.MainWindow is MainWindow mainWin)
+                    {
+                        if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
+
+                        mainWin.ActivePlayerWindow = new PlayerWindow(targetUrl, displayTitle, ep.ImageUrl, ep.Commercials);
+                        
+                        mainWin.ActivePlayerWindow.Closed += (s, args) => 
+                        {
+                            mainWin.ActivePlayerWindow = null;
+                            if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Normal;
+                            mainWin.Show(); 
+                            Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                        };
+                        
+                        if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Minimized;
+                        else mainWin.Hide(); 
+                        
+                        mainWin.ActivePlayerWindow.Show();
+                    }
                 }
             }
         }

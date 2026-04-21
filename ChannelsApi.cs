@@ -62,7 +62,7 @@ namespace FeralCode
                 IReadOnlyList<IZeroconfHost> results = await ZeroconfResolver.ResolveAsync(
                     "_channels_dvr._tcp.local.", 
                     scanTime: TimeSpan.FromSeconds(4), 
-                    retries: 3, 
+                    retries: 2, 
                     retryDelayMilliseconds: 2000);
 
                 foreach (var host in results)
@@ -111,15 +111,27 @@ namespace FeralCode
                 var episodes = System.Text.Json.JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
                 
                 // --- NEW: Filter out stream links from the library ---
-                episodes.RemoveAll(e => !string.IsNullOrWhiteSpace(e.Path) && 
-                                       (e.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
-                                        e.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
+              //  episodes.RemoveAll(e => !string.IsNullOrWhiteSpace(e.Path) && 
+                                    //   (e.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
+                                     //   e.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
 
                 _cachedEpisodes = episodes;
                 _lastEpisodesFetch = DateTime.Now;
 				_lastEpisodesUrl = baseUrl;
                 return _cachedEpisodes;
             } catch { return new List<Episode>(); }
+        }
+		
+		// --- NEW: On-Demand File Details Fetcher ---
+        public async Task<DvrFileDetails?> GetFileDetailsAsync(string baseUrl, string fileId)
+        {
+            try
+            {
+                var response = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/dvr/files/{fileId}");
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return JsonSerializer.Deserialize<DvrFileDetails>(response, options);
+            }
+            catch { return null; }
         }
 
         public async Task<List<Channel>> GetChannelsAsync(string baseUrl)
@@ -204,9 +216,9 @@ namespace FeralCode
                 var movies = System.Text.Json.JsonSerializer.Deserialize<List<Movie>>(response, options) ?? new List<Movie>();
 
                 // --- NEW: Filter out stream links from the library ---
-                movies.RemoveAll(m => !string.IsNullOrWhiteSpace(m.Path) && 
-                                     (m.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
-                                      m.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
+              //  movies.RemoveAll(m => !string.IsNullOrWhiteSpace(m.Path) && 
+                                   //  (m.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
+                                   //   m.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
 
                 // Ensure the Poster URLs are absolute so WPF can render them
                 foreach (var movie in movies)
@@ -794,6 +806,16 @@ public bool IsExactMatch(string query)
         // Helper to check if the whole show is watched
         [System.Text.Json.Serialization.JsonIgnore] 
         public bool IsWatched => NumberUnwatched == 0;
+    }
+	
+	// --- NEW: Parses specific stream details for STRM and STRMLNK files ---
+    public class DvrFileDetails
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("StreamLinks")]
+        public List<string>? StreamLinks { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("VideoURL")]
+        public string? VideoUrl { get; set; }
     }
 
     public class Episode

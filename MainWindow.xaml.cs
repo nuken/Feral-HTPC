@@ -136,7 +136,7 @@ namespace FeralCode
                         AppLogger.Log($"[VLC ENGINE] [{e.Level}] {e.Module}: {e.Message}");
                     }
                 }
-            };
+            };			
 
             StartWebServer();
             MainFrame.Navigate(new StartPage());
@@ -158,6 +158,28 @@ namespace FeralCode
                     }
                 }, System.Windows.Threading.DispatcherPriority.Input);
             };
+        }
+		
+		// --- NEW: Universal helper to launch browser apps ---
+        private void LaunchExternalUrl(string url, ProcessWindowStyle windowStyle)
+        {
+            try
+            {
+                if (url.Contains("netflix.com") || url.Contains("disneyplus.com") || url.Contains("youtube.com"))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { 
+                        FileName = "msedge", 
+                        Arguments = $"--app=\"{url}\" --start-fullscreen", 
+                        UseShellExecute = true, 
+                        WindowStyle = windowStyle 
+                    });
+                }
+                else
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true, WindowStyle = windowStyle });
+                }
+            }
+            catch { }
         }
 
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -602,15 +624,44 @@ namespace FeralCode
 
                         if (selectedMovie != null)
                         {
+                            string targetUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+                            bool isExternal = false;
+
+                            // --- NEW: Detect and fetch STRM/STRMLNK details on demand ---
+                            if (!string.IsNullOrWhiteSpace(selectedMovie.Path) && 
+                               (selectedMovie.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
+                                selectedMovie.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                var fileDetails = await api.GetFileDetailsAsync(settings.LastServerAddress, selectedMovie.Id);
+                                if (fileDetails != null)
+                                {
+                                    if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
+                                    {
+                                        targetUrl = fileDetails.StreamLinks[0];
+                                        isExternal = true; // Opens in Browser
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
+                                    {
+                                        targetUrl = fileDetails.VideoUrl; // Opens directly in VLC
+                                    }
+                                }
+                            }
+
                             Application.Current.Dispatcher.Invoke(() => 
                             {
-                                string streamUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
-                                
-                                if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
+                                if (isExternal)
+                                {
+                                    var windowStyle = settings.StartPlayersFullscreen ? ProcessWindowStyle.Maximized : ProcessWindowStyle.Normal;
+                                    LaunchExternalUrl(targetUrl, windowStyle);
+                                }
+                                else
+                                {
+                                    if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
 
-                                ActivePlayerWindow = new PlayerWindow(streamUrl, selectedMovie.Title, selectedMovie.PosterUrl, selectedMovie.Commercials);
-                                ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
-                                ActivePlayerWindow.Show();
+                                    ActivePlayerWindow = new PlayerWindow(targetUrl, selectedMovie.Title, selectedMovie.PosterUrl, selectedMovie.Commercials);
+                                    ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
+                                    ActivePlayerWindow.Show();
+                                }
                             });
                             return Results.Ok();
                         }
@@ -715,16 +766,45 @@ namespace FeralCode
 
                         if (ep != null)
                         {
+                            string targetUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{ep.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+                            string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
+                            bool isExternal = false;
+
+                            // --- NEW: Detect and fetch STRM/STRMLNK details on demand ---
+                            if (!string.IsNullOrWhiteSpace(ep.Path) && 
+                               (ep.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
+                                ep.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
+                            {
+                                var fileDetails = await api.GetFileDetailsAsync(settings.LastServerAddress, ep.Id);
+                                if (fileDetails != null)
+                                {
+                                    if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
+                                    {
+                                        targetUrl = fileDetails.StreamLinks[0];
+                                        isExternal = true;
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
+                                    {
+                                        targetUrl = fileDetails.VideoUrl;
+                                    }
+                                }
+                            }
+
                             Application.Current.Dispatcher.Invoke(() => 
                             {
-                                string streamUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{ep.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
-                                string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
-                                
-                                if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
+                                if (isExternal)
+                                {
+                                    var windowStyle = settings.StartPlayersFullscreen ? ProcessWindowStyle.Maximized : ProcessWindowStyle.Normal;
+                                    LaunchExternalUrl(targetUrl, windowStyle);
+                                }
+                                else
+                                {
+                                    if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
 
-                                ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
-                                ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
-                                ActivePlayerWindow.Show();
+                                    ActivePlayerWindow = new PlayerWindow(targetUrl, displayTitle, ep.ImageUrl, ep.Commercials);
+                                    ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
+                                    ActivePlayerWindow.Show();
+                                }
                             });
                             return Results.Ok();
                         }
