@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.1.3-beta)
+# Feral HTPC (Version 1.1.4-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,15 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.1.4]
+
+### New Features & Enhancements
+
+* **Targeted Episode Fetching:** Changed the TV Show library to only fetch episodes for a specific show when clicked, reducing memory usage and initial load times.
+* **Recently Added:** Added a new section for latest added Movies and TV Episodes in a single list.
+* **Videos:** Added a new section displaying the Videos library.
+* **Multi HDHR Tuner Fix:** Added a LINQ filter to prevent duplicate channels from showing up in your guide if you have multiple tuners.
 
 ## [1.1.3]
 
