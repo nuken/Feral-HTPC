@@ -23,42 +23,40 @@ namespace FeralCode
     {
         private readonly HttpClient _http = new HttpClient();
 
-        // --- NEW: 5-Minute Memory Cache Fields ---
         private static List<TvShow>? _cachedShows;
         private static DateTime _lastShowsFetch = DateTime.MinValue;
         private static string _lastShowsUrl = "";
-		
+        
         private static List<Episode>? _cachedEpisodes;
         private static DateTime _lastEpisodesFetch = DateTime.MinValue;
-		private static string _lastEpisodesUrl = "";
+        private static string _lastEpisodesUrl = "";
 
         private static List<Channel>? _cachedChannels;
         private static DateTime _lastChannelsFetch = DateTime.MinValue;
-		private static string _lastChannelsUrl = "";
+        private static string _lastChannelsUrl = "";
 
         private static List<ChannelCollection>? _cachedCollections;
         private static DateTime _lastCollectionsFetch = DateTime.MinValue;
-		private static string _lastCollectionsUrl = "";
+        private static string _lastCollectionsUrl = "";
 
         private static List<GuideData>? _cachedGuide;
         private static DateTime _lastGuideFetch = DateTime.MinValue;
         private static int _lastGuideDuration = 0;
-		private static string _lastGuideUrl = "";
+        private static string _lastGuideUrl = "";
 
         private static List<Movie>? _cachedMovies;
         private static DateTime _lastMoviesFetch = DateTime.MinValue;
-		private static string _lastMoviesUrl = "";
+        private static string _lastMoviesUrl = "";
 
         private static List<Station>? _cachedStations;
         private static DateTime _lastStationsFetch = DateTime.MinValue;
-		private static string _lastStationsUrl = "";
+        private static string _lastStationsUrl = "";
 
         public async Task<List<DvrServer>> DiscoverDvrServersAsync()
         {
             var servers = new List<DvrServer>();
             try
             {
-                // FIX: Increased scan time to 4 seconds and added 2 retries to catch slow network responses
                 IReadOnlyList<IZeroconfHost> results = await ZeroconfResolver.ResolveAsync(
                     "_channels_dvr._tcp.local.", 
                     scanTime: TimeSpan.FromSeconds(4), 
@@ -68,7 +66,6 @@ namespace FeralCode
                 foreach (var host in results)
                 {
                     int port = 8089;
-                    // Extract the specific port from the Zeroconf service payload
                     if (host.Services.TryGetValue("_channels_dvr._tcp.local.", out var service))
                     {
                         port = service.Port;
@@ -88,7 +85,7 @@ namespace FeralCode
             }
             return servers;
         }
-		
+        
         public async Task<List<TvShow>> GetShowsAsync(string baseUrl)
         {
             if (_cachedShows != null && _lastShowsUrl == baseUrl && (DateTime.Now - _lastShowsFetch).TotalMinutes < 5) return _cachedShows;
@@ -97,7 +94,7 @@ namespace FeralCode
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/shows");
                 _cachedShows = System.Text.Json.JsonSerializer.Deserialize<List<TvShow>>(json) ?? new List<TvShow>();
                 _lastShowsFetch = DateTime.Now;
-				_lastShowsUrl = baseUrl;
+                _lastShowsUrl = baseUrl;
                 return _cachedShows;
             } catch { return new List<TvShow>(); }
         }
@@ -110,19 +107,13 @@ namespace FeralCode
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/episodes");
                 var episodes = System.Text.Json.JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
                 
-                // --- NEW: Filter out stream links from the library ---
-              //  episodes.RemoveAll(e => !string.IsNullOrWhiteSpace(e.Path) && 
-                                    //   (e.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
-                                     //   e.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
-
                 _cachedEpisodes = episodes;
                 _lastEpisodesFetch = DateTime.Now;
-				_lastEpisodesUrl = baseUrl;
+                _lastEpisodesUrl = baseUrl;
                 return _cachedEpisodes;
             } catch { return new List<Episode>(); }
         }
-		
-		// --- NEW: On-Demand File Details Fetcher ---
+        
         public async Task<DvrFileDetails?> GetFileDetailsAsync(string baseUrl, string fileId)
         {
             try
@@ -149,11 +140,10 @@ namespace FeralCode
 
             var rawChannels = JsonSerializer.Deserialize<List<Channel>>(response, options) ?? new List<Channel>();
 
-            // --- NEW: Deduplicate channels based on Channel Number ---
             _cachedChannels = rawChannels
                 .Where(c => !string.IsNullOrWhiteSpace(c.Number))
                 .GroupBy(c => c.Number)
-                .Select(group => group.First()) // Take the first instance of each channel number
+                .Select(group => group.First()) 
                 .OrderBy(c => 
                 {
                     if (double.TryParse(c.Number, out double num)) return num;
@@ -165,18 +155,15 @@ namespace FeralCode
             _lastChannelsUrl = baseUrl;
             return _cachedChannels;
         }
-		
-		// --- NEW: Targeted Episode Fetching ---
+        
         public async Task<List<Episode>> GetShowEpisodesAsync(string baseUrl, string showId)
         {
             try {
-                // Note: We bypass the 5-minute global cache here since this is localized to a specific show click
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/shows/{Uri.EscapeDataString(showId)}/episodes?sort=date_added&order=desc");
                 return JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
             } catch { return new List<Episode>(); }
-        }		
-	
-        // --- NEW: Unified Recordings (Movies + Episodes) ---
+        }       
+    
         public async Task<List<UnifiedRecording>> GetUnifiedRecordingsAsync(string baseUrl)
         {
             try {
@@ -185,7 +172,6 @@ namespace FeralCode
                 
                 var recordings = JsonSerializer.Deserialize<List<UnifiedRecording>>(json, options) ?? new List<UnifiedRecording>();
 
-                // Ensure the Poster URLs are absolute for WPF
                 foreach (var rec in recordings)
                 {
                     if (!string.IsNullOrWhiteSpace(rec.RawImage))
@@ -201,12 +187,19 @@ namespace FeralCode
             } catch { return new List<UnifiedRecording>(); }
         }
 
-        // --- NEW: Personal Media Library ---
+        // --- FIXED: Both Methods properly inside ChannelsApi class ---
         public async Task<List<VideoGroup>> GetVideoGroupsAsync(string baseUrl)
         {
             try {
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/video_groups");
-                return JsonSerializer.Deserialize<List<VideoGroup>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<VideoGroup>();
+                var groups = JsonSerializer.Deserialize<List<VideoGroup>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<VideoGroup>();
+                
+                foreach(var g in groups)
+                {
+                    if (!string.IsNullOrWhiteSpace(g.ImageUrl))
+                        g.DisplayImage = g.ImageUrl.Replace("http://127.0.0.1:8089", baseUrl.TrimEnd('/'));
+                }
+                return groups;
             } catch { return new List<VideoGroup>(); }
         }
 
@@ -214,7 +207,15 @@ namespace FeralCode
         {
             try {
                 var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/video_groups/{Uri.EscapeDataString(groupId)}/videos");
-                return JsonSerializer.Deserialize<List<Video>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Video>();
+                var videos = JsonSerializer.Deserialize<List<Video>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Video>();
+
+                foreach(var v in videos)
+                {
+                    string rawImg = !string.IsNullOrWhiteSpace(v.ThumbnailUrl) ? v.ThumbnailUrl : v.ImageUrl ?? "";
+                    if (!string.IsNullOrWhiteSpace(rawImg))
+                        v.DisplayImage = rawImg.Replace("http://127.0.0.1:8089", baseUrl.TrimEnd('/'));
+                }
+                return videos;
             } catch { return new List<Video>(); }
         }
         
@@ -231,7 +232,7 @@ namespace FeralCode
                     
                 _cachedCollections = collections ?? new List<ChannelCollection>();
                 _lastCollectionsFetch = DateTime.Now;
-				 _lastCollectionsUrl = baseUrl;
+                 _lastCollectionsUrl = baseUrl;
                 return _cachedCollections;
             }
             catch
@@ -242,14 +243,13 @@ namespace FeralCode
 
         public async Task<List<GuideData>> GetGuideAsync(string baseUrl, int durationHours = 4)
         {
-            // Only use cache if it's less than 5 minutes old AND the requested duration hasn't changed
             if (_cachedGuide != null && _lastGuideUrl == baseUrl && _lastGuideDuration == durationHours && (DateTime.Now - _lastGuideFetch).TotalMinutes < 5)
             {
                 return _cachedGuide;
             }
 
             long unixTime = ((DateTimeOffset)DateTime.UtcNow).ToUnixTimeSeconds();
-            long durationSeconds = durationHours * 3600; // Convert hours to seconds
+            long durationSeconds = durationHours * 3600; 
             
             var url = $"{baseUrl}/devices/ANY/guide?time={unixTime}&duration={durationSeconds}";
             var response = await _http.GetStringAsync(url);
@@ -262,12 +262,12 @@ namespace FeralCode
             
             _cachedGuide = JsonSerializer.Deserialize<List<GuideData>>(response, options) ?? new List<GuideData>();
             _lastGuideDuration = durationHours;
-			_lastGuideUrl = baseUrl;
+            _lastGuideUrl = baseUrl;
             _lastGuideFetch = DateTime.Now;
             
             return _cachedGuide;
         }
-		
+        
         public async Task<List<Movie>> GetMoviesAsync(string baseUrl)
         {
             if (_cachedMovies != null && _lastMoviesUrl == baseUrl && (DateTime.Now - _lastMoviesFetch).TotalMinutes < 5) return _cachedMovies;
@@ -280,12 +280,6 @@ namespace FeralCode
                 
                 var movies = System.Text.Json.JsonSerializer.Deserialize<List<Movie>>(response, options) ?? new List<Movie>();
 
-                // --- NEW: Filter out stream links from the library ---
-              //  movies.RemoveAll(m => !string.IsNullOrWhiteSpace(m.Path) && 
-                                   //  (m.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase) || 
-                                   //   m.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase)));
-
-                // Ensure the Poster URLs are absolute so WPF can render them
                 foreach (var movie in movies)
                 {
                     if (!string.IsNullOrWhiteSpace(movie.RawImage))
@@ -299,10 +293,9 @@ namespace FeralCode
                     }
                 }
 
-                // Sort the library alphabetically by Title
                 _cachedMovies = movies.OrderBy(m => m.Title).ToList();
                 _lastMoviesFetch = DateTime.Now;
-				_lastMoviesUrl = baseUrl;
+                _lastMoviesUrl = baseUrl;
                 return _cachedMovies;
             }
             catch (Exception ex)
@@ -324,22 +317,18 @@ namespace FeralCode
                 
                 using var document = JsonDocument.Parse(response);
                 
-                // The JSON root is a dictionary of providers (e.g., "USA-OTA", "X-M3U")
                 foreach (var provider in document.RootElement.EnumerateObject())
                 {
-                    // Each provider contains a dictionary of Station IDs
                     foreach (var stationProp in provider.Value.EnumerateObject())
                     {
                         string stationId = stationProp.Name;
                         string logoUrl = "";
                         
-                        // 1. Standard Broadcast/Cable (Gracenote data)
                         if (stationProp.Value.TryGetProperty("preferredImage", out var prefImg) && 
                             prefImg.TryGetProperty("uri", out var uriProp))
                         {
                             logoUrl = uriProp.GetString() ?? "";
                         }
-                        // 2. Custom M3U / Pluto TV data
                         else if (stationProp.Value.TryGetProperty("Icon", out var iconProp) && 
                                  iconProp.TryGetProperty("Src", out var srcProp))
                         {
@@ -355,7 +344,7 @@ namespace FeralCode
 
                 _cachedStations = stationsList;
                 _lastStationsFetch = DateTime.Now;
-				 _lastStationsUrl = baseUrl;
+                 _lastStationsUrl = baseUrl;
             }
             catch (Exception ex)
             {
@@ -363,17 +352,16 @@ namespace FeralCode
             }
             return stationsList;
         }
-    }	
-		
+    }   
+        
     public class Channel
     {
         [System.Text.Json.Serialization.JsonExtensionData]
         public Dictionary<string, System.Text.Json.JsonElement>? ExtraData { get; set; }
-		
-		private bool _favorite = false;
+        
+        private bool _favorite = false;
         private bool _favoriteChecked = false;
 
-        // --- FIX: Ignore this during the strict JSON parse to prevent crashes! ---
         [System.Text.Json.Serialization.JsonIgnore]
         public bool Favorite 
         {
@@ -433,7 +421,7 @@ namespace FeralCode
 
         [System.Text.Json.Serialization.JsonIgnore]
         public List<Airing>? CurrentAirings { get; set; }
-		
+        
         [System.Text.Json.Serialization.JsonPropertyName("CurrentShowTitle")]
         public string CurrentShowTitle => (CurrentAirings != null && CurrentAirings.Count > 0) ? CurrentAirings[0].DisplayTitle : "Unknown Programming";
 
@@ -454,46 +442,44 @@ namespace FeralCode
         }
 
         public bool HasIdentifier(string query)
-{
-    if (string.IsNullOrWhiteSpace(query)) return false;
-    query = query.Trim();
-
-    // --- FIX: Use IndexOf to allow for partial substring matches! ---
-    if (Number.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-    if (Id.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-    if (Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-    if (CallSign.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
-
-    if (ExtraData != null)
-    {
-        foreach (var kvp in ExtraData)
         {
-            if (kvp.Value.ValueKind == System.Text.Json.JsonValueKind.String || 
-                kvp.Value.ValueKind == System.Text.Json.JsonValueKind.Number)
+            if (string.IsNullOrWhiteSpace(query)) return false;
+            query = query.Trim();
+
+            if (Number.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (Id.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            if (CallSign.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+            if (ExtraData != null)
             {
-                string val = kvp.Value.ToString().Trim();
-                if (val.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                foreach (var kvp in ExtraData)
                 {
-                    return true;
+                    if (kvp.Value.ValueKind == System.Text.Json.JsonValueKind.String || 
+                        kvp.Value.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        string val = kvp.Value.ToString().Trim();
+                        if (val.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            return true;
+                        }
+                    }
                 }
             }
+            return false;
         }
-    }
-    return false;
-}
 
-public bool IsExactMatch(string query)
-{
-    if (string.IsNullOrWhiteSpace(query)) return false;
-    query = query.Trim();
+        public bool IsExactMatch(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return false;
+            query = query.Trim();
 
-    // For collections, we only want exact 1-to-1 matches, usually against the ID or Number
-    if (string.Equals(Id, query, StringComparison.OrdinalIgnoreCase)) return true;
-    if (string.Equals(Number, query, StringComparison.OrdinalIgnoreCase)) return true;
-    if (string.Equals(CallSign, query, StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(Id, query, StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(Number, query, StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(CallSign, query, StringComparison.OrdinalIgnoreCase)) return true;
 
-    return false;
-}
+            return false;
+        }
 
     }
     
@@ -522,7 +508,7 @@ public bool IsExactMatch(string query)
                 return el.ValueKind == JsonValueKind.String ? el.GetString().Trim() : el.ToString().Trim();
             }
         }
-		
+        
         [JsonIgnore]
         public string? ChannelImageUrl 
         {
@@ -546,8 +532,8 @@ public bool IsExactMatch(string query)
                 return null;
             }
         }
-		
-		[JsonIgnore]
+        
+        [JsonIgnore]
         public bool IsFavorite 
         {
             get 
@@ -584,7 +570,7 @@ public bool IsExactMatch(string query)
         public string slug { get; set; } = string.Empty;
         public string name { get; set; } = string.Empty;
         public List<string> items { get; set; } = new List<string>(); 
-		public List<string>? genres { get; set; }
+        public List<string>? genres { get; set; }
         public List<string>? categories { get; set; }
         public List<string>? tags { get; set; }
         public List<string>? keywords { get; set; }
@@ -604,13 +590,11 @@ public bool IsExactMatch(string query)
         {
             get
             {
-                // If both exist, combine them (e.g., "Show Name - Episode Name")
                 if (!string.IsNullOrWhiteSpace(Title) && !string.IsNullOrWhiteSpace(EpisodeTitle) && Title != EpisodeTitle)
                 {
                     return $"{Title} - {EpisodeTitle}";
                 }
                 
-                // Otherwise, just return whichever one is available
                 if (!string.IsNullOrWhiteSpace(Title)) return Title;
                 if (!string.IsNullOrWhiteSpace(EpisodeTitle)) return EpisodeTitle;
                 
@@ -621,14 +605,13 @@ public bool IsExactMatch(string query)
         [JsonPropertyName("Summary")] public JsonElement? SummaryRaw { get; set; }
 
         [JsonExtensionData] public Dictionary<string, JsonElement>? ExtensionData { get; set; }
-		
+        
         [JsonIgnore]
         public double LeftOffset { get; set; } = 0;
 
         [JsonIgnore]
         public System.Windows.Thickness DynamicMargin => new System.Windows.Thickness(LeftOffset, 0, 0, 0);
 
-        // NEW: If the block is pushed left (negative), push the text right (positive) by the exact same amount!
         [JsonIgnore]
         public System.Windows.Thickness InnerContentMargin => new System.Windows.Thickness(LeftOffset < 0 ? Math.Abs(LeftOffset) : 0, 0, 0, 0);
 
@@ -676,10 +659,10 @@ public bool IsExactMatch(string query)
                 return null;
             }
         }
-		
+        
         [JsonPropertyName("Categories")] public List<string>? Categories { get; set; }
         [JsonPropertyName("Genres")] public List<string>? Genres { get; set; }
-		[JsonPropertyName("Tags")] public List<string>? Tags { get; set; }
+        [JsonPropertyName("Tags")] public List<string>? Tags { get; set; }
         [JsonPropertyName("SeasonNumber")] public int? SeasonNumber { get; set; }
         [JsonPropertyName("EpisodeNumber")] public int? EpisodeNumber { get; set; }
         [JsonPropertyName("OriginalDate")] public string? OriginalDate { get; set; }
@@ -691,19 +674,16 @@ public bool IsExactMatch(string query)
             {
                 var parts = new List<string>();
                 
-                // 1. Add Season/Episode if they exist
                 if (SeasonNumber.HasValue && SeasonNumber > 0 && EpisodeNumber.HasValue && EpisodeNumber > 0)
                 {
                     parts.Add($"S{SeasonNumber} E{EpisodeNumber}");
                 }
                 
-                // 2. Add the release year
                 if (!string.IsNullOrWhiteSpace(OriginalDate) && OriginalDate.Length >= 4)
                 {
                     parts.Add(OriginalDate.Substring(0, 4)); 
                 }
                 
-                // 3. Add the primary genre
                 var firstGenre = (Genres?.FirstOrDefault() ?? Categories?.FirstOrDefault());
                 if (!string.IsNullOrWhiteSpace(firstGenre))
                 {
@@ -719,22 +699,17 @@ public bool IsExactMatch(string query)
         {
             get
             {
-                // 1. Gather all possible tags from the DVR
                 var tags = new List<string>();
                 if (Categories != null) tags.AddRange(Categories);
                 if (Genres != null) tags.AddRange(Genres);
                 
-                // 2. Smash them into one giant lowercase string for easy searching
                 var combined = string.Join(" ", tags).ToLower();
                 
-                // 3. Search for keywords
-                if (combined.Contains("sports") || combined.Contains("event") || combined.Contains("athletics")) return "#E87C00"; // Orange
-                if (combined.Contains("news") || combined.Contains("local")) return "#107C10"; // Green
-                if (combined.Contains("movie") || combined.Contains("film") || combined.Contains("cinema")) return "#9300BA"; // Purple
-                if (combined.Contains("kids") || combined.Contains("children") || combined.Contains("animation")) return "#00A4EF"; // Light Blue
+                if (combined.Contains("sports") || combined.Contains("event") || combined.Contains("athletics")) return "#E87C00"; 
+                if (combined.Contains("news") || combined.Contains("local")) return "#107C10"; 
+                if (combined.Contains("movie") || combined.Contains("film") || combined.Contains("cinema")) return "#9300BA"; 
+                if (combined.Contains("kids") || combined.Contains("children") || combined.Contains("animation")) return "#00A4EF"; 
                 
-                // 4. THE TEST COLOR: We return a visible grey instead of Transparent. 
-                // If you see grey bars, the XAML works perfectly!
                 return "Transparent"; 
             }
         }
@@ -770,20 +745,18 @@ public bool IsExactMatch(string query)
         [JsonIgnore] 
         public string? ChannelLogoUrl { get; set; }
     }
-	
-    // --- NEW: The Data Model for Recorded Movies ---
+    
     public class Movie
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public string Id { get; set; } = "";
 
-        // --- NEW: Path for filtering out Stream Links ---
         [System.Text.Json.Serialization.JsonPropertyName("path")]
         public string Path { get; set; } = "";
 
         [System.Text.Json.Serialization.JsonPropertyName("title")]
         public string Title { get; set; } = "Unknown Title";
-		
+        
         [System.Text.Json.Serialization.JsonPropertyName("commercials")]
         public List<double>? Commercials { get; set; }
 
@@ -795,7 +768,7 @@ public bool IsExactMatch(string query)
 
         [System.Text.Json.Serialization.JsonPropertyName("release_year")]
         public int? ReleaseYear { get; set; }
-		
+        
         [System.Text.Json.Serialization.JsonPropertyName("genres")] 
         public List<string>? Genres { get; set; }
 
@@ -804,7 +777,7 @@ public bool IsExactMatch(string query)
 
         [System.Text.Json.Serialization.JsonPropertyName("created_at")] 
         public long CreatedAt { get; set; }
-		
+        
         [System.Text.Json.Serialization.JsonPropertyName("content_rating")]
         public string? ContentRating { get; set; }
 
@@ -817,14 +790,11 @@ public bool IsExactMatch(string query)
         [System.Text.Json.Serialization.JsonPropertyName("directors")]
         public List<string>? Directors { get; set; }
 
-        // We use image_url based on your JSON sample!
         [System.Text.Json.Serialization.JsonPropertyName("image_url")]
         public string RawImage { get; set; } = "";
 
-        // Helper property to hold the formatted URL for the UI
         public string PosterUrl { get; set; } = "";
 
-        // Helper property to convert seconds into a clean "1h 45m" format
         public string DisplayDuration
         {
             get
@@ -836,8 +806,7 @@ public bool IsExactMatch(string query)
             }
         }
     }
-	
-	// --- NEW: Personal Media Library Models ---
+    
     public class VideoGroup
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
@@ -845,6 +814,8 @@ public bool IsExactMatch(string query)
         [System.Text.Json.Serialization.JsonPropertyName("summary")] public string? Summary { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string? ImageUrl { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("video_count")] public int? VideoCount { get; set; }
+
+        public string DisplayImage { get; set; } = "";
     }
 
     public class Video
@@ -855,8 +826,13 @@ public bool IsExactMatch(string query)
         [System.Text.Json.Serialization.JsonPropertyName("video_title")] public string VideoTitle { get; set; } = ""; 
         [System.Text.Json.Serialization.JsonPropertyName("summary")] public string? Summary { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string? ImageUrl { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("thumbnail_url")] public string? ThumbnailUrl { get; set; }
+        
         [System.Text.Json.Serialization.JsonPropertyName("duration")] public double Duration { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("path")] public string Path { get; set; } = "";
+
+        public string DisplayImage { get; set; } = "";
     }
 
     public class Station
@@ -867,11 +843,9 @@ public bool IsExactMatch(string query)
         [JsonPropertyName("logo")]
         public string? Logo { get; set; }
     }
-	
-	// --- NEW: A dedicated DTO for the /api/v1/all endpoint ---
+    
     public class UnifiedRecording
     {
-        // Shared Properties
         [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("path")] public string Path { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("title")] public string Title { get; set; } = "Unknown Title";
@@ -882,22 +856,17 @@ public bool IsExactMatch(string query)
         [System.Text.Json.Serialization.JsonPropertyName("watched")] public bool Watched { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("genres")] public List<string>? Genres { get; set; }
 
-        // Movie Specific
         [System.Text.Json.Serialization.JsonPropertyName("release_year")] public int? ReleaseYear { get; set; }
 
-        // Episode Specific
         [System.Text.Json.Serialization.JsonPropertyName("show_id")] public string? ShowId { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("episode_title")] public string? EpisodeTitle { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("season_number")] public int? SeasonNumber { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("episode_number")] public int? EpisodeNumber { get; set; }
 
-        // WPF UI Helpers
         public string PosterUrl { get; set; } = "";
         
-        // Helper to let the UI know what kind of media this actually is
         public bool IsMovie => string.IsNullOrWhiteSpace(ShowId); 
         
-        // --- REPLACED DisplayTitle with SecondaryTitle ---
         public string SecondaryTitle 
         {
             get 
@@ -916,19 +885,18 @@ public bool IsExactMatch(string query)
                     return sec;
                 }
                 
-                // If it's a movie, just return the release year
                 return ReleaseYear?.ToString() ?? "";
             }
         }
     }
-	
+    
     public class TvShow
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("name")] public string Name { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string ImageUrl { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("episode_count")] public int EpisodeCount { get; set; }
-		
+        
         [System.Text.Json.Serialization.JsonPropertyName("genres")] 
         public List<string>? Genres { get; set; }
 
@@ -937,19 +905,17 @@ public bool IsExactMatch(string query)
 
         [System.Text.Json.Serialization.JsonPropertyName("created_at")] 
         public long CreatedAt { get; set; }
-		
-		[System.Text.Json.Serialization.JsonPropertyName("last_recorded_at")] 
+        
+        [System.Text.Json.Serialization.JsonPropertyName("last_recorded_at")] 
         public long LastRecordedAt { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("number_unwatched")] 
         public int NumberUnwatched { get; set; }
 
-        // Helper to check if the whole show is watched
         [System.Text.Json.Serialization.JsonIgnore] 
         public bool IsWatched => NumberUnwatched == 0;
     }
-	
-	// --- NEW: Parses specific stream details for STRM and STRMLNK files ---
+    
     public class DvrFileDetails
     {
         [System.Text.Json.Serialization.JsonPropertyName("StreamLinks")]
@@ -962,10 +928,7 @@ public bool IsExactMatch(string query)
     public class Episode
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
-
-        // --- NEW: Path for filtering out Stream Links ---
         [System.Text.Json.Serialization.JsonPropertyName("path")] public string Path { get; set; } = "";
-
         [System.Text.Json.Serialization.JsonPropertyName("show_id")] public string ShowId { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("title")] public string Title { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("episode_title")] public string EpisodeTitle { get; set; } = "";
