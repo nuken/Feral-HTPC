@@ -1,3 +1,4 @@
+#pragma warning disable CS8602
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +14,9 @@ namespace FeralCode
 {
     public partial class ShowsPage : Page
     {
-        private List<Episode> _allEpisodes = new List<Episode>();
-		private List<TvShow> _allShows = new List<TvShow>();
-       // --- Lazy Loading Trackers ---
+        private List<TvShow> _allShows = new List<TvShow>();
+        // --- NEW: Removed the _allEpisodes list to save memory! ---
+        
         private List<TvShow> _currentFilteredShows = new List<TvShow>();
         private int _currentShowIndex = 0;
         private bool _isLoadingShows = false;
@@ -31,11 +32,9 @@ namespace FeralCode
             _settings = SettingsManager.Load(); 
             this.Loaded += Page_Loaded;
 
-            // --- NEW: Global Scroll Listener ---
             this.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(ShowsScrollViewer_ScrollChanged), true);
         }
-		
-		// --- NEW: Helper to ignore articles when sorting ---
+        
         private string StripArticles(string title)
         {
             if (string.IsNullOrWhiteSpace(title)) return "";
@@ -66,7 +65,6 @@ namespace FeralCode
             _settings = SettingsManager.Load();
             _baseUrl = _settings.LastServerAddress;
 
-            // Try saved IP first. If blank, fallback to network discovery.
             if (string.IsNullOrWhiteSpace(_baseUrl))
             {
                 LoadingText.Text = "Searching for DVR Server...";
@@ -77,7 +75,7 @@ namespace FeralCode
                 {
                     _baseUrl = servers.First().BaseUrl;
                     _settings.LastServerAddress = _baseUrl;
-                    SettingsManager.Save(_settings); // Auto-save the discovered IP
+                    SettingsManager.Save(_settings); 
                 }
                 else
                 {
@@ -93,7 +91,8 @@ namespace FeralCode
         {
             var api = new ChannelsApi();
             _allShows = await api.GetShowsAsync(_baseUrl);
-            _allEpisodes = await api.GetEpisodesAsync(_baseUrl);
+            
+            // --- NEW: We no longer fetch GetEpisodesAsync() here! ---
 
             if (_allShows.Count == 0)
             {
@@ -106,18 +105,17 @@ namespace FeralCode
                                   .Distinct()
                                   .OrderBy(g => g).ToList();
             
-            _isInitializing = true; // Lock the event
+            _isInitializing = true; 
             GenreBox.Items.Clear();
             GenreBox.Items.Add(new ComboBoxItem { Content = "All Genres", IsSelected = true });
             foreach (var g in genres) GenreBox.Items.Add(new ComboBoxItem { Content = g });
             
-            // --- NEW: Load Persistent Settings ---
             var savedGenre = GenreBox.Items.OfType<ComboBoxItem>().FirstOrDefault(g => g.Content.ToString() == _settings.LastShowGenre);
             if (savedGenre != null) savedGenre.IsSelected = true;
             
             SortBox.SelectedIndex = _settings.LastShowSortIndex;
             WatchedBox.SelectedIndex = _settings.LastShowWatchedIndex;
-            _isInitializing = false; // Unlock
+            _isInitializing = false; 
 
             ApplyFilters(); 
             LoadingText.Visibility = Visibility.Collapsed;
@@ -125,7 +123,7 @@ namespace FeralCode
         
         private void Filter_Changed(object sender, RoutedEventArgs e)
         {
-            if (_isInitializing) return; // Ignore event if we are building the UI
+            if (_isInitializing) return; 
             if (_allShows.Count > 0) ApplyFilters();
         }
         
@@ -180,7 +178,6 @@ namespace FeralCode
                 filtered = filtered.OrderByDescending(s => s.LastRecordedAt);
             }
 
-            // --- NEW: Save the Persistent Settings silently ---
             if (!_isInitializing)
             {
                 _settings.LastShowSortIndex = SortBox.SelectedIndex;
@@ -189,14 +186,13 @@ namespace FeralCode
                 SettingsManager.Save(_settings);
             }
 
-            // --- NEW: Reset the lazy loader and start drawing ---
             _currentFilteredShows = filtered.ToList();
             ShowsWrapPanel.Children.Clear();
             _currentShowIndex = 0;
             _isLoadingShows = false; 
             
             LoadNextShowBatch(null);
-        } // End of ApplyFilters
+        }
         
         private async void LoadNextShowBatch(ScrollViewer? sv)
         {
@@ -241,28 +237,29 @@ namespace FeralCode
                 ((UIElement)ShowsWrapPanel.Children[0]).Focus();
             }
 
-            await Task.Delay(50); // Let the UI draw
+            await Task.Delay(50); 
             _isLoadingShows = false;
 
-            // --- FIX: If 50 items didn't fill the screen, keep loading! ---
             if (sv != null && sv.ViewportHeight >= sv.ExtentHeight - 100)
             {
                 LoadNextShowBatch(sv);
             }
         }
 
-        private void Show_Click(object sender, RoutedEventArgs e)
+        // --- NEW: Added 'async' so we can await the targeted episode fetch ---
+        private async void Show_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is TvShow show)
             {
                 _lastFocusedShowButton = btn;
-                OpenEpisodesView(show);
+                await OpenEpisodesViewAsync(show);
             }
         }
 
         private System.Windows.Controls.Button? _selectedSeasonButton;
 
-        private void OpenEpisodesView(TvShow show)
+        // --- NEW: Now fetches only the episodes for the selected show ---
+        private async Task OpenEpisodesViewAsync(TvShow show)
         {
             ShowsScrollViewer.Visibility = Visibility.Collapsed;
             EpisodesView.Visibility = Visibility.Visible;
@@ -273,7 +270,7 @@ namespace FeralCode
             BackButton.Content = "🔙 Back to Shows";
 
             SelectedShowTitle.Text = show.Name;
-            SelectedShowCount.Text = $"{show.EpisodeCount} Recorded Episodes";
+            SelectedShowCount.Text = "Loading episodes..."; // Temporary loading text
             SelectedShowImage.Source = null; 
             if (!string.IsNullOrWhiteSpace(show.ImageUrl))
             {
@@ -284,7 +281,11 @@ namespace FeralCode
             EpisodesStackPanel.Children.Clear();
             _selectedSeasonButton = null;
 
-            var showEpisodes = _allEpisodes.Where(ep => ep.ShowId == show.Id).ToList();
+            // --- NEW: Targeted API Call ---
+            var api = new ChannelsApi();
+            var showEpisodes = await api.GetShowEpisodesAsync(_baseUrl, show.Id);
+
+            SelectedShowCount.Text = $"{showEpisodes.Count} Recorded Episodes";
 
             if (_settings.ShowExtendedMetadata && showEpisodes.Any())
             {
@@ -397,7 +398,6 @@ namespace FeralCode
                 string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
                 bool isExternal = false;
 
-                // --- NEW: Detect and fetch STRM/STRMLNK details on demand ---
                 if (!string.IsNullOrWhiteSpace(ep.Path) && 
                    (ep.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
                     ep.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
@@ -420,7 +420,6 @@ namespace FeralCode
 
                 if (isExternal)
                 {
-                    // Launch in Edge/Browser
                     var windowStyle = _settings.StartPlayersFullscreen ? System.Diagnostics.ProcessWindowStyle.Maximized : System.Diagnostics.ProcessWindowStyle.Normal;
                     try
                     {
@@ -442,7 +441,6 @@ namespace FeralCode
                 }
                 else
                 {
-                    // Launch in VLC PlayerWindow
                     if (Application.Current.MainWindow is MainWindow mainWin)
                     {
                         if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();

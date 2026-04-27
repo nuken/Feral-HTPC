@@ -33,77 +33,86 @@
         </Style>
     </Page.Resources>
 
-    <Grid>
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-            
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,60">
-                
-                <Image Source="pack://application:,,,/Assets/splash.png" 
-                       Width="120" Height="100" 
-                       Margin="0,0,25,0" 
-                       RenderOptions.BitmapScalingMode="HighQuality" 
-                       VerticalAlignment="Center">
-                    <Image.Effect>
-                        <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.4" Color="Black"/>
-                    </Image.Effect>
-                </Image>
-                                      
-                <TextBlock VerticalAlignment="Center" 
-                           FontFamily="Segoe UI, Montserrat, Sans-Serif" 
-                           TextOptions.TextFormattingMode="Display" 
-                           TextOptions.TextRenderingMode="ClearType">
-                    
-                    <Run Text="FERAL" FontSize="68" FontWeight="Black" Foreground="{DynamicResource TextPrimary}"/>
-                    <Run Text=" HTPC" FontSize="52" FontWeight="Light" Foreground="{DynamicResource TextSecondary}"/>
-                </TextBlock>
-                
-            </StackPanel>
-            
-            <WrapPanel HorizontalAlignment="Center" MaxWidth="1000" KeyboardNavigation.DirectionalNavigation="Cycle">
-                
-                <Button x:Name="BtnLiveTV" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="LiveTv_Click">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <fa:IconImage Icon="Tv" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
-                        <TextBlock Text="Live TV" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-
-                <Button x:Name="BtnMovies" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Movies_Click">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <fa:IconImage Icon="Film" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
-                        <TextBlock Text="Movies" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-
-                <Button x:Name="BtnShows" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Shows_Click">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <fa:IconImage Icon="Video" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
-                        <TextBlock Text="TV Shows" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Button>                
-                
-                <Button x:Name="BtnApps" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Apps_Click">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <fa:IconImage Icon="Cubes" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
-                        <TextBlock Text="Apps" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Button>                
-                
-                <Button x:Name="BtnMultiview" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Multiview_Click">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <fa:IconImage Icon="ThLarge" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
-                        <TextBlock Text="Multiview" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-                
-                <Button x:Name="BtnSettings" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Settings_Click">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <fa:IconImage Icon="Cog" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
-                        <TextBlock Text="Settings" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-
-            </WrapPanel>
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+        
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,60">
+            <Image Source="pack://application:,,,/Assets/splash.png" 
+                   Width="120" Height="100" 
+                   Margin="0,0,25,0" 
+                   RenderOptions.BitmapScalingMode="HighQuality" 
+                   VerticalAlignment="Center">
+                <Image.Effect>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.4" Color="Black"/>
+                </Image.Effect>
+            </Image>
+                                  
+            <TextBlock VerticalAlignment="Center" 
+                       FontFamily="Segoe UI, Montserrat, Sans-Serif" 
+                       TextOptions.TextFormattingMode="Display" 
+                       TextOptions.TextRenderingMode="ClearType">
+                <Run Text="FERAL" FontSize="68" FontWeight="Black" Foreground="{DynamicResource TextPrimary}"/>
+                <Run Text=" HTPC" FontSize="52" FontWeight="Light" Foreground="{DynamicResource TextSecondary}"/>
+            </TextBlock>
         </StackPanel>
-    </Grid>
+        
+        <WrapPanel HorizontalAlignment="Center" MaxWidth="1200" KeyboardNavigation.DirectionalNavigation="Cycle">
+            
+            <Button x:Name="BtnLiveTV" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="LiveTv_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="Tv" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="Live TV" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <Button x:Name="BtnDashboard" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Dashboard_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="Clock" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="Recently Added" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <Button x:Name="BtnMovies" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Movies_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="Film" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="Movies" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <Button x:Name="BtnShows" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Shows_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="Video" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="TV Shows" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>                
+            
+            <Button x:Name="BtnVideos" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Videos_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="FolderOpen" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="Videos" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            
+            <Button x:Name="BtnApps" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Apps_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="Cubes" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="Apps" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>                
+            
+            <Button x:Name="BtnMultiview" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Multiview_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="ThLarge" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="Multiview" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+            
+            <Button x:Name="BtnSettings" Width="250" Height="150" Margin="15" Background="{DynamicResource CardBackground}" Style="{StaticResource StartMenuButton}" Click="Settings_Click">
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <fa:IconImage Icon="Cog" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="50" Height="50" Margin="0,0,0,15"/>
+                    <TextBlock Text="Settings" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+        </WrapPanel>
+    </StackPanel>
 </Page>

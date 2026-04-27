@@ -147,10 +147,75 @@ namespace FeralCode
                 NumberHandling = JsonNumberHandling.AllowReadingFromString
             };
 
-            _cachedChannels = JsonSerializer.Deserialize<List<Channel>>(response, options) ?? new List<Channel>();
+            var rawChannels = JsonSerializer.Deserialize<List<Channel>>(response, options) ?? new List<Channel>();
+
+            // --- NEW: Deduplicate channels based on Channel Number ---
+            _cachedChannels = rawChannels
+                .Where(c => !string.IsNullOrWhiteSpace(c.Number))
+                .GroupBy(c => c.Number)
+                .Select(group => group.First()) // Take the first instance of each channel number
+                .OrderBy(c => 
+                {
+                    if (double.TryParse(c.Number, out double num)) return num;
+                    return 999999; 
+                })
+                .ToList();
+
             _lastChannelsFetch = DateTime.Now;
-			_lastChannelsUrl = baseUrl;
+            _lastChannelsUrl = baseUrl;
             return _cachedChannels;
+        }
+		
+		// --- NEW: Targeted Episode Fetching ---
+        public async Task<List<Episode>> GetShowEpisodesAsync(string baseUrl, string showId)
+        {
+            try {
+                // Note: We bypass the 5-minute global cache here since this is localized to a specific show click
+                var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/shows/{Uri.EscapeDataString(showId)}/episodes?sort=date_added&order=desc");
+                return JsonSerializer.Deserialize<List<Episode>>(json) ?? new List<Episode>();
+            } catch { return new List<Episode>(); }
+        }		
+	
+        // --- NEW: Unified Recordings (Movies + Episodes) ---
+        public async Task<List<UnifiedRecording>> GetUnifiedRecordingsAsync(string baseUrl)
+        {
+            try {
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/all?source=recordings&sort=date_added&order=desc");
+                
+                var recordings = JsonSerializer.Deserialize<List<UnifiedRecording>>(json, options) ?? new List<UnifiedRecording>();
+
+                // Ensure the Poster URLs are absolute for WPF
+                foreach (var rec in recordings)
+                {
+                    if (!string.IsNullOrWhiteSpace(rec.RawImage))
+                    {
+                        if (rec.RawImage.StartsWith("http", StringComparison.OrdinalIgnoreCase)) 
+                            rec.PosterUrl = rec.RawImage;
+                        else 
+                            rec.PosterUrl = $"{baseUrl.TrimEnd('/')}/{rec.RawImage.TrimStart('/')}";
+                    }
+                }
+
+                return recordings;
+            } catch { return new List<UnifiedRecording>(); }
+        }
+
+        // --- NEW: Personal Media Library ---
+        public async Task<List<VideoGroup>> GetVideoGroupsAsync(string baseUrl)
+        {
+            try {
+                var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/video_groups");
+                return JsonSerializer.Deserialize<List<VideoGroup>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<VideoGroup>();
+            } catch { return new List<VideoGroup>(); }
+        }
+
+        public async Task<List<Video>> GetVideosInGroupAsync(string baseUrl, string groupId)
+        {
+            try {
+                var json = await _http.GetStringAsync($"{baseUrl.TrimEnd('/')}/api/v1/video_groups/{Uri.EscapeDataString(groupId)}/videos");
+                return JsonSerializer.Deserialize<List<Video>>(json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<Video>();
+            } catch { return new List<Video>(); }
         }
         
         public async Task<List<ChannelCollection>> GetChannelCollectionsAsync(string baseUrl)
@@ -771,6 +836,28 @@ public bool IsExactMatch(string query)
             }
         }
     }
+	
+	// --- NEW: Personal Media Library Models ---
+    public class VideoGroup
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("name")] public string Name { get; set; } = ""; 
+        [System.Text.Json.Serialization.JsonPropertyName("summary")] public string? Summary { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string? ImageUrl { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("video_count")] public int? VideoCount { get; set; }
+    }
+
+    public class Video
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("video_group_id")] public string VideoGroupId { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("title")] public string Title { get; set; } = ""; 
+        [System.Text.Json.Serialization.JsonPropertyName("video_title")] public string VideoTitle { get; set; } = ""; 
+        [System.Text.Json.Serialization.JsonPropertyName("summary")] public string? Summary { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string? ImageUrl { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("duration")] public double Duration { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("path")] public string Path { get; set; } = "";
+    }
 
     public class Station
     {
@@ -779,6 +866,60 @@ public bool IsExactMatch(string query)
 
         [JsonPropertyName("logo")]
         public string? Logo { get; set; }
+    }
+	
+	// --- NEW: A dedicated DTO for the /api/v1/all endpoint ---
+    public class UnifiedRecording
+    {
+        // Shared Properties
+        [System.Text.Json.Serialization.JsonPropertyName("id")] public string Id { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("path")] public string Path { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("title")] public string Title { get; set; } = "Unknown Title";
+        [System.Text.Json.Serialization.JsonPropertyName("summary")] public string Summary { get; set; } = "No summary available.";
+        [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string RawImage { get; set; } = "";
+        [System.Text.Json.Serialization.JsonPropertyName("duration")] public double? Duration { get; set; } 
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")] public long CreatedAt { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("watched")] public bool Watched { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("genres")] public List<string>? Genres { get; set; }
+
+        // Movie Specific
+        [System.Text.Json.Serialization.JsonPropertyName("release_year")] public int? ReleaseYear { get; set; }
+
+        // Episode Specific
+        [System.Text.Json.Serialization.JsonPropertyName("show_id")] public string? ShowId { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("episode_title")] public string? EpisodeTitle { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("season_number")] public int? SeasonNumber { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("episode_number")] public int? EpisodeNumber { get; set; }
+
+        // WPF UI Helpers
+        public string PosterUrl { get; set; } = "";
+        
+        // Helper to let the UI know what kind of media this actually is
+        public bool IsMovie => string.IsNullOrWhiteSpace(ShowId); 
+        
+        // --- REPLACED DisplayTitle with SecondaryTitle ---
+        public string SecondaryTitle 
+        {
+            get 
+            {
+                if (!IsMovie)
+                {
+                    string sec = "";
+                    if (SeasonNumber.HasValue && EpisodeNumber.HasValue && SeasonNumber > 0)
+                        sec += $"S{SeasonNumber:D2} E{EpisodeNumber:D2}";
+                    
+                    if (!string.IsNullOrWhiteSpace(EpisodeTitle) && Title != EpisodeTitle)
+                    {
+                        if (sec.Length > 0) sec += " • ";
+                        sec += EpisodeTitle;
+                    }
+                    return sec;
+                }
+                
+                // If it's a movie, just return the release year
+                return ReleaseYear?.ToString() ?? "";
+            }
+        }
     }
 	
     public class TvShow

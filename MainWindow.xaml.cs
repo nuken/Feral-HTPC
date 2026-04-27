@@ -263,9 +263,11 @@ namespace FeralCode
             {
                 try
                 {
-                    // Try to briefly start a listener on the port. If it succeeds, the port is truly free!
-                    using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Any, port))
+                    // FIX: Kestrel binds to IPv6Any with DualMode enabled by default. 
+                    // We must test the exact same dual-mode socket to prevent false positives!
+                    using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.IPv6Any, port))
                     {
+                        listener.Server.DualMode = true; 
                         listener.Start();
                         listener.Stop();
                         isAvailable = true;
@@ -273,7 +275,7 @@ namespace FeralCode
                 }
                 catch
                 {
-                    // Port is actually in use! Increment and try the next one instantly.
+                    // Port is actually in use on either IPv4 or IPv6! Increment and try the next one.
                     AppLogger.Log($"Port {port} in use, trying {port + 1}...");
                     port++;
                 }

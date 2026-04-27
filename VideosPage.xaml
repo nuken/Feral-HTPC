@@ -1,0 +1,127 @@
+<Page x:Class="FeralCode.VideosPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="clr-namespace:FeralCode"
+      Title="Videos" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}"
+      PreviewKeyDown="Page_PreviewKeyDown" KeepAlive="True">
+
+    <Page.Resources>
+        <local:ImageUrlToOptimizedBitmapConverter x:Key="ImageOptimizer" />
+        
+        <Style TargetType="Button" x:Key="ModernButton">
+            <Setter Property="Background" Value="{DynamicResource LiveBorder}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BgBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="BgBorder" Property="Background" Value="{DynamicResource LiveHover}"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="BgBorder" Property="BorderBrush" Value="{DynamicResource StatusConnecting}"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Button" x:Key="MovieCardStyle">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="4"/>
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BgBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" ClipToBounds="True">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="BgBorder" Property="BorderBrush" Value="{DynamicResource StatusConnecting}"/>
+                                <Setter TargetName="BgBorder" Property="Background" Value="{DynamicResource CardHoverBackground}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="BgBorder" Property="BorderBrush" Value="{DynamicResource LiveBorder}"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button x:Name="BackButton" Content="🏠 Home" Margin="0,0,20,0" Click="BackButton_Click" Style="{StaticResource ModernButton}"/>
+                <TextBlock x:Name="PageTitle" Text="📂 PERSONAL MEDIA" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+                <TextBlock x:Name="StatusText" Text="Loading media libraries..." VerticalAlignment="Center" Margin="20,0,0,0" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource StatusConnecting}"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer x:Name="GroupsScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <ItemsControl x:Name="GroupsItemsControl" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel HorizontalAlignment="Center" KeyboardNavigation.DirectionalNavigation="Cycle" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource MovieCardStyle}" Width="200" Height="250" Click="Group_Click" Tag="{Binding}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="180"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Background="{DynamicResource CardBackground}" CornerRadius="8">
+                                    <TextBlock Text="📁" FontSize="72" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border Grid.Row="1" Background="{DynamicResource PanelBackground}" VerticalAlignment="Bottom" Padding="8,4">
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextPrimary}" TextAlignment="Center" TextWrapping="Wrap" MaxHeight="45"/>
+                                </Border>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <ScrollViewer x:Name="VideosScroller" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <ItemsControl x:Name="VideosItemsControl" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel HorizontalAlignment="Center" KeyboardNavigation.DirectionalNavigation="Cycle" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource MovieCardStyle}" Width="200" Height="250" Click="Video_Click" Tag="{Binding}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="180"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Background="{DynamicResource CardBackground}" CornerRadius="8">
+                                    <TextBlock Text="▶️" FontSize="72" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border Grid.Row="1" Background="{DynamicResource PanelBackground}" VerticalAlignment="Bottom" Padding="8,4">
+                                    <TextBlock Text="{Binding VideoTitle}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimary}" TextAlignment="Center" TextWrapping="Wrap" MaxHeight="45"/>
+                                </Border>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+    </Grid>
+</Page>
