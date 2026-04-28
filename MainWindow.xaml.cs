@@ -626,7 +626,7 @@ namespace FeralCode
 
                         if (selectedMovie != null)
                         {
-                            string targetUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+                           string targetUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
                             bool isExternal = false;
 
                             // --- NEW: Detect and fetch STRM/STRMLNK details on demand ---
@@ -660,7 +660,7 @@ namespace FeralCode
                                 {
                                     if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
 
-                                    ActivePlayerWindow = new PlayerWindow(targetUrl, selectedMovie.Title, selectedMovie.PosterUrl, selectedMovie.Commercials);
+                                    ActivePlayerWindow = new PlayerWindow(targetUrl, selectedMovie.Title, selectedMovie.PosterUrl, selectedMovie.Commercials, selectedMovie.Id, selectedMovie.PlaybackTime, selectedMovie.Duration ?? 0);
                                     ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
                                     ActivePlayerWindow.Show();
                                 }
@@ -803,7 +803,7 @@ namespace FeralCode
                                 {
                                     if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
 
-                                    ActivePlayerWindow = new PlayerWindow(targetUrl, displayTitle, ep.ImageUrl, ep.Commercials);
+                                    ActivePlayerWindow = new PlayerWindow(targetUrl, displayTitle, ep.ImageUrl, ep.Commercials, ep.Id, ep.PlaybackTime, ep.Duration ?? 0);
                                     ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
                                     ActivePlayerWindow.Show();
                                 }

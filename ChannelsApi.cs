@@ -352,6 +352,51 @@ namespace FeralCode
             }
             return stationsList;
         }
+		
+		/// <summary>
+/// Updates the server with the exact second the user stopped watching.
+/// </summary>
+public async Task<bool> SavePlaybackProgressAsync(string baseUrl, string fileId, double playbackSeconds)
+{
+    try
+    {
+        // The API expects an integer value for seconds
+        int seconds = Math.Max(0, (int)Math.Floor(playbackSeconds));
+        string url = $"{baseUrl.TrimEnd('/')}/dvr/files/{Uri.EscapeDataString(fileId)}/playback_time/{seconds}";
+        
+        var request = new HttpRequestMessage(HttpMethod.Put, url);
+        var response = await _http.SendAsync(request);
+        
+        return response.IsSuccessStatusCode;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Failed to save playback progress: {ex.Message}");
+        return false;
+    }
+}
+
+/// <summary>
+/// Forces a file's status to Watched or Unwatched on the server.
+/// </summary>
+public async Task<bool> SetWatchedStatusAsync(string baseUrl, string fileId, bool isWatched)
+{
+    try
+    {
+        string action = isWatched ? "watch" : "unwatch";
+        string url = $"{baseUrl.TrimEnd('/')}/dvr/files/{Uri.EscapeDataString(fileId)}/{action}";
+        
+        var request = new HttpRequestMessage(HttpMethod.Put, url);
+        var response = await _http.SendAsync(request);
+        
+        return response.IsSuccessStatusCode;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Failed to set watched status: {ex.Message}");
+        return false;
+    }
+}
     }   
         
     public class Channel
@@ -786,6 +831,21 @@ namespace FeralCode
 
         [System.Text.Json.Serialization.JsonPropertyName("cast")]
         public List<string>? Cast { get; set; }
+		
+		[System.Text.Json.Serialization.JsonPropertyName("playback_time")]
+public double PlaybackTime { get; set; }
+
+[System.Text.Json.Serialization.JsonPropertyName("program_id")]
+public string ProgramId { get; set; } = "";
+
+[System.Text.Json.Serialization.JsonPropertyName("corrupted")]
+public bool Corrupted { get; set; }
+
+[System.Text.Json.Serialization.JsonPropertyName("delayed")]
+public bool Delayed { get; set; }
+
+[System.Text.Json.Serialization.JsonPropertyName("cancelled")]
+public bool Cancelled { get; set; }
 
         [System.Text.Json.Serialization.JsonPropertyName("directors")]
         public List<string>? Directors { get; set; }
@@ -862,6 +922,21 @@ namespace FeralCode
         [System.Text.Json.Serialization.JsonPropertyName("episode_title")] public string? EpisodeTitle { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("season_number")] public int? SeasonNumber { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("episode_number")] public int? EpisodeNumber { get; set; }
+		
+		[System.Text.Json.Serialization.JsonPropertyName("playback_time")]
+public double PlaybackTime { get; set; }
+
+[System.Text.Json.Serialization.JsonPropertyName("program_id")]
+public string ProgramId { get; set; } = "";
+
+[System.Text.Json.Serialization.JsonPropertyName("corrupted")]
+public bool Corrupted { get; set; }
+
+[System.Text.Json.Serialization.JsonPropertyName("delayed")]
+public bool Delayed { get; set; }
+
+[System.Text.Json.Serialization.JsonPropertyName("cancelled")]
+public bool Cancelled { get; set; }
 
         public string PosterUrl { get; set; } = "";
         
@@ -941,5 +1016,24 @@ namespace FeralCode
         [System.Text.Json.Serialization.JsonPropertyName("cast")] public List<string>? Cast { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("full_summary")] public string? FullSummary { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("created_at")] public long CreatedAt { get; set; }
+
+        // ---> NEW: Add Duration so the ShowsPage can pass it to the Player! <---
+        [System.Text.Json.Serialization.JsonPropertyName("duration")] 
+        public double? Duration { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("playback_time")]
+        public double PlaybackTime { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("program_id")]
+        public string ProgramId { get; set; } = "";
+        
+        [System.Text.Json.Serialization.JsonPropertyName("corrupted")]
+        public bool Corrupted { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("delayed")]
+        public bool Delayed { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("cancelled")]
+        public bool Cancelled { get; set; }
     }
 }

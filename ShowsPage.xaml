@@ -5,6 +5,37 @@
       PreviewKeyDown="Page_PreviewKeyDown" KeepAlive="True">
 
     <Page.Resources>
+	
+	    <Style TargetType="Button" x:Key="ModernButton">
+            <Setter Property="Background" Value="{DynamicResource LiveBorder}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="3"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BgBorder" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BgBorder" Property="Background" Value="{DynamicResource LiveHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="BgBorder" Property="BorderBrush" Value="{DynamicResource StatusConnecting}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="Button" x:Key="PosterButton">
             <Setter Property="Background" Value="{DynamicResource CardBackground}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
@@ -200,7 +231,23 @@
                 <StackPanel x:Name="EpisodesStackPanel" Margin="0,0,10,0"/>
             </ScrollViewer>
         </Grid>
-
+        <Border x:Name="EpisodeActionOverlay" Grid.RowSpan="3" Background="#DD000000" Visibility="Collapsed" Panel.ZIndex="100">
+            <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Width="500" Height="250" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" Opacity="0.5" BlurRadius="30" ShadowDepth="10"/>
+                </Border.Effect>
+                <StackPanel Margin="30" VerticalAlignment="Center">
+                    <TextBlock x:Name="EpisodeActionTitle" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,10"/>
+                    <TextBlock x:Name="EpisodeActionSubtitle" FontSize="16" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,30"/>
+                    
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="Cancel" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" Click="CancelEpisodeAction_Click" Style="{StaticResource ModernButton}" Margin="0,0,10,0"/>
+                        <Button x:Name="EpStartOverButton" Content="⏮ Start Over" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" Click="EpStartOverButton_Click" Style="{StaticResource ModernButton}" Margin="0,0,10,0"/>
+                        <Button x:Name="EpResumeButton" Content="▶ Resume" Background="{DynamicResource LiveBorder}" Foreground="White" Click="EpResumeButton_Click" Style="{StaticResource ModernButton}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
         <TextBlock x:Name="LoadingText" Grid.Row="2" Text="⏳ Loading Library..." FontSize="24" Foreground="{DynamicResource TextSecondary}" 
                    HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
     </Grid>

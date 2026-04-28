@@ -276,16 +276,28 @@ namespace FeralCode
                     LoadModalImageAsync(ModalImage, movie.PosterUrl, 400);
                 }
 
+                // --- NEW: Toggle the native Resume / Start Over buttons! ---
+                if (movie.PlaybackTime > 0)
+                {
+                    TimeSpan t = TimeSpan.FromSeconds(movie.PlaybackTime);
+                    string timeString = t.Hours > 0 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+                    
+                    PlayButton.Content = $"▶ Resume ({timeString})";
+                    StartOverButton.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    PlayButton.Content = "▶ Play Movie";
+                    StartOverButton.Visibility = Visibility.Collapsed;
+                }
+
                 if (_settings.ShowExtendedMetadata)
                 {
                     ModalExtendedData.Visibility = Visibility.Visible;
-                    
                     ModalRating.Text = !string.IsNullOrWhiteSpace(movie.ContentRating) ? movie.ContentRating : "NR";
                     RatingBorder.Visibility = string.IsNullOrWhiteSpace(movie.ContentRating) ? Visibility.Collapsed : Visibility.Visible;
-
                     ModalTags.Text = movie.Tags != null ? string.Join(" • ", movie.Tags) : "";
                     ModalDirectors.Text = movie.Directors != null ? $"Directed by: {string.Join(", ", movie.Directors)}" : "";
-                    
                     ModalCast.Text = movie.Cast != null ? $"Starring: {string.Join(", ", movie.Cast.Take(6))}" : "";
                 }
                 else
@@ -299,92 +311,86 @@ namespace FeralCode
             }
         }
 
+        // --- NEW: Dedicated Button Click Handlers ---
+        private void PlayButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedMovie != null) LaunchMovie(_selectedMovie.PlaybackTime);
+        }
+
+        private void StartOverButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedMovie != null) LaunchMovie(0);
+        }
+
+        // --- NEW: Helper method to launch the movie with the correct resume time ---
+        private async void LaunchMovie(double resumeTime)
+        {
+            string baseUrl = _settings.LastServerAddress;
+            string targetUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie!.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+            bool isExternal = false;
+
+            if (!string.IsNullOrWhiteSpace(_selectedMovie.Path) && 
+               (_selectedMovie.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
+                _selectedMovie.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
+            {
+                var fileDetails = await _api.GetFileDetailsAsync(baseUrl, _selectedMovie.Id);
+                if (fileDetails != null)
+                {
+                    if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
+                    {
+                        targetUrl = fileDetails.StreamLinks[0];
+                        isExternal = true;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
+                        targetUrl = fileDetails.VideoUrl;
+                }
+            }
+
+            if (isExternal)
+            {
+                var windowStyle = _settings.StartPlayersFullscreen ? System.Diagnostics.ProcessWindowStyle.Maximized : System.Diagnostics.ProcessWindowStyle.Normal;
+                try
+                {
+                    if (targetUrl.Contains("netflix.com") || targetUrl.Contains("disneyplus.com") || targetUrl.Contains("youtube.com"))
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app=\"{targetUrl}\" --start-fullscreen", UseShellExecute = true, WindowStyle = windowStyle });
+                    else
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(targetUrl) { UseShellExecute = true, WindowStyle = windowStyle });
+                }
+                catch { }
+                ModalOverlay.Visibility = Visibility.Collapsed;
+                ToggleFiltersButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                var mainWindow = (MainWindow)Application.Current.MainWindow;
+                if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
+
+                // Pass the ID and the specific resume time requested by the button!
+                mainWindow.ActivePlayerWindow = new PlayerWindow(targetUrl, _selectedMovie.Title, _selectedMovie.PosterUrl, _selectedMovie.Commercials, _selectedMovie.Id, resumeTime, _selectedMovie.Duration ?? 0);
+                
+                mainWindow.ActivePlayerWindow.Closed += (s, args) => 
+                {
+                    mainWindow.ActivePlayerWindow = null; 
+                    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
+                    mainWindow.Show(); 
+                    Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                };
+                
+                if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
+                else mainWindow.Hide(); 
+                
+                mainWindow.ActivePlayerWindow.Show(); 
+                ModalOverlay.Visibility = Visibility.Collapsed;
+                ToggleFiltersButton.Visibility = Visibility.Visible;
+            }
+        }
+
         private void CloseModal_Click(object sender, RoutedEventArgs e)
         {
             ModalOverlay.Visibility = Visibility.Collapsed;
             ToggleFiltersButton.Visibility = Visibility.Visible;
             _selectedMovie = null;
             _lastFocusedMovieButton?.Focus(); 
-        }
-
-        private async void PlayButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedMovie != null)
-            {
-                string baseUrl = _settings.LastServerAddress;
-                string targetUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
-                bool isExternal = false;
-
-                // --- NEW: Detect and fetch STRM/STRMLNK details on demand ---
-                if (!string.IsNullOrWhiteSpace(_selectedMovie.Path) && 
-                   (_selectedMovie.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
-                    _selectedMovie.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
-                {
-                    var fileDetails = await _api.GetFileDetailsAsync(baseUrl, _selectedMovie.Id);
-                    if (fileDetails != null)
-                    {
-                        if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
-                        {
-                            targetUrl = fileDetails.StreamLinks[0];
-                            isExternal = true;
-                        }
-                        else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
-                        {
-                            targetUrl = fileDetails.VideoUrl;
-                        }
-                    }
-                }
-
-                if (isExternal)
-                {
-                    // Launch in Edge/Browser
-                    var windowStyle = _settings.StartPlayersFullscreen ? System.Diagnostics.ProcessWindowStyle.Maximized : System.Diagnostics.ProcessWindowStyle.Normal;
-                    try
-                    {
-                        if (targetUrl.Contains("netflix.com") || targetUrl.Contains("disneyplus.com") || targetUrl.Contains("youtube.com"))
-                        {
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { 
-                                FileName = "msedge", 
-                                Arguments = $"--app=\"{targetUrl}\" --start-fullscreen", 
-                                UseShellExecute = true, 
-                                WindowStyle = windowStyle 
-                            });
-                        }
-                        else
-                        {
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(targetUrl) { UseShellExecute = true, WindowStyle = windowStyle });
-                        }
-                    }
-                    catch { }
-                    
-                    ModalOverlay.Visibility = Visibility.Collapsed;
-                    ToggleFiltersButton.Visibility = Visibility.Visible;
-                }
-                else
-                {
-                    // Launch in VLC PlayerWindow
-                    var mainWindow = (MainWindow)Application.Current.MainWindow;
-                    if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
-
-                    mainWindow.ActivePlayerWindow = new PlayerWindow(targetUrl, _selectedMovie.Title, _selectedMovie.PosterUrl, _selectedMovie.Commercials);
-                    
-                    mainWindow.ActivePlayerWindow.Closed += (s, args) => 
-                    {
-                        mainWindow.ActivePlayerWindow = null; 
-                        if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
-                        mainWindow.Show(); 
-                        Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedMovieButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
-                    };
-                    
-                    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
-                    else mainWindow.Hide(); 
-                    
-                    mainWindow.ActivePlayerWindow.Show(); 
-                    
-                    ModalOverlay.Visibility = Visibility.Collapsed;
-                    ToggleFiltersButton.Visibility = Visibility.Visible;
-                }
-            }
         }
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)

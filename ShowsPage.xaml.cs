@@ -272,9 +272,12 @@ namespace FeralCode
             SelectedShowTitle.Text = show.Name;
             SelectedShowCount.Text = "Loading episodes..."; // Temporary loading text
             SelectedShowImage.Source = null; 
+            
             if (!string.IsNullOrWhiteSpace(show.ImageUrl))
             {
-                LoadModalImageAsync(SelectedShowImage, show.ImageUrl, 400); 
+                // --- FIX: Convert relative URLs to Absolute URLs so the poster downloads ---
+                string absoluteShowUrl = show.ImageUrl.StartsWith("/") ? $"{_baseUrl.TrimEnd('/')}{show.ImageUrl}" : show.ImageUrl;
+                LoadModalImageAsync(SelectedShowImage, absoluteShowUrl, 400); 
             }
 
             SeasonsStackPanel.Children.Clear();
@@ -390,76 +393,120 @@ namespace FeralCode
             }
         }
         
-        private async void Episode_Click(object sender, RoutedEventArgs e)
+        private Episode? _pendingEpisode;
+        private Button? _lastFocusedEpisodeButton;
+
+        private void Episode_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is Episode ep)
             {
-                string targetUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{ep.Id}/hls/stream.m3u8";
-                string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
-                bool isExternal = false;
+                _lastFocusedEpisodeButton = btn;
+                _pendingEpisode = ep;
 
-                if (!string.IsNullOrWhiteSpace(ep.Path) && 
-                   (ep.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
-                    ep.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
+                if (ep.PlaybackTime > 0)
                 {
-                    var api = new ChannelsApi();
-                    var fileDetails = await api.GetFileDetailsAsync(_baseUrl, ep.Id);
-                    if (fileDetails != null)
-                    {
-                        if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
-                        {
-                            targetUrl = fileDetails.StreamLinks[0];
-                            isExternal = true;
-                        }
-                        else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
-                        {
-                            targetUrl = fileDetails.VideoUrl;
-                        }
-                    }
-                }
-
-                if (isExternal)
-                {
-                    var windowStyle = _settings.StartPlayersFullscreen ? System.Diagnostics.ProcessWindowStyle.Maximized : System.Diagnostics.ProcessWindowStyle.Normal;
-                    try
-                    {
-                        if (targetUrl.Contains("netflix.com") || targetUrl.Contains("disneyplus.com") || targetUrl.Contains("youtube.com"))
-                        {
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { 
-                                FileName = "msedge", 
-                                Arguments = $"--app=\"{targetUrl}\" --start-fullscreen", 
-                                UseShellExecute = true, 
-                                WindowStyle = windowStyle 
-                            });
-                        }
-                        else
-                        {
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(targetUrl) { UseShellExecute = true, WindowStyle = windowStyle });
-                        }
-                    }
-                    catch { }
+                    TimeSpan t = TimeSpan.FromSeconds(ep.PlaybackTime);
+                    string timeString = t.Hours > 0 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+                    
+                    EpisodeActionTitle.Text = ep.EpisodeTitle;
+                    EpisodeActionSubtitle.Text = $"You left off at {timeString}. How would you like to proceed?";
+                    EpResumeButton.Content = $"▶ Resume ({timeString})";
+                    
+                    EpisodeActionOverlay.Visibility = Visibility.Visible;
+                    EpResumeButton.Focus();
                 }
                 else
                 {
-                    if (Application.Current.MainWindow is MainWindow mainWin)
-                    {
-                        if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
+                    // No progress saved, launch immediately from the start
+                    LaunchEpisode(ep, 0);
+                }
+            }
+        }
 
-                        mainWin.ActivePlayerWindow = new PlayerWindow(targetUrl, displayTitle, ep.ImageUrl, ep.Commercials);
-                        
-                        mainWin.ActivePlayerWindow.Closed += (s, args) => 
-                        {
-                            mainWin.ActivePlayerWindow = null;
-                            if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Normal;
-                            mainWin.Show(); 
-                            Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
-                        };
-                        
-                        if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Minimized;
-                        else mainWin.Hide(); 
-                        
-                        mainWin.ActivePlayerWindow.Show();
+        private void CancelEpisodeAction_Click(object sender, RoutedEventArgs e)
+        {
+            EpisodeActionOverlay.Visibility = Visibility.Collapsed;
+            _pendingEpisode = null;
+            _lastFocusedEpisodeButton?.Focus();
+        }
+
+        private void EpStartOverButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_pendingEpisode != null) LaunchEpisode(_pendingEpisode, 0);
+        }
+
+        private void EpResumeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_pendingEpisode != null) LaunchEpisode(_pendingEpisode, _pendingEpisode.PlaybackTime);
+        }
+
+        private async void LaunchEpisode(Episode ep, double resumeTime)
+        {
+            EpisodeActionOverlay.Visibility = Visibility.Collapsed;
+            
+            string targetUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{ep.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+            string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
+            bool isExternal = false;
+
+            if (!string.IsNullOrWhiteSpace(ep.Path) && 
+               (ep.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
+                ep.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase)))
+            {
+                var api = new ChannelsApi();
+                var fileDetails = await api.GetFileDetailsAsync(_baseUrl, ep.Id);
+                if (fileDetails != null)
+                {
+                    if (fileDetails.StreamLinks != null && fileDetails.StreamLinks.Count > 0)
+                    {
+                        targetUrl = fileDetails.StreamLinks[0];
+                        isExternal = true;
                     }
+                    else if (!string.IsNullOrWhiteSpace(fileDetails.VideoUrl))
+                    {
+                        targetUrl = fileDetails.VideoUrl;
+                    }
+                }
+            }
+
+            if (isExternal)
+            {
+                var windowStyle = _settings.StartPlayersFullscreen ? System.Diagnostics.ProcessWindowStyle.Maximized : System.Diagnostics.ProcessWindowStyle.Normal;
+                try
+                {
+                    if (targetUrl.Contains("netflix.com") || targetUrl.Contains("disneyplus.com") || targetUrl.Contains("youtube.com"))
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app=\"{targetUrl}\" --start-fullscreen", UseShellExecute = true, WindowStyle = windowStyle });
+                    else
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(targetUrl) { UseShellExecute = true, WindowStyle = windowStyle });
+                }
+                catch { }
+            }
+            else
+            {
+                if (Application.Current.MainWindow is MainWindow mainWin)
+                {
+                    if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
+
+                    // --- FIX: Ensure absolute URL so the PlayerWindow doesn't crash on boot ---
+                    string absoluteEpUrl = ep.ImageUrl;
+                    if (!string.IsNullOrWhiteSpace(absoluteEpUrl) && absoluteEpUrl.StartsWith("/"))
+                    {
+                        absoluteEpUrl = $"{_baseUrl.TrimEnd('/')}{absoluteEpUrl}";
+                    }
+
+                    mainWin.ActivePlayerWindow = new PlayerWindow(targetUrl, displayTitle, absoluteEpUrl, ep.Commercials, ep.Id, resumeTime, ep.Duration ?? 0);
+                    
+                    mainWin.ActivePlayerWindow.Closed += (s, args) => 
+                    {
+                        mainWin.ActivePlayerWindow = null;
+                        if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Normal;
+                        mainWin.Show(); 
+                        Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedEpisodeButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                    };
+                    
+                    if (_settings.MinimizeOnPlay) mainWin.WindowState = WindowState.Minimized;
+                    else mainWin.Hide(); 
+                    
+                    mainWin.ActivePlayerWindow.Show();
                 }
             }
         }
@@ -561,6 +608,10 @@ namespace FeralCode
         
         private System.Windows.Media.Imaging.BitmapImage LoadOptimizedImage(string imageUrl, int width = 300)
         {
+            // --- FIX: Prevent fatal WPF background crashes from relative URLs ---
+            if (!string.IsNullOrWhiteSpace(imageUrl) && imageUrl.StartsWith("/")) 
+                imageUrl = $"{_baseUrl.TrimEnd('/')}{imageUrl}";
+
             var bitmap = new System.Windows.Media.Imaging.BitmapImage();
             bitmap.BeginInit();
             bitmap.UriSource = new Uri(imageUrl);
@@ -575,6 +626,10 @@ namespace FeralCode
             {
                 if (string.IsNullOrWhiteSpace(url)) return;
                 
+                // --- FIX: Prevent fatal WPF background crashes from relative URLs ---
+                if (url.StartsWith("/")) 
+                    url = $"{_baseUrl.TrimEnd('/')}{url}";
+
                 using var client = new System.Net.Http.HttpClient();
                 var bytes = await client.GetByteArrayAsync(url);
                 using var stream = new System.IO.MemoryStream(bytes);

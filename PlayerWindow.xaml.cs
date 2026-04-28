@@ -1,3 +1,4 @@
+#pragma warning disable CS8602
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,33 +17,37 @@ namespace FeralCode
 {
     public partial class PlayerWindow : Window
     {
-        // --- NEW: Toggle this to false to disable logging! ---
+        // --- Shared Variables ---
         private bool _enableLogging;
         private Media? _currentMedia;
-		private string _timeShiftDir = "";
-        private System.Net.HttpListener? _hlsServer; // NEW: The micro web server!
-		private double _accumulatedScrubSeconds = 0;
+        private string _timeShiftDir = "";
+        private System.Net.HttpListener? _hlsServer; 
+        private double _accumulatedScrubSeconds = 0;
         private MediaPlayer _mediaPlayer;
         private string _baseUrl = ""; 
         private List<Channel>? _channels;
         private int _currentIndex;
         private DateTime _lastMouseMove = DateTime.MinValue;
-		private System.Diagnostics.Process? _ffmpegProcess;
-                
+        private System.Diagnostics.Process? _ffmpegProcess;
+        
         // --- Movie Mode Variables ---
         private bool _isMovieMode = false;
+        private string _fileId = "";
+        private double _movieDurationSeconds = 0;
         private string _movieStreamUrl = "";
         private string _movieTitle = "";
         private string _moviePosterUrl = "";
         private List<double>? _movieCommercials;
+        private double _resumeTimeSeconds = 0;
+		private bool _hasResumed = false;
         private UserSettings _settings;
         private bool _isDraggingTimeline = false;
-		private HashSet<int> _disabledCommercialBlocks = new HashSet<int>();
+        private HashSet<int> _disabledCommercialBlocks = new HashSet<int>();
         
         // --- Auto-Scrubbing Trackers ---
         private bool _isScrubbing = false;
         private long _scrubTargetTime = 0;
-		private long _lastPauseTime = -1;
+        private long _lastPauseTime = -1;
         private DispatcherTimer _remoteScrubTimer;
         private string _remoteScrubDirection = "";
         
@@ -62,7 +67,7 @@ namespace FeralCode
         private bool _isWaitingToBuffer = false;
         private bool _isWaitingForCast = false;
         private DispatcherTimer? _tuneTimeoutTimer;
-		private int _tuneRetryCount = 0;
+        private int _tuneRetryCount = 0;
         private const int MAX_TUNE_RETRIES = 3;
 
         [DllImport("user32.dll")]
@@ -72,7 +77,6 @@ namespace FeralCode
         private const byte VK_K = 0x4B;    
         private const uint KEYEVENTF_KEYUP = 0x0002;
 
-        // --- NEW: Local Logger Helper ---
         private void LogDebug(string msg)
         {
             if (_enableLogging) AppLogger.Log(msg);
@@ -93,8 +97,8 @@ namespace FeralCode
                 SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
             }
         }
-		
-		private int GetAvailablePort()
+        
+        private int GetAvailablePort()
         {
             var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
             listener.Start();
@@ -102,23 +106,23 @@ namespace FeralCode
             listener.Stop();
             return port;
         }
-		
-		private void CleanupSpooler()
+        
+        private void CleanupSpooler()
         {
             StopFfmpegProxy();
 
             var oldMedia = _currentMedia;
-            var oldServer = _hlsServer; // <--- ADD THIS
+            var oldServer = _hlsServer; 
             var dirToDelete = _timeShiftDir;
 
             _currentMedia = null;
-            _hlsServer = null; // <--- ADD THIS
+            _hlsServer = null; 
             _timeShiftDir = "";
 
             _ = Task.Run(async () => 
             {
-                oldServer?.Stop();  // <--- ADD THIS
-                oldServer?.Close(); // <--- ADD THIS
+                oldServer?.Stop();  
+                oldServer?.Close(); 
 
                 await Task.Delay(3000); 
                 
@@ -130,8 +134,8 @@ namespace FeralCode
                 }
             });
         }
-		
-		// --- ORIGINAL CONSTRUCTOR: Live TV Mode ---
+        
+        // --- ORIGINAL CONSTRUCTOR: Live TV Mode ---
         public PlayerWindow(string baseUrl, List<Channel> channels, int startIndex)
         {
             LogDebug($"PlayerWindow Constructor (Live TV): Initializing for baseUrl {baseUrl}, startIndex {startIndex}");
@@ -150,7 +154,7 @@ namespace FeralCode
                 this.Focus();
             };
             _settings = SettingsManager.Load();
-			_enableLogging = _settings.EnableDebugLogging;
+            _enableLogging = _settings.EnableDebugLogging;
             _baseUrl = baseUrl;
             _channels = channels;
             _currentIndex = startIndex;
@@ -189,7 +193,88 @@ namespace FeralCode
                 _isFullscreen = true; 
             }
         }
-		
+        
+        // --- NEW CONSTRUCTOR: Movie Mode! ---
+        public PlayerWindow(string streamUrl, string movieTitle, string posterUrl, List<double>? commercials, string fileId = "", double resumeTimeSeconds = 0, double durationSeconds = 0)
+        {
+            LogDebug($"PlayerWindow Constructor (Movie Mode): Initializing for title '{movieTitle}'");
+            InitializeComponent();
+            
+            _resumeTimeSeconds = resumeTimeSeconds;
+            _movieDurationSeconds = durationSeconds;
+
+            _fileId = fileId;
+            if (string.IsNullOrEmpty(_fileId) && streamUrl.Contains("/dvr/files/"))
+            {
+                try
+                {
+                    var parts = streamUrl.Split(new[] { "/dvr/files/" }, StringSplitOptions.None);
+                    if (parts.Length > 1)
+                    {
+                        _fileId = parts[1].Split('/')[0];
+                    }
+                }
+                catch { }
+            }
+
+            this.Loaded += (s, e) =>
+            {
+                this.Activate();
+                this.Topmost = true; 
+                
+                var settings = SettingsManager.Load();
+                if (!settings.StartPlayersFullscreen)
+                {
+                    this.Topmost = false; 
+                }
+                
+                this.Focus();
+            };
+            _settings = SettingsManager.Load();
+            _enableLogging = _settings.EnableDebugLogging;
+            _isMovieMode = true;
+            _movieStreamUrl = streamUrl;
+            _movieTitle = movieTitle;
+            _moviePosterUrl = posterUrl;
+            _movieCommercials = commercials;
+            _remoteScrubTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _remoteScrubTimer.Tick += RemoteScrubTimer_Tick;
+
+            _mediaPlayer = new MediaPlayer(MainWindow.SharedLibVLC);
+            VlcVideoView.MediaPlayer = _mediaPlayer;
+            _mediaPlayer.EndReached += MediaPlayer_EndReached;
+            _mediaPlayer.Buffering += MediaPlayer_Buffering;
+            _mediaPlayer.Playing += MediaPlayer_Playing;
+            _mediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
+            
+            _mediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
+            _mediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+            
+            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(25) };
+            _tuneTimeoutTimer.Tick += TuneTimeoutTimer_Tick;
+
+            _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            _uiTimer.Tick += UiTimer_Tick;
+            _uiTimer.Start();
+            _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _statsTimer.Tick += StatsTimer_Tick;
+
+            this.Loaded += PlayerWindow_Loaded;
+            this.Closed += PlayerWindow_Closed;
+            this.PreviewKeyUp += Window_PreviewKeyUp;
+            this.PreviewKeyDown += Window_PreviewKeyDown;
+            
+            if (_settings.StartPlayersFullscreen)
+            {
+                this.WindowState = WindowState.Maximized;
+                this.WindowStyle = WindowStyle.None;
+                this.ResizeMode = ResizeMode.NoResize;
+                this.Topmost = true; 
+                _isFullscreen = true; 
+            }
+        }
+    
+       		
 		// --- NEW: Added boolean flag 'useTranscode' ---
         private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSeconds, string targetAudioCodec, bool useTranscode)
         {
@@ -461,75 +546,13 @@ namespace FeralCode
                 CurrentTimeText.Text = TimeSpan.FromMilliseconds(elapsedMs).ToString(@"h\:mm\:ss");
             }
         }
-
-        // --- NEW CONSTRUCTOR: Movie Mode! ---
-        public PlayerWindow(string streamUrl, string movieTitle, string posterUrl, List<double>? commercials)
-        {
-            LogDebug($"PlayerWindow Constructor (Movie Mode): Initializing for title '{movieTitle}'");
-            InitializeComponent();
-            this.Loaded += (s, e) =>
-            {
-                this.Activate();
-                this.Topmost = true; 
-                
-                var settings = SettingsManager.Load();
-                if (!settings.StartPlayersFullscreen)
-                {
-                    this.Topmost = false; 
-                }
-                
-                this.Focus();
-            };
-            _settings = SettingsManager.Load();
-			_enableLogging = _settings.EnableDebugLogging;
-            _isMovieMode = true;
-            _movieStreamUrl = streamUrl;
-            _movieTitle = movieTitle;
-            _moviePosterUrl = posterUrl;
-            _movieCommercials = commercials;
-            _remoteScrubTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-            _remoteScrubTimer.Tick += RemoteScrubTimer_Tick;
-
-            _mediaPlayer = new MediaPlayer(MainWindow.SharedLibVLC);
-            VlcVideoView.MediaPlayer = _mediaPlayer;
-            _mediaPlayer.EndReached += MediaPlayer_EndReached;
-            _mediaPlayer.Buffering += MediaPlayer_Buffering;
-            _mediaPlayer.Playing += MediaPlayer_Playing;
-            _mediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
-            
-            _mediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
-            _mediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
-            
-            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(25) };
-            _tuneTimeoutTimer.Tick += TuneTimeoutTimer_Tick;
-
-            _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
-            _uiTimer.Tick += UiTimer_Tick;
-            _uiTimer.Start();
-            _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _statsTimer.Tick += StatsTimer_Tick;
-
-            this.Loaded += PlayerWindow_Loaded;
-            this.Closed += PlayerWindow_Closed;
-            this.PreviewKeyUp += Window_PreviewKeyUp;
-            this.PreviewKeyDown += Window_PreviewKeyDown;
-            
-            if (_settings.StartPlayersFullscreen)
-            {
-                this.WindowState = WindowState.Maximized;
-                this.WindowStyle = WindowStyle.None;
-                this.ResizeMode = ResizeMode.NoResize;
-                this.Topmost = true; 
-                _isFullscreen = true; 
-            }
-        }
-
+        
         private void MediaPlayer_TimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
         {
             if (!_isMovieMode) return; 
 
             long currentTime = e.Time;
-            long safeLength = _mediaPlayer.Length; // Grab the length directly from the engine
+            long safeLength = _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
 
             if (_isMovieMode && _movieCommercials != null && _movieCommercials.Count >= 2 && _settings.AutoSkipCommercials)
             {
@@ -537,10 +560,8 @@ namespace FeralCode
                 {
                     long startMs = (long)(_movieCommercials[i] * 1000);
                     long endMs = (long)(_movieCommercials[i + 1] * 1000);
-                    int blockIndex = i / 2; // Identify which commercial block this is
+                    int blockIndex = i / 2;
 
-                    // --- NEW: Smart Commercial Skip Logic ---
-                    // If the user manually scrubbed into the commercial, disable auto-skip for this block
                     if ((_isDraggingTimeline || _isScrubbing) && currentTime >= startMs - 5000 && currentTime <= endMs)
                     {
                         if (!_disabledCommercialBlocks.Contains(blockIndex))
@@ -549,7 +570,6 @@ namespace FeralCode
                             LogDebug($"Disabled auto-skip for commercial block {blockIndex}");
                         }
                     }
-                    // If they rewind well before the commercial, re-enable auto-skip for it
                     else if (currentTime < startMs - 30000)
                     {
                         if (_disabledCommercialBlocks.Contains(blockIndex))
@@ -559,12 +579,16 @@ namespace FeralCode
                         }
                     }
 
-                    // Perform the skip if the block is active and NOT disabled
                     if (!_disabledCommercialBlocks.Contains(blockIndex) && currentTime >= startMs && currentTime < endMs - 1000)
                     {
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            _mediaPlayer.Time = endMs; 
+                            // --- FIX: Commercial Skip using Position ---
+                            if (safeLength > 0)
+                                _mediaPlayer.Position = (float)((double)endMs / safeLength);
+                            else
+                                _mediaPlayer.Time = endMs; 
+                                
                             ShowActionOverlay("⏭️ Commercial Skipped");
                         }));
                         break;
@@ -574,7 +598,6 @@ namespace FeralCode
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // Fallback in case VLC failed to fire the LengthChanged event on startup!
                 if (safeLength > 0 && TimelineSlider.Maximum != safeLength)
                 {
                     TimelineSlider.Maximum = safeLength;
@@ -592,9 +615,9 @@ namespace FeralCode
         private void MediaPlayer_LengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
         {
             if (!_isMovieMode) return; 
+            if (_movieDurationSeconds > 0) return; // --- FIX: Ignore VLC's bad length calculation! ---
 
             long safeLength = e.Length;
-
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 TimelineSlider.Maximum = safeLength;
@@ -640,8 +663,24 @@ namespace FeralCode
             LogDebug("VLC CALLBACK: MediaPlayer_Playing Fired!");
             Dispatcher.BeginInvoke(new Action(async () =>
             {
-                _tuneRetryCount = 0; // --- NEW: Reset retries on successful play! ---
+                _tuneRetryCount = 0; 
                 _tuneTimeoutTimer?.Stop();
+                
+                // --- FIX: Byte-based position seek for TS streams! ---
+                if (_isMovieMode && _resumeTimeSeconds > 0 && !_hasResumed)
+                {
+                    _hasResumed = true;
+                    long safeLength = _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
+                    await Task.Delay(500); 
+
+                    if (safeLength > 0)
+                        _mediaPlayer.Position = (float)(_resumeTimeSeconds * 1000.0 / safeLength);
+                    else
+                        _mediaPlayer.Time = (long)(_resumeTimeSeconds * 1000);
+
+                    LogDebug($"MediaPlayer_Playing: Hard-seeking to resume time {_resumeTimeSeconds}s using Position.");
+                }
+
                 await Task.Delay(300);
 
                 _isWaitingToBuffer = false;
@@ -981,10 +1020,23 @@ namespace FeralCode
             UiChannelNumber.Text = "🎬 MOVIE";
             UiShowTitle.Text = _movieTitle;
             
-            if (!string.IsNullOrWhiteSpace(_moviePosterUrl))
-                UiChannelLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(_moviePosterUrl));
-            else
-                UiChannelLogo.Source = null;
+            // --- FIX: Bulletproof Image Loading ---
+            try 
+            {
+                if (!string.IsNullOrWhiteSpace(_moviePosterUrl))
+                {
+                    string safeUrl = _moviePosterUrl.StartsWith("/") ? $"http://127.0.0.1:8089{_moviePosterUrl}" : _moviePosterUrl;
+                    UiChannelLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(safeUrl, UriKind.Absolute));
+                }
+                else
+                {
+                    UiChannelLogo.Source = null;
+                }
+            }
+            catch 
+            {
+                UiChannelLogo.Source = null; 
+            }
             
             LoadingOverlay.Visibility = Visibility.Visible;
             LoadingText.Text = "Connecting...";
@@ -992,12 +1044,25 @@ namespace FeralCode
             _tuneTimeoutTimer?.Stop(); 
             _tuneTimeoutTimer?.Start();
 
-            var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
-            media.AddOption(":network-caching=2000");
-			media.AddOption(":freetype-rel-fontsize=12");
+            try 
+            {
+                var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
+                media.AddOption(":network-caching=2000");
+                media.AddOption(":freetype-rel-fontsize=12");
+				if (_resumeTimeSeconds > 0)
+            {
+                media.AddOption($":start-time={_resumeTimeSeconds}");
+            }
 
-            _mediaPlayer.Play(media);
-            LogDebug("PlayMovie: _mediaPlayer.Play() called.");
+                _mediaPlayer.Play(media);
+                LogDebug("PlayMovie: _mediaPlayer.Play() called.");
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"CRASH AVOIDED IN PLAYMOVIE: {ex.Message}");
+                MessageBox.Show($"Failed to connect to media stream:\n{ex.Message}", "Stream Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                this.Close();
+            }
         }
         
         private void TimelineSlider_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -1009,11 +1074,17 @@ namespace FeralCode
         {
             if (_isMovieMode)
             {
-                _mediaPlayer.Time = (long)TimelineSlider.Value;
+                // --- FIX: Mouse Scrubbing using Position ---
+                long targetTime = (long)TimelineSlider.Value;
+                long safeLength = _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
+                
+                if (safeLength > 0)
+                    _mediaPlayer.Position = (float)((double)targetTime / safeLength);
+                else
+                    _mediaPlayer.Time = targetTime;
             }
             else if (_channels != null && _channels.Any())
             {
-                // --- NEW: Convert UI Guide Time to VLC Buffer Time ---
                 var currentAiring = _channels[_currentIndex].CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
                 if (currentAiring != null)
                 {
@@ -1409,7 +1480,7 @@ namespace FeralCode
                     {
                         _isScrubbing = true;
                         _scrubTargetTime = _mediaPlayer.Time;
-                        _accumulatedScrubSeconds = 0; // Reset for live TV
+                        _accumulatedScrubSeconds = 0; 
                         ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, null); 
                         ActionOverlayText.Opacity = 1.0;
                     }
@@ -1421,8 +1492,11 @@ namespace FeralCode
                     _scrubTargetTime += jumpAmount;
                     
                     if (_scrubTargetTime < 0) _scrubTargetTime = 0;
-                    if (_mediaPlayer.Length > 0 && _scrubTargetTime > _mediaPlayer.Length) 
-                        _scrubTargetTime = _mediaPlayer.Length;
+                    
+                    // --- FIX: Prevent scrubbing past the API duration ---
+                    long safeLength = _isMovieMode && _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
+                    if (safeLength > 0 && _scrubTargetTime > safeLength) 
+                        _scrubTargetTime = safeLength;
 
                     if (_isMovieMode)
                     {
@@ -1432,7 +1506,6 @@ namespace FeralCode
                     }
                     else
                     {
-                        // Live TV: Show the relative scrub jump (+/- seconds) so it doesn't snap the EPG slider
                         _accumulatedScrubSeconds += (jumpAmount / 1000.0);
                         string sign = _accumulatedScrubSeconds > 0 ? "+" : "";
                         ActionOverlayText.Text = $"Scrubbing: {sign}{_accumulatedScrubSeconds}s";
@@ -1464,7 +1537,7 @@ namespace FeralCode
                 ToggleSubtitles();
                 e.Handled = true;
             }
-			else if (e.Key == System.Windows.Input.Key.A) 
+            else if (e.Key == System.Windows.Input.Key.A) 
             {
                 ToggleAudioTrack();
                 e.Handled = true;
@@ -1525,7 +1598,13 @@ namespace FeralCode
             if ((e.Key == System.Windows.Input.Key.Right || e.Key == System.Windows.Input.Key.Left) && _isScrubbing)
             {
                 _isScrubbing = false;
-                _mediaPlayer.Time = _scrubTargetTime; // Removed IsSeekable check
+                
+                // --- FIX: Keyboard Scrubbing using Position ---
+                long safeLength = _isMovieMode && _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
+                if (safeLength > 0)
+                    _mediaPlayer.Position = (float)((double)_scrubTargetTime / safeLength);
+                else
+                    _mediaPlayer.Time = _scrubTargetTime;
 
                 var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
                 {
@@ -1539,7 +1618,7 @@ namespace FeralCode
             }
         }
         
-        public void StartRemoteScrub(string direction)
+       public void StartRemoteScrub(string direction)
         {
             if (ControlBar.Visibility != Visibility.Collapsed) return;
             
@@ -1548,7 +1627,7 @@ namespace FeralCode
             {
                 _isScrubbing = true;
                 _scrubTargetTime = _mediaPlayer.Time; 
-                               
+                                
                 ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, null); 
                 ActionOverlayText.Opacity = 1.0;
             }
@@ -1562,9 +1641,10 @@ namespace FeralCode
             
             if (_scrubTargetTime < 0) _scrubTargetTime = 0;
             
-            // Prevent scrubbing past the live edge
-            if (_mediaPlayer.Length > 0 && _scrubTargetTime > _mediaPlayer.Length) 
-                _scrubTargetTime = _mediaPlayer.Length;
+            // --- FIX: Prevent remote scrubbing past API duration ---
+            long safeLength = _isMovieMode && _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
+            if (safeLength > 0 && _scrubTargetTime > safeLength) 
+                _scrubTargetTime = safeLength;
 
             if (_isMovieMode)
             {
@@ -1574,7 +1654,6 @@ namespace FeralCode
             }
             else
             {
-                // Live TV: Show the relative scrub jump (+/- seconds) so it doesn't snap the EPG slider
                 _accumulatedScrubSeconds += (jumpAmount / 1000.0);
                 string sign = _accumulatedScrubSeconds > 0 ? "+" : "";
                 ActionOverlayText.Text = $"Scrubbing: {sign}{_accumulatedScrubSeconds}s";
@@ -1588,9 +1667,13 @@ namespace FeralCode
             _remoteScrubTimer.Stop();
             _isScrubbing = false;
             
-            _mediaPlayer.Time = _scrubTargetTime; // Removed IsSeekable check
+            // --- FIX: Remote Scrubbing using Position ---
+            long safeLength = _isMovieMode && _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
+            if (safeLength > 0)
+                _mediaPlayer.Position = (float)((double)_scrubTargetTime / safeLength);
+            else
+                _mediaPlayer.Time = _scrubTargetTime; 
                 
-            // --- NEW: If we are paused, update the lock so play resumes from here! ---
             if (!_mediaPlayer.IsPlaying) _lastPauseTime = _scrubTargetTime;
 
             var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
@@ -1673,10 +1756,43 @@ namespace FeralCode
             }
         }
 
-        private async void PlayerWindow_Closed(object? sender, EventArgs e)
+       private async void PlayerWindow_Closed(object? sender, EventArgs e)
         {
             LogDebug("PlayerWindow_Closed: Cleaning up resources.");
             System.Windows.Input.Mouse.OverrideCursor = null; // Restore globally
+
+            // --- NEW: Save Playback Progress BEFORE destroying the player! ---
+            if (_isMovieMode && _mediaPlayer != null && !string.IsNullOrEmpty(_fileId))
+            {
+                long currentTimeMs = _mediaPlayer.Time;
+                long totalTimeMs = _movieDurationSeconds > 0 ? (long)(_movieDurationSeconds * 1000) : _mediaPlayer.Length;
+
+                if (currentTimeMs > 0 && totalTimeMs > 0)
+                {
+                    double playbackSeconds = currentTimeMs / 1000.0;
+                    double totalSeconds = totalTimeMs / 1000.0;
+
+                    // Use a background task so we don't freeze the UI while the window is closing
+                    _ = Task.Run(async () =>
+                    {
+                        var api = new ChannelsApi();
+                        string baseUrl = _settings.LastServerAddress;
+
+                        // If they are within 3 minutes (180s) of the end, mark it completely watched!
+                        if (totalSeconds - playbackSeconds < 180)
+                        {
+                            LogDebug($"PlayerWindow_Closed: User reached the end. Marking {_fileId} as Watched.");
+                            await api.SetWatchedStatusAsync(baseUrl, _fileId, true);
+                        }
+                        // Otherwise, if they watched at least 1 minute, save their exact progress.
+                        else if (playbackSeconds > 60)
+                        {
+                            LogDebug($"PlayerWindow_Closed: Saving playback progress for {_fileId} at {playbackSeconds}s");
+                            await api.SavePlaybackProgressAsync(baseUrl, _fileId, playbackSeconds);
+                        }
+                    });
+                }
+            }
             
             // --- NEW: Restore the Main Window! ---
             if (Application.Current.MainWindow != null)

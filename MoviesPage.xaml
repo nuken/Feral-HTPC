@@ -209,9 +209,12 @@
                         </ScrollViewer>
 
                         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-                            <Button x:Name="CloseModalButton" Content="Close" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" Click="CloseModal_Click" Style="{StaticResource ModernButton}"/>
-                            <Button x:Name="PlayButton" Content="▶ Play Movie" Background="{DynamicResource LiveBorder}" Foreground="White" Margin="15,0,0,0" Click="PlayButton_Click" Style="{StaticResource ModernButton}"/>
-                        </StackPanel>
+    <Button x:Name="CloseModalButton" Content="Close" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" Click="CloseModal_Click" Style="{StaticResource ModernButton}"/>
+    
+    <Button x:Name="StartOverButton" Content="⏮ Start Over" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" Margin="15,0,0,0" Click="StartOverButton_Click" Style="{StaticResource ModernButton}" Visibility="Collapsed"/>
+    
+    <Button x:Name="PlayButton" Content="▶ Play Movie" Background="{DynamicResource LiveBorder}" Foreground="White" Margin="15,0,0,0" Click="PlayButton_Click" Style="{StaticResource ModernButton}"/>
+</StackPanel>
                     </Grid>
                 </Grid>
             </Border>

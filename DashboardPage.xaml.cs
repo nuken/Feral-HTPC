@@ -64,6 +64,25 @@ namespace FeralCode
             {
                 string targetUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{item.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
                 
+                // --- NEW: Ask the user to resume! ---
+                double resumeTime = 0;
+                if (item.PlaybackTime > 0)
+                {
+                    TimeSpan t = TimeSpan.FromSeconds(item.PlaybackTime);
+                    string timeString = t.Hours > 0 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+                    
+                    var result = MessageBox.Show(
+                        $"Do you want to resume playing at {timeString}?\n\nSelect 'No' to start from the beginning.", 
+                        "Resume Playback", 
+                        MessageBoxButton.YesNo, 
+                        MessageBoxImage.Question);
+
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        resumeTime = item.PlaybackTime;
+                    }
+                }
+
                 // Fetch STRM links if it's an external file
                 if (!string.IsNullOrWhiteSpace(item.Path) && 
                    (item.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) || 
@@ -88,12 +107,12 @@ namespace FeralCode
                 {
                     if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
                     
-                    // --- FIXED: Combine the new properties for the player window title ---
                     string windowTitle = string.IsNullOrWhiteSpace(item.SecondaryTitle) 
                         ? item.Title 
                         : $"{item.Title} - {item.SecondaryTitle}";
 
-                    mainWin.ActivePlayerWindow = new PlayerWindow(targetUrl, windowTitle, item.PosterUrl, null);
+                    // --- FIX: Pass the ID, Resume Time, and DURATION to the PlayerWindow! ---
+                    mainWin.ActivePlayerWindow = new PlayerWindow(targetUrl, windowTitle, item.PosterUrl, null, item.Id, resumeTime, item.Duration ?? 0);
                     
                     mainWin.ActivePlayerWindow.Closed += (s, args) =>
                     {
