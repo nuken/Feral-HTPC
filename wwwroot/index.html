@@ -297,12 +297,8 @@
 
             <h3 style="margin: 0 0 15px 0; color: #aaa; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Audio Focus</h3>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 300px; margin: 0 auto;">
-                <button id="quad-0" class="quad-btn active" onclick="setQuadAudio(0)">1</button>
-                <button id="quad-1" class="quad-btn" onclick="setQuadAudio(1)">2</button>
-                <button id="quad-2" class="quad-btn" onclick="setQuadAudio(2)">3</button>
-                <button id="quad-3" class="quad-btn" onclick="setQuadAudio(3)">4</button>
-            </div>
+            <div id="quad-buttons-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 300px; margin: 0 auto;">
+                </div>
         </div>
     </div>
 
@@ -422,6 +418,7 @@
             if (tabName === 'movies' && document.getElementById('movieGrid').innerHTML.includes('Loading')) loadMovies();
             if (tabName === 'shows' && document.getElementById('showGrid').innerHTML.includes('Loading')) loadShows();
             if (tabName === 'apps' && document.getElementById('appsGrid').innerHTML.includes('Loading')) loadApps();
+            if (tabName === 'multi') syncMultiview();
         }
 
         // ==========================================
@@ -898,16 +895,55 @@
 		
 		function setQuadAudio(index) {
             if (navigator.vibrate) navigator.vibrate(30);
-            
-            // Visually update the grid on the phone
-            for(let i = 0; i < 4; i++) {
-                document.getElementById(`quad-${i}`).classList.remove('active');
-            }
-            document.getElementById(`quad-${index}`).classList.add('active');
+
+            // Visually update the active button immediately
+            const buttons = document.querySelectorAll('.quad-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            const clickedBtn = document.getElementById(`quad-${index}`);
+            if (clickedBtn) clickedBtn.classList.add('active');
 
             // Send the command to the HTPC
             fetch(`/api/remote/multiview/audio/${index}`, { method: 'POST' });
         }
+
+        async function syncMultiview() {
+            // Only run if the user is actively looking at the Multiview tab
+            if (document.getElementById('view-multi').style.display === 'none') return;
+
+            try {
+                const response = await fetch('/api/remote/multiview/status');
+                const status = await response.json();
+                const container = document.getElementById('quad-buttons-container');
+
+                if (status.Total === 0) {
+                    container.innerHTML = '<p style="color:#aaa; grid-column: 1 / -1;">Multiview is not currently running.</p>';
+                    return;
+                }
+
+                // If 3 screens, reshape the remote to match the TV layout (1 large on top, 2 small on bottom)
+                let buttonsHtml = '';
+                for (let i = 0; i < status.Total; i++) {
+                    let activeClass = (i === status.Active) ? 'active' : '';
+                    let style = '';
+
+                    if (status.Total === 3 && i === 0) {
+                        style = 'grid-column: span 2;';
+                    }
+
+                    buttonsHtml += `<button id="quad-${i}" class="quad-btn ${activeClass}" style="${style}" onclick="setQuadAudio(${i})">${i + 1}</button>`;
+                }
+
+                // Only redraw if the HTML actually changed to prevent flickering
+                if (container.innerHTML !== buttonsHtml) {
+                    container.innerHTML = buttonsHtml;
+                }
+            } catch (e) {
+                // Silently fail if the PC is unreachable
+            }
+        }
+
+        // Start the background sync loop
+        setInterval(syncMultiview, 2000);
 
         function toggleView() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/toggleview', { method: 'POST' }); }
         function togglePiP() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/pip', { method: 'POST' }); }
