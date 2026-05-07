@@ -96,24 +96,64 @@ namespace FeralCode
             }
         }
 
-        private void Video_Click(object sender, RoutedEventArgs e)
+        private async void Video_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is Video video)
             {
-                string targetUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{video.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
-                
-                if (Application.Current.MainWindow is MainWindow mainWin)
+                // Disable the button briefly so the user doesn't double-click while fetching details
+                btn.IsEnabled = false;
+
+                try
                 {
-                    if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
-                    mainWin.ActivePlayerWindow = new PlayerWindow(targetUrl, video.VideoTitle, "", null);
-                    mainWin.ActivePlayerWindow.Closed += (s, args) => 
+                    // Default behavior for standard local media files
+                    string targetUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{video.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
+
+                    // Check if the path indicates a Stream Link or Stream File
+                    bool isStreamLink = !string.IsNullOrWhiteSpace(video.Path) &&
+                                        (video.Path.EndsWith(".strm", StringComparison.OrdinalIgnoreCase) ||
+                                         video.Path.EndsWith(".strmlnk", StringComparison.OrdinalIgnoreCase));
+
+                    if (isStreamLink)
                     {
-                        mainWin.ActivePlayerWindow = null;
-                        mainWin.Show(); 
-                        Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
-                    };
-                    mainWin.Hide(); 
-                    mainWin.ActivePlayerWindow.Show();
+                        var api = new ChannelsApi();
+                        var details = await api.GetFileDetailsAsync(_baseUrl, video.Id);
+
+                        // If Channels DVR provided a direct VideoURL or StreamLinks array, use it instead!
+                        if (details != null)
+                        {
+                            if (!string.IsNullOrWhiteSpace(details.VideoUrl))
+                            {
+                                targetUrl = details.VideoUrl;
+                            }
+                            else if (details.StreamLinks != null && details.StreamLinks.Count > 0)
+                            {
+                                targetUrl = details.StreamLinks[0];
+                            }
+                        }
+                    }
+
+                    if (Application.Current.MainWindow is MainWindow mainWin)
+                    {
+                        if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
+
+                        // Pass the targetUrl (which is now either the local file OR the Stream Link) to the Player
+                        mainWin.ActivePlayerWindow = new PlayerWindow(targetUrl, video.VideoTitle, video.DisplayImage, null, video.Id, 0, video.Duration);
+
+                        mainWin.ActivePlayerWindow.Closed += (s, args) =>
+                        {
+                            mainWin.ActivePlayerWindow = null;
+                            mainWin.Show();
+                            Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                        };
+
+                        mainWin.Hide();
+                        mainWin.ActivePlayerWindow.Show();
+                    }
+                }
+                finally
+                {
+                    // Re-enable the button
+                    btn.IsEnabled = true;
                 }
             }
         }
