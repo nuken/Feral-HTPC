@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -6,12 +7,29 @@ namespace FeralCode
 {
     public partial class App : Application
     {
-        // We added "async" here so we can use the Task.Delay!
+        public App()
+        {
+            // 1. Catch unhandled exceptions on the main UI thread
+            this.DispatcherUnhandledException += (s, e) =>
+            {
+                File.WriteAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "feral_crash_ui.txt"), e.Exception.ToString());
+                e.Handled = true;
+            };
+
+            // 2. Catch unhandled exceptions on background threads (like the Web Server task)
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                if (e.ExceptionObject is Exception ex)
+                {
+                    File.WriteAllText(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "feral_crash_bg.txt"), ex.ToString());
+                }
+            };
+        }
+
         protected override async void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // 1. Instantly show the custom Splash Screen
             var splash = new SplashWindow();
             splash.Show();
 
