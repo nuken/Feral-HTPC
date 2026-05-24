@@ -376,6 +376,151 @@ public async Task<bool> SavePlaybackProgressAsync(string baseUrl, string fileId,
     }
 }
 
+        /// <summary>
+        /// Creates a recording job for a specific EPG airing, factoring in custom padding.
+        /// </summary>
+        public async Task<bool> CreateRecordingJobAsync(string baseUrl, string channelNumber, Airing airing, int padStartSeconds = 0, int padEndSeconds = 0)
+        {
+            if (airing == null || string.IsNullOrWhiteSpace(channelNumber)) return false;
+
+            try
+            {
+                string url = $"{baseUrl.TrimEnd('/')}/dvr/jobs/new";
+                
+                long startTimeEpoch = new DateTimeOffset(airing.StartTime).ToUnixTimeSeconds();
+                int durationSeconds = (int)(airing.Duration ?? 3600);
+                
+                // --- FIX: Adjust the actual Job boundaries based on padding offsets ---
+                long jobStartTime = startTimeEpoch - padStartSeconds;
+                int jobDuration = durationSeconds + padStartSeconds + padEndSeconds;
+                
+                var payload = new
+                {
+                    Name = !string.IsNullOrWhiteSpace(airing.Title) ? airing.Title : "Unknown Program",
+                    Time = jobStartTime,
+                    Duration = jobDuration,
+                    Channels = new[] { channelNumber },
+                    Airing = new
+                    {
+                        Source = "tms", 
+                        Channel = channelNumber,
+                        Time = startTimeEpoch,
+                        Duration = durationSeconds,
+                        Title = !string.IsNullOrWhiteSpace(airing.Title) ? airing.Title : "Unknown Program",
+                        EpisodeTitle = airing.EpisodeTitle ?? "",
+                        Summary = airing.DisplaySummary ?? "",
+                        SeriesID = airing.SeriesId ?? "",
+                        ProgramID = airing.ProgramId ?? "",
+                        Image = airing.ImageUrl ?? ""
+                    }
+                };
+
+                var content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+                var response = await _http.SendAsync(request);
+                
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Log($"Failed to create padded EPG recording job: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Creates a Series Pass rule including Padding parameters.
+        /// </summary>
+        public async Task<bool> CreateSeriesPassAsync(string baseUrl, string seriesId, string title, string imageUrl, bool newOnly = true, int padStartSeconds = 0, int padEndSeconds = 0)
+        {
+            if (string.IsNullOrWhiteSpace(seriesId)) return false;
+
+            try
+            {
+                string url = $"{baseUrl.TrimEnd('/')}/dvr/rules/new";
+                
+                object rulePayload;
+                if (newOnly)
+                {
+                    rulePayload = new 
+                    {
+                        Name = title,
+                        Image = imageUrl,
+                        PaddingStart = padStartSeconds,
+                        PaddingEnd = padEndSeconds,
+                        EQ = new { SeriesID = seriesId, Tags = "New" }
+                    };
+                }
+                else
+                {
+                    rulePayload = new 
+                    {
+                        Name = title,
+                        Image = imageUrl,
+                        PaddingStart = padStartSeconds,
+                        PaddingEnd = padEndSeconds,
+                        EQ = new { SeriesID = seriesId }
+                    };
+                }
+
+                var content = new StringContent(JsonSerializer.Serialize(rulePayload), System.Text.Encoding.UTF8, "application/json");
+                var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+                var response = await _http.SendAsync(request);
+                
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to create series pass: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Creates a Manual Time-Based Recording, bypassing the EPG.
+        /// Adapted from the JSON payload structure discovered in manual_recording_gui.py.
+        /// </summary>
+        public async Task<bool> CreateManualRecordingAsync(string baseUrl, string channelNumber, string title, long startTimeEpoch, int durationSeconds)
+        {
+            try
+            {
+                string url = $"{baseUrl.TrimEnd('/')}/dvr/jobs/new";
+                
+                // Construct the exact manual payload structure required by Channels DVR
+                var payload = new
+                {
+                    Name = title,
+                    Time = startTimeEpoch,
+                    Duration = durationSeconds,
+                    Channels = new[] { channelNumber },
+                    Airing = new
+                    {
+                        Source = "manual",
+                        Channel = channelNumber,
+                        Time = startTimeEpoch,
+                        Duration = durationSeconds,
+                        Title = title,
+                        EpisodeTitle = "Manual Recording",
+                        Summary = $"Manual recording of channel {channelNumber}",
+                        SeriesID = "MANUAL",
+                        ProgramID = $"MAN{startTimeEpoch}",
+                        Image = "https://tmsimg.fancybits.co/assets/p9467679_st_h6_aa.jpg"
+                    }
+                };
+
+                var content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+                
+                var response = await _http.SendAsync(request);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Log($"Failed to create manual recording: {ex.Message}");
+                return false;
+            }
+        }
+
 /// <summary>
 /// Forces a file's status to Watched or Unwatched on the server.
 /// </summary>
@@ -710,6 +855,8 @@ public async Task<bool> SetWatchedStatusAsync(string baseUrl, string fileId, boo
         [JsonPropertyName("Tags")] public List<string>? Tags { get; set; }
         [JsonPropertyName("SeasonNumber")] public int? SeasonNumber { get; set; }
         [JsonPropertyName("EpisodeNumber")] public int? EpisodeNumber { get; set; }
+		[JsonPropertyName("ProgramID")] public string? ProgramId { get; set; }
+		[JsonPropertyName("SeriesID")] public string? SeriesId { get; set; }
         [JsonPropertyName("OriginalDate")] public string? OriginalDate { get; set; }
 
         [JsonIgnore]

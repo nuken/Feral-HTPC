@@ -887,6 +887,14 @@ if (!string.IsNullOrWhiteSpace(query))
                     ModalImage.Visibility = Visibility.Visible;
                 }
                 else ModalImage.Visibility = Visibility.Collapsed;
+				
+				// --- NEW: Toggle Record Buttons based on available Gracenote IDs ---
+                RecordEpisodeButton.Visibility = !string.IsNullOrWhiteSpace(airing.ProgramId) ? Visibility.Visible : Visibility.Collapsed;
+                RecordSeriesButton.Visibility = !string.IsNullOrWhiteSpace(airing.SeriesId) ? Visibility.Visible : Visibility.Collapsed;
+                
+                // Reset text in case they were clicked previously
+                RecordEpisodeButton.Content = "⏺ Record";
+                RecordSeriesButton.Content = "⏺ Series Pass";
 
                 WatchButton.Visibility = airing.IsAiringNow ? Visibility.Visible : Visibility.Collapsed;
                 ModalOverlay.Visibility = Visibility.Visible;
@@ -1038,6 +1046,81 @@ if (!string.IsNullOrWhiteSpace(query))
                     MessageBox.Show($"Player failed to launch:\n{ex.Message}", "VLC Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
+        }
+		
+		// Helper to grab the active Channels DVR server URL from the ComboBox
+        private string GetActiveBaseUrl()
+        {
+            if (ServerComboBox.SelectedItem is DvrServer selectedServer) return selectedServer.BaseUrl;
+            string rawInput = ServerComboBox.Text.Trim();
+            if (!string.IsNullOrWhiteSpace(rawInput))
+            {
+                if (!rawInput.Contains(":")) rawInput += ":8089";
+                if (!rawInput.StartsWith("http")) rawInput = "http://" + rawInput;
+                return rawInput;
+            }
+            return "";
+        }
+
+        private async void RecordEpisode_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedAiring == null || string.IsNullOrWhiteSpace(_selectedAiring.ProgramId)) return;
+            
+            string baseUrl = GetActiveBaseUrl();
+            if (string.IsNullOrWhiteSpace(baseUrl)) return;
+
+            RecordEpisodeButton.Content = "Scheduling...";
+            RecordEpisodeButton.IsEnabled = false;
+
+            // Grab minutes from settings and convert to seconds
+            int padStart = _settings.DefaultPaddingStartMinutes * 60;
+            int padEnd = _settings.DefaultPaddingEndMinutes * 60;
+
+            bool success = await _api.CreateRecordingJobAsync(baseUrl, _selectedAiring.ChannelNumber ?? "", _selectedAiring, padStart, padEnd);
+            if (success)
+            {
+                ShowStatus($"Scheduled recording for {_selectedAiring.Title}", "StatusSuccess", true);
+                RecordEpisodeButton.Content = "Scheduled ✓";
+            }
+            else
+            {
+                ShowStatus("Failed to schedule EPG recording.", "StatusError", true);
+                RecordEpisodeButton.Content = "Failed ❌";
+            }
+            
+            RecordEpisodeButton.IsEnabled = true;
+        }
+
+        private async void RecordSeries_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedAiring == null || string.IsNullOrWhiteSpace(_selectedAiring.SeriesId)) return;
+            
+            string baseUrl = GetActiveBaseUrl();
+            if (string.IsNullOrWhiteSpace(baseUrl)) return;
+
+            RecordSeriesButton.Content = "Creating Pass...";
+            RecordSeriesButton.IsEnabled = false;
+
+            // Grab minutes from settings and convert to seconds
+            int padStart = _settings.DefaultPaddingStartMinutes * 60;
+            int padEnd = _settings.DefaultPaddingEndMinutes * 60;
+            
+            string titleToPass = _selectedAiring.Title ?? "Unknown Series";
+            string imageToPass = !string.IsNullOrWhiteSpace(_selectedAiring.ImageUrl) ? _selectedAiring.ImageUrl : (_selectedAiring.ChannelLogoUrl ?? "");
+            
+            bool success = await _api.CreateSeriesPassAsync(baseUrl, _selectedAiring.SeriesId, titleToPass, imageToPass, true, padStart, padEnd);
+            if (success)
+            {
+                ShowStatus($"Created Series Pass for {titleToPass}", "StatusSuccess", true);
+                RecordSeriesButton.Content = "Pass Created ✓";
+            }
+            else
+            {
+                ShowStatus("Failed to create Series Pass.", "StatusError", true);
+                RecordSeriesButton.Content = "Failed ❌";
+            }
+            
+            RecordSeriesButton.IsEnabled = true;
         }
         
         public void RemotePlayChannel(string channelNumber)

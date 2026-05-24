@@ -46,6 +46,15 @@ namespace FeralCode
             int currentPort = _settings.WebServerPort > 0 ? _settings.WebServerPort : 12345; 
             LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{currentPort}";
             SimplifiedGuideCheckBox.IsChecked = _settings.SimplifiedGuide;
+			// --- NEW: Populate Padding Combo Boxes (0 to 30 mins) ---
+            for (int i = 0; i <= 30; i++)
+            {
+                string label = i == 0 ? "None" : $"{i} Min";
+                PaddingStartBox.Items.Add(new ComboBoxItem { Content = label, Tag = i });
+                PaddingEndBox.Items.Add(new ComboBoxItem { Content = label, Tag = i });
+            }
+            PaddingStartBox.SelectedIndex = _settings.DefaultPaddingStartMinutes <= 30 ? _settings.DefaultPaddingStartMinutes : 0;
+            PaddingEndBox.SelectedIndex = _settings.DefaultPaddingEndMinutes <= 30 ? _settings.DefaultPaddingEndMinutes : 0;
 			UiScaleSlider.Value = _settings.UiScale > 0 ? _settings.UiScale : 1.0;
             // --- Version Display ---
             string localVersion = "1.0.2-beta"; // Fallback
@@ -366,6 +375,16 @@ namespace FeralCode
             if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
                 _settings.GuideDurationHours = parsedHours;
+            }
+			
+			// --- NEW: Save Padding Settings ---
+            if (PaddingStartBox.SelectedItem is ComboBoxItem startItem && int.TryParse(startItem.Tag?.ToString(), out int pStart))
+            {
+                _settings.DefaultPaddingStartMinutes = pStart;
+            }
+            if (PaddingEndBox.SelectedItem is ComboBoxItem endItem && int.TryParse(endItem.Tag?.ToString(), out int pEnd))
+            {
+                _settings.DefaultPaddingEndMinutes = pEnd;
             }
             
             _settings.EnableDebugLogging = EnableLoggingCheckBox.IsChecked ?? false;

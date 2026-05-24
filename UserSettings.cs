@@ -45,6 +45,8 @@ namespace FeralCode
 		public bool ForceAacAudio { get; set; } = true;
 		public bool ForceLocalTranscode { get; set; } = false;
 		public bool ForceLocalRemux { get; set; } = false;
+		public int DefaultPaddingStartMinutes { get; set; } = 0;
+		public int DefaultPaddingEndMinutes { get; set; } = 0;
 		public bool EnableVirtualChannels { get; set; } = false;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
 		public bool EnableDebugLogging { get; set; } = false;

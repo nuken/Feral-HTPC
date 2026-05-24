@@ -191,7 +191,7 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="CurrentVersionText" Text="v1.1.8-beta" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                    <TextBlock x:Name="CurrentVersionText" Text="v1.1.9-beta" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
                     <Button x:Name="CheckVersionBtn" Content="Check for Updates" Click="CheckVersion_Click" Style="{StaticResource ModernButton}" Padding="15,8" FontSize="14"/>
                 </StackPanel>
             </Grid>
@@ -327,6 +327,17 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,15,0,0">
                     <StackPanel HorizontalAlignment="Left" Width="600" Margin="10,10,0,10">
                         <TextBlock Text="Advanced / Developer" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
+                        
+                        <TextBlock Text="Default Recording Padding" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" Margin="0,15,0,10"/>
+                        <StackPanel Orientation="Horizontal" Margin="5,0,0,10">
+                            <TextBlock Text="Padding Before (Start):" FontSize="16" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0" Width="180"/>
+                            <ComboBox x:Name="PaddingStartBox" FontSize="16" Width="120" Padding="10,5"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="5,0,0,25">
+                            <TextBlock Text="Padding After (End):" FontSize="16" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0" Width="180"/>
+                            <ComboBox x:Name="PaddingEndBox" FontSize="16" Width="120" Padding="10,5"/>
+                        </StackPanel>
+           
                         <CheckBox x:Name="EnableLoggingCheckBox" Content="Enable Debug Logging (Saves feral_debug.log to Desktop)" Style="{StaticResource BigCheckBox}"/>
                     </StackPanel>
                 </ScrollViewer>

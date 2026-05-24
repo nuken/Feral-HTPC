@@ -400,7 +400,14 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock x:Name="ModalTitle" Grid.Row="0" Text="Show Title" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap"/>
+                        <Button x:Name="CloseModalButton" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top" 
+                                Content="✕" Width="36" Height="36" Margin="0,-10,-10,0" Padding="0"
+                                Background="#D32F2F" Foreground="White" 
+                                BorderThickness="0" FontSize="18" FontWeight="Bold" 
+                                Click="CloseModal_Click" Style="{StaticResource ModernButton}" ToolTip="Close"/>
+
+                        <TextBlock x:Name="ModalTitle" Grid.Row="0" Margin="0,0,40,0" Text="Show Title" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap"/>
+                        
                         <TextBlock x:Name="ModalMetaData" Grid.Row="1" Margin="0,8,0,0" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource LiveBorder}" TextWrapping="Wrap"/>
                         <TextBlock x:Name="ModalTime" Grid.Row="1" Margin="0,30,0,15" FontSize="13" Foreground="{DynamicResource TextSecondary}"/>
 
@@ -409,7 +416,8 @@
                         </ScrollViewer>
 
                         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button x:Name="CloseModalButton" Content="Close" Width="100" Height="40" Background="{DynamicResource CardHoverBackground}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Click="CloseModal_Click" Style="{StaticResource ModernButton}"/>
+                            <Button x:Name="RecordEpisodeButton" Content="⏺ Record" Width="110" Height="40" Background="#D32F2F" Foreground="White" BorderThickness="0" Visibility="Collapsed" Click="RecordEpisode_Click" Style="{StaticResource ModernButton}" ToolTip="Record this specific airing"/>
+                            <Button x:Name="RecordSeriesButton" Content="⏺ Series Pass" Width="140" Height="40" Background="#B71C1C" Foreground="White" BorderThickness="0" Margin="10,0,0,0" Visibility="Collapsed" Click="RecordSeries_Click" Style="{StaticResource ModernButton}" ToolTip="Record all new episodes of this series"/>
                             <Button x:Name="WatchButton" Content="▶ Watch Live" Width="140" Height="40" Background="{DynamicResource LiveBorder}" Foreground="White" BorderThickness="0" Margin="10,0,0,0" Visibility="Collapsed" Click="WatchButton_Click" Style="{StaticResource ModernButton}"/>
                         </StackPanel>
                     </Grid>
