@@ -145,11 +145,11 @@ namespace FeralCode
             var query = SearchTextBox.Text?.Trim() ?? string.Empty;
             var selectedCollectionName = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
             
-            IEnumerable<Channel> filtered = _masterChannelList;
+            // --- FIX 1: Exclude hidden channels immediately ---
+            IEnumerable<Channel> filtered = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!));
 
             if (selectedCollectionName == "Favorites")
             {
-                // --- NEW: Filter by the native Channels DVR Favorite flag ---
                 filtered = filtered.Where(c => c.Favorite);
             }
             else if (selectedCollectionName != "All Channels")
@@ -159,20 +159,15 @@ namespace FeralCode
                 {
                     filtered = filtered.Where(c => 
                     {
-                        // 1. STAGE 1: Check Excluded Sources
                         if (selectedCollection.excluded_sources != null && selectedCollection.excluded_sources.Count > 0)
                         {
                             if (selectedCollection.excluded_sources.Any(es => c.Id != null && c.Id.IndexOf(es, StringComparison.OrdinalIgnoreCase) >= 0))
-                            {
-                                return false; // Immediately drop if it comes from an excluded source
-                            }
+                                return false; 
                         }
 
-                        // 2. STAGE 2: Explicit Items Override
                         bool isExplicitItem = selectedCollection.items != null && selectedCollection.items.Any(item => c.IsExactMatch(item));
                         if (isExplicitItem) return true;
 
-                        // 3. STAGE 3: Evaluate Smart Rules
                         bool hasRules = (selectedCollection.genres != null && selectedCollection.genres.Count > 0) ||
                                         (selectedCollection.categories != null && selectedCollection.categories.Count > 0) ||
                                         (selectedCollection.tags != null && selectedCollection.tags.Count > 0) ||
@@ -180,34 +175,29 @@ namespace FeralCode
 
                         if (!hasRules) return false;
 
-                        // Grab what is currently airing on this channel to evaluate against
                         var currentAiring = c.CurrentAirings?.FirstOrDefault();
                         if (currentAiring == null) return false; 
 
                         bool passesRules = false; 
 
-                        // --- Rule: GENRES ---
                         if (!passesRules && selectedCollection.genres != null && selectedCollection.genres.Count > 0)
                         {
                             if (currentAiring.Genres != null && currentAiring.Genres.Intersect(selectedCollection.genres, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
                             if (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.genres, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
                         }
 
-                        // --- Rule: CATEGORIES ---
                         if (!passesRules && selectedCollection.categories != null && selectedCollection.categories.Count > 0)
                         {
                             if (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.categories, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
                             if (currentAiring.Genres != null && currentAiring.Genres.Intersect(selectedCollection.categories, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
                         }
 
-                        // --- Rule: TAGS ---
                         if (!passesRules && selectedCollection.tags != null && selectedCollection.tags.Count > 0)
                         {
                             if (currentAiring.Tags != null && currentAiring.Tags.Intersect(selectedCollection.tags, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
                             if (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.tags, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
                         }
 
-                        // --- Rule: KEYWORDS ---
                         if (!passesRules && selectedCollection.keywords != null && selectedCollection.keywords.Count > 0)
                         {
                             string searchBlock = $"{currentAiring.Title} {currentAiring.EpisodeTitle} {currentAiring.DisplaySummary}".ToLower();
@@ -224,9 +214,22 @@ namespace FeralCode
                 filtered = filtered.Where(c => c.HasIdentifier(query));
             }
 
+            // --- FIX 2: Apply Custom Sorting Order ---
+            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(selectedCollectionName))
+            {
+                var orderList = _settings.CustomChannelOrders[selectedCollectionName];
+                filtered = filtered.OrderBy(c => {
+                    int idx = orderList.IndexOf(c.Number!);
+                    return idx != -1 ? idx : 999999;
+                }).ThenBy(c => double.TryParse(c.Number, out double n) ? n : 999999);
+            }
+            else
+            {
+                filtered = filtered.OrderBy(c => double.TryParse(c.Number, out double n) ? n : 999999);
+            }
+
             ChannelsListControl.ItemsSource = filtered.ToList();
 
-            // Auto-focus the first channel so the D-Pad is instantly ready!
             if (!SearchTextBox.IsKeyboardFocusWithin)
             {
                 _ = Dispatcher.BeginInvoke(new Action(() =>

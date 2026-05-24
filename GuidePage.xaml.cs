@@ -124,17 +124,32 @@ namespace FeralCode
 
         public object GetMobileGuideData(string? collection, string? search)
         {
-            IEnumerable<Channel> targetList = _masterChannelList;
+            // 1. Exclude Hidden Channels
+            IEnumerable<Channel> targetList = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!));
 
+            string activeCollection = "All Channels";
             if (!string.IsNullOrWhiteSpace(collection) && collection != "All Channels")
             {
+                activeCollection = collection;
                 var selected = _collections?.FirstOrDefault(c => c.name == collection);
-                // --- FIX 1/3: Changed HasIdentifier to IsExactMatch for mobile API collections ---
                 if (selected != null && selected.items != null) targetList = targetList.Where(ch => selected.items.Any(item => ch.IsExactMatch(item)));
             }
 
-            // Keep HasIdentifier for general searching!
             if (!string.IsNullOrWhiteSpace(search)) targetList = targetList.Where(c => c.HasIdentifier(search));
+
+            // 2. Sort Mobile List 
+            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(activeCollection))
+            {
+                var orderList = _settings.CustomChannelOrders[activeCollection];
+                targetList = targetList.OrderBy(c => {
+                    int idx = orderList.IndexOf(c.Number!);
+                    return idx != -1 ? idx : 999999;
+                }).ThenBy(c => double.TryParse(c.Number, out double n) ? n : 999999);
+            }
+            else
+            {
+                targetList = targetList.OrderBy(c => double.TryParse(c.Number, out double n) ? n : 999999);
+            }
 
             return targetList.Select(c => new
             {
@@ -1128,14 +1143,14 @@ if (!string.IsNullOrWhiteSpace(query))
                 {
                     ModalOverlay.Visibility = Visibility.Collapsed;
 
-                    int channelIndex = _masterChannelList.FindIndex(c => c.Number == _selectedAiring.ChannelNumber);
+                    // --- FIX: Pass the filtered list to the player so ChUp/ChDn matches the current view! ---
+                    int channelIndex = _currentFilteredList.FindIndex(c => c.Number == _selectedAiring.ChannelNumber);
                     if (channelIndex == -1) channelIndex = 0;
 
                     var mainWindow = (MainWindow)Application.Current.MainWindow;
-
                     if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
 
-                    mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _masterChannelList, channelIndex);
+                    mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _currentFilteredList, channelIndex);
                     
                     mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                     {
@@ -1234,29 +1249,20 @@ if (!string.IsNullOrWhiteSpace(query))
         
         public void RemotePlayChannel(string channelNumber)
         {
-            string baseUrl = "";
-            if (ServerComboBox.SelectedItem is DvrServer selectedServer) baseUrl = selectedServer.BaseUrl;
-            else
-            {
-                string rawInput = ServerComboBox.Text.Trim();
-                if (!string.IsNullOrWhiteSpace(rawInput))
-                {
-                    if (!rawInput.Contains(":")) rawInput += ":8089";
-                    if (!rawInput.StartsWith("http")) rawInput = "http://" + rawInput;
-                    baseUrl = rawInput;
-                }
-            }
-
+            string baseUrl = GetActiveBaseUrl();
             if (string.IsNullOrWhiteSpace(baseUrl)) return;
 
-            int channelIndex = _masterChannelList.FindIndex(c => c.Number == channelNumber);
+            // --- FIX: Attempt to use the actively filtered list first ---
+            var targetList = _currentFilteredList.Any(c => c.Number == channelNumber) ? _currentFilteredList : _masterChannelList;
+            
+            int channelIndex = targetList.FindIndex(c => c.Number == channelNumber);
             if (channelIndex == -1) return; 
 
             var mainWindow = (MainWindow)Application.Current.MainWindow;
 
             if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
 
-            mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _masterChannelList, channelIndex);
+            mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, targetList, channelIndex);
             mainWindow.ActivePlayerWindow.Closed += (s, args) => mainWindow.ActivePlayerWindow = null; 
             mainWindow.ActivePlayerWindow.Show();
         }
