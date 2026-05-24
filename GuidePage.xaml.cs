@@ -425,14 +425,15 @@ var cleanChannels = rawChannels
         {
             if (_masterChannelList == null) return;
 
+            // --- FIXED: Single declaration of 'filtered' ---
+            // Start with the full list and apply the 'hidden' filter immediately
+            IEnumerable<Channel> filtered = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!));
+            
             var query = SearchTextBox.Text?.Trim() ?? string.Empty;
             var selectedCollectionName = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
             
-            IEnumerable<Channel> filtered = _masterChannelList;
-
             if (selectedCollectionName == "Favorites")
             {
-                // --- NEW: Filter by the native Channels DVR Favorite flag ---
                 filtered = filtered.Where(c => c.Favorite);
             }
             else if (selectedCollectionName != "All Channels")
@@ -525,17 +526,50 @@ if (!string.IsNullOrWhiteSpace(query))
     );
 }
 
-            // --- NEW: Sort the filtered list to bring the active tag to the top! ---
-            if (_activeTag != "All Channels") 
+            // --- FIX: Custom Sorting Logic ---
+            string selectedCollectionNameForSort = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
+
+            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(selectedCollectionNameForSort))
             {
-                filtered = filtered.OrderByDescending(c => DoesChannelMatchTag(c, _activeTag)).ThenBy(c => c.Number);
+                var orderList = _settings.CustomChannelOrders[selectedCollectionNameForSort];
+                
+                if (_activeTag != "All Channels")
+                {
+                    // If a tag is active, group matches at the top, THEN sort by custom order
+                    filtered = filtered.OrderByDescending(c => DoesChannelMatchTag(c, _activeTag))
+                                       .ThenBy(c => {
+                                           int idx = orderList.IndexOf(c.Number!);
+                                           return idx != -1 ? idx : 999999;
+                                       });
+                }
+                else
+                {
+                    // Pure custom order
+                    filtered = filtered.OrderBy(c => {
+                        int idx = orderList.IndexOf(c.Number!);
+                        return idx != -1 ? idx : 999999;
+                    }).ThenBy(c => double.TryParse(c.Number, out double n) ? n : 999999);
+                }
+            }
+            else
+            {
+                // Default sorting (Numeric)
+                if (_activeTag != "All Channels") 
+                {
+                    filtered = filtered.OrderByDescending(c => DoesChannelMatchTag(c, _activeTag))
+                                       .ThenBy(c => double.TryParse(c.Number, out double n) ? n : 999999);
+                }
+                else
+                {
+                    filtered = filtered.OrderBy(c => double.TryParse(c.Number, out double n) ? n : 999999);
+                }
             }
 
             _currentFilteredList = filtered.ToList();
             
             _displayedChannels.Clear();
             foreach (var channel in _currentFilteredList) _displayedChannels.Add(channel);
-
+            
             var guideScroll = GetScrollViewer(GuideItemsControl);
             if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
 
@@ -549,6 +583,81 @@ if (!string.IsNullOrWhiteSpace(query))
                     GuideItemsControl.MoveFocus(request);
                 }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
             }
+        }
+		
+		private void MoveChannelTop_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+                MoveChannel(channel, -9999); 
+        }
+
+        private void MoveChannelBottom_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+                MoveChannel(channel, 9999);
+        }
+
+        private void HideChannel_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+            {
+                if (_settings.HiddenChannels == null) _settings.HiddenChannels = new List<string>();
+                if (!_settings.HiddenChannels.Contains(channel.Number!))
+                {
+                    _settings.HiddenChannels.Add(channel.Number!);
+                    SettingsManager.Save(_settings);
+                    ApplyFilters();
+                    ShowStatus($"Hidden Channel {channel.Number}", "StatusSuccess", true);
+                }
+            }
+        }
+
+        private void MoveChannel(Channel channel, int direction)
+        {
+            string activeCollection = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
+            
+            if (_settings.CustomChannelOrders == null) 
+                _settings.CustomChannelOrders = new Dictionary<string, List<string>>();
+            
+            // Safety Rail: Only allow reordering if viewing the raw collection
+            if (_activeTag != "All Channels" || !string.IsNullOrWhiteSpace(SearchTextBox.Text))
+            {
+                ShowStatus("Please clear Search and Tags before reordering.", "StatusError", true);
+                return;
+            }
+
+            // Sync Check: Ensure orderList matches the current filtered view
+            if (!_settings.CustomChannelOrders.ContainsKey(activeCollection))
+            {
+                _settings.CustomChannelOrders[activeCollection] = _currentFilteredList.Select(c => c.Number!).ToList();
+            }
+            
+            var orderList = _settings.CustomChannelOrders[activeCollection];
+
+            // Ensure every channel in the current list is in the orderList
+            foreach (var ch in _currentFilteredList)
+            {
+                if (!orderList.Contains(ch.Number!)) orderList.Add(ch.Number!);
+            }
+
+            int currentIndex = orderList.IndexOf(channel.Number!);
+            int newIndex;
+
+            // Handle Top/Bottom/Up/Down logic
+            if (direction == -9999) newIndex = 0; // Move to Top
+            else if (direction == 9999) newIndex = orderList.Count - 1; // Move to Bottom
+            else newIndex = currentIndex + direction;
+
+            if (newIndex < 0 || newIndex >= orderList.Count) return;
+            
+            // Perform the swap/move
+            orderList.RemoveAt(currentIndex);
+            orderList.Insert(newIndex, channel.Number!);
+            
+            SettingsManager.Save(_settings);
+            
+            // Apply the new visual order immediately
+            ApplyFilters();
         }
 
         private void GuideItemsControl_ScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -1267,7 +1376,23 @@ if (!string.IsNullOrWhiteSpace(query))
                 StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             }
         }
-        
+		
+		private void MoveChannelUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+            {
+                MoveChannel(channel, -1);
+            }
+        }
+
+        private void MoveChannelDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+            {
+                MoveChannel(channel, 1);
+            }
+        }
+         
         // --- NEW: SAFE NAVIGATION ---
         private void HomeButton_Click(object sender, RoutedEventArgs e)
         {

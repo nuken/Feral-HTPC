@@ -27,6 +27,9 @@ namespace FeralCode
 		public int LastShowSortIndex { get; set; } = 3; // 3 = Recently Updated (Last Recorded)
         public int LastShowWatchedIndex { get; set; } = 0;
         public string LastShowGenre { get; set; } = "All Genres";
+		
+		// Maps Collection Name -> Ordered List of Channel Numbers
+        public Dictionary<string, List<string>> CustomChannelOrders { get; set; } = new Dictionary<string, List<string>>();
 
         public int LastMovieSortIndex { get; set; } = 1; // 1 = Recently Added
         public int LastMovieWatchedIndex { get; set; } = 0;
@@ -34,6 +37,7 @@ namespace FeralCode
         public bool IsLightTheme { get; set; } = false; 
         public string LastServerAddress { get; set; } = ""; 
 		public List<SavedServerProfile> SavedServers { get; set; } = new List<SavedServerProfile>();
+		public List<string> HiddenChannels { get; set; } = new List<string>();
         public string LastCollection { get; set; } = "All Channels";
 		public bool StartPlayersFullscreen { get; set; } = false;
 		public bool EnableTimeShiftBuffer { get; set; } = false;
