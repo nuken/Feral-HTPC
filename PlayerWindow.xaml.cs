@@ -1176,13 +1176,14 @@ namespace FeralCode
 
                 _tuneTimeoutTimer?.Stop();
                 _tuneTimeoutTimer?.Start();
-
-                // --- THE NEW ROUTING LOGIC ---
-                // You can easily change this IF statement in the future to test different channels!
+// --- THE NEW ROUTING LOGIC ---
                 bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
                 bool isPluto = currentChannel.Id != null && currentChannel.Id.Contains("pluto", StringComparison.OrdinalIgnoreCase);
+                
+                // --- NEW: Check if the user forced this channel to HLS ---
+                bool isForcedHls = _settings.ForcedHlsChannels != null && _settings.ForcedHlsChannels.Contains(currentChannel.Number!);
 
-                if (isVirtualChannel || isPluto)
+                if (isVirtualChannel || isPluto || isForcedHls)
                 {
                     LogDebug("Routing to PlayHlsStream...");
                     await PlayHlsStream(currentChannel, currentAiring);

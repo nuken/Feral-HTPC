@@ -235,6 +235,9 @@
     
                             <Border.ContextMenu>
                                 <ContextMenu Opened="ChannelContextMenu_Opened">
+								    <MenuItem x:Name="ForceFfmpegMenuItem" Header="Force FFmpeg Transcode" Click="ForceFfmpeg_Click" FontSize="14" Padding="5"/>
+                                    <MenuItem x:Name="ForceFfmpegRemuxMenuItem" Header="Force FFmpeg Remux" Click="ForceFfmpegRemux_Click" FontSize="14" Padding="5"/>
+									<MenuItem Header="Force HLS Stream" Click="ForceHls_Click" FontSize="14" Padding="5"/>
                                     <MenuItem Header="Move Channel Up (↑)" Click="MoveChannelUp_Click" FontSize="14" Padding="5"/>
                                     <MenuItem Header="Move Channel Down (↓)" Click="MoveChannelDown_Click" FontSize="14" Padding="5"/>
                                     <MenuItem Header="Move to Top" Click="MoveChannelTop_Click" FontSize="14" Padding="5"/>
@@ -242,8 +245,7 @@
                                     <Separator/>
                                     <MenuItem x:Name="HideMenuItem" Header="Hide Channel" Click="HideChannel_Click" FontSize="14" Padding="5"/>
                                     <Separator/>
-                                    <MenuItem x:Name="ForceFfmpegMenuItem" Header="Force FFmpeg Transcode" Click="ForceFfmpeg_Click" FontSize="14" Padding="5"/>
-                                    <MenuItem x:Name="ForceFfmpegRemuxMenuItem" Header="Force FFmpeg Remux" Click="ForceFfmpegRemux_Click" FontSize="14" Padding="5"/>
+                                    
                                 </ContextMenu>
                             </Border.ContextMenu>
     
