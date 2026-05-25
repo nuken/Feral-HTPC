@@ -1315,17 +1315,20 @@ if (!string.IsNullOrWhiteSpace(query))
 		
 		private void ChannelContextMenu_Opened(object sender, RoutedEventArgs e)
         {
-            // WPF Trick: Get the exact Channel Border that the user right-clicked
             if (sender is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
             {
-                var transcodeItem = menu.Items[0] as MenuItem;
-                var remuxItem = menu.Items[1] as MenuItem; // Assumes your Remux option is the second item in the XAML
+                // Safely find the specific menu items by their text, no matter where they are in the list!
+                var transcodeItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header?.ToString() == "Force FFmpeg Transcode");
+                var remuxItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header?.ToString() == "Force FFmpeg Remux");
+                var hlsItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header?.ToString() == "Force HLS Stream"); // NEW
                 
                 if (_settings.ForcedFfmpegChannels == null) _settings.ForcedFfmpegChannels = new List<string>();
                 if (_settings.ForcedFfmpegRemuxChannels == null) _settings.ForcedFfmpegRemuxChannels = new List<string>();
+                if (_settings.ForcedHlsChannels == null) _settings.ForcedHlsChannels = new List<string>(); // NEW
 
-                transcodeItem!.IsChecked = _settings.ForcedFfmpegChannels.Contains(channel.Number!);
-                remuxItem!.IsChecked = _settings.ForcedFfmpegRemuxChannels.Contains(channel.Number!);
+                if (transcodeItem != null) transcodeItem.IsChecked = _settings.ForcedFfmpegChannels.Contains(channel.Number!);
+                if (remuxItem != null) remuxItem.IsChecked = _settings.ForcedFfmpegRemuxChannels.Contains(channel.Number!);
+                if (hlsItem != null) hlsItem.IsChecked = _settings.ForcedHlsChannels.Contains(channel.Number!); // NEW
             }
         }
 
@@ -1374,6 +1377,32 @@ if (!string.IsNullOrWhiteSpace(query))
                 {
                     _settings.ForcedFfmpegRemuxChannels.Add(channel.Number!);
                     StatusText.Text = $"Forced FFmpeg Remux for CH {channel.Number}";
+                }
+
+                SettingsManager.Save(_settings);
+                
+                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation { From = 1.0, To = 0.0, Duration = new Duration(TimeSpan.FromSeconds(1)), BeginTime = TimeSpan.FromSeconds(3) };
+                StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            }
+        }
+		
+		private void ForceHls_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+            {
+                if (_settings.ForcedHlsChannels == null) 
+                    _settings.ForcedHlsChannels = new List<string>();
+
+                // Toggle the setting
+                if (_settings.ForcedHlsChannels.Contains(channel.Number!))
+                {
+                    _settings.ForcedHlsChannels.Remove(channel.Number!);
+                    StatusText.Text = $"Removed Forced HLS for CH {channel.Number}";
+                }
+                else
+                {
+                    _settings.ForcedHlsChannels.Add(channel.Number!);
+                    StatusText.Text = $"Forced HLS for CH {channel.Number}";
                 }
 
                 SettingsManager.Save(_settings);
