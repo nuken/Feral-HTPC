@@ -1,30 +1,19 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Threading;
-
+using System.Net.Http;
 
 namespace FeralCode
 {
     public partial class App : Application
     {
-		private static Mutex? _mutex;
-		
+        // A Mutex (Mutually Exclusive Flag) to track the app's global state
+        private static Mutex? _mutex;
+
         public App()
         {
-            // Try to create a global mutex
-            bool createdNew;
-            _mutex = new Mutex(true, "FeralHTPC_Unique_App_ID", out createdNew);
-
-            if (!createdNew)
-            {
-                // App is already running!
-                // We could use P/Invoke here to send a message to the existing window to restore,
-                // but for now, simply shutting down prevents the port conflict.
-                Application.Current.Shutdown();
-                return;
-            }
             // 1. Catch unhandled exceptions on the main UI thread
             this.DispatcherUnhandledException += (s, e) =>
             {
@@ -42,14 +31,48 @@ namespace FeralCode
             };
         }
 
-        protected override async void OnStartup(StartupEventArgs e)
+        protected override void OnStartup(StartupEventArgs e)
         {
-            base.OnStartup(e);
+            bool createdNew;
+            _mutex = new Mutex(true, "FeralHTPC_Unique_App_ID", out createdNew);
 
+            if (!createdNew)
+            {
+                // The app is already running in the background! 
+                // Ping its local web server to wake it up, then kill this duplicate process.
+                WakeUpFirstInstance();
+                Application.Current.Shutdown();
+                return;
+            }
+
+            base.OnStartup(e);
+            
+            // If we made it here, we are the first instance. Proceed with the normal UI boot!
+            RunStartupSequence();
+        }
+
+        private void WakeUpFirstInstance()
+        {
+            try
+            {
+                var settings = SettingsManager.Load();
+                int port = settings.WebServerPort > 0 ? settings.WebServerPort : 12345;
+                
+                using (var client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(2);
+                    // Fire a silent GET request to the original instance
+                    client.GetAsync($"http://127.0.0.1:{port}/api/system/wakeup").Wait();
+                }
+            }
+            catch { } // Silently fail if the server didn't respond
+        }
+
+        private async void RunStartupSequence()
+        {
             var splash = new SplashWindow();
             splash.Show();
 
-            // 2. Do the heavy lifting: Load settings and apply the theme!
             var settings = SettingsManager.Load();
             string themeName = settings.IsLightTheme ? "LightTheme.xaml" : "DarkTheme.xaml";
 
@@ -59,20 +82,14 @@ namespace FeralCode
                 this.Resources.MergedDictionaries.Clear();
                 this.Resources.MergedDictionaries.Add(themeDict);
             }
-            catch 
-            {
-                // Failsafe: If the theme files are missing, WPF will just use its default grays
-            }
+            catch { }
 
-            // 3. Keep the splash screen up just a little longer so it looks smooth and deliberate
             await Task.Delay(1500); 
 
-            // 4. Boot up the Main Window
             var mainWindow = new MainWindow();
-			Application.Current.MainWindow = mainWindow;
+            Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
 
-            // 5. Close the Splash Screen seamlessly
             splash.Close();
         }
     }

@@ -781,6 +781,15 @@ namespace FeralCode
                         }
                         return Results.Ok();
                     });
+					
+					_webHost.MapGet("/api/system/wakeup", () => 
+                    {
+                        Application.Current.Dispatcher.Invoke(() => 
+                        {
+                            RestoreWindow();
+                        });
+                        return Results.Ok();
+                    });
 
                     _webHost.MapPost("/api/system/click/{type}", (string type) =>
                     {
