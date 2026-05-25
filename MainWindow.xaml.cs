@@ -162,7 +162,7 @@ namespace FeralCode
             };
 			// --- NEW: System Tray Icon Setup ---
             _notifyIcon = new System.Windows.Forms.NotifyIcon();
-            _notifyIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            _notifyIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!);
             _notifyIcon.Text = "Feral HTPC";
             _notifyIcon.Visible = false;
 
