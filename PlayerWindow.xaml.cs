@@ -1237,12 +1237,15 @@ namespace FeralCode
 
             string activeStreamUrl = streamUrl;
             
-            // --- NEW: Check if the user is forcing a transcode or remux! ---
+            // --- FIX: Create the IP-Specific Key ---
+            string serverKey = $"{_baseUrl.TrimEnd('/')}_{currentChannel.Number}";
+            
+            // --- FIX: Evaluate Proxy Settings using the IP Key ---
             bool useTranscode = _settings.ForceLocalTranscode || 
-            (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
+            (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(serverKey));
 
             bool useRemux = _settings.ForceLocalRemux || 
-            (_settings.ForcedFfmpegRemuxChannels != null && _settings.ForcedFfmpegRemuxChannels.Contains(currentChannel.Number!));
+            (_settings.ForcedFfmpegRemuxChannels != null && _settings.ForcedFfmpegRemuxChannels.Contains(serverKey));
             
             if (useTranscode || useRemux)
             {
@@ -1301,12 +1304,15 @@ namespace FeralCode
 
             string activeStreamUrl = streamUrl;
             
-            // --- NEW: Evaluate Proxy Settings ---
+            // --- FIX: Create the IP-Specific Key ---
+            string serverKey = $"{_baseUrl.TrimEnd('/')}_{currentChannel.Number}";
+            
+            // --- FIX: Evaluate Proxy Settings using the IP Key ---
             bool useTranscode = _settings.ForceLocalTranscode || 
-            (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
+            (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(serverKey));
 
             bool useRemux = _settings.ForceLocalRemux || 
-            (_settings.ForcedFfmpegRemuxChannels != null && _settings.ForcedFfmpegRemuxChannels.Contains(currentChannel.Number!));
+            (_settings.ForcedFfmpegRemuxChannels != null && _settings.ForcedFfmpegRemuxChannels.Contains(serverKey));
             
             // TimeShift has its own FFmpeg engine, so disable standard proxy if TimeShift is on
             if (_settings.EnableTimeShiftBuffer)
