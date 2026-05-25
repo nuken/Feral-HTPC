@@ -38,6 +38,7 @@ namespace FeralCode
         public string LastServerAddress { get; set; } = ""; 
 		public List<SavedServerProfile> SavedServers { get; set; } = new List<SavedServerProfile>();
 		public List<string> HiddenChannels { get; set; } = new List<string>();
+		public List<string> ForcedHlsChannels { get; set; } = new List<string>();
 		public bool RunInBackground { get; set; } = false;
         public string LastCollection { get; set; } = "All Channels";
 		public bool StartPlayersFullscreen { get; set; } = false;
