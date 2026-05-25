@@ -337,7 +337,7 @@
                             <TextBlock Text="Padding After (End):" FontSize="16" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0" Width="180"/>
                             <ComboBox x:Name="PaddingEndBox" FontSize="16" Width="120" Padding="10,5"/>
                         </StackPanel>
-           
+						<CheckBox x:Name="RunInBackgroundCheckBox" Content="Keep app running in system tray when closed" Style="{StaticResource BigCheckBox}"/>						
                         <CheckBox x:Name="EnableLoggingCheckBox" Content="Enable Debug Logging (Saves feral_debug.log to Desktop)" Style="{StaticResource BigCheckBox}"/>
                     </StackPanel>
                 </ScrollViewer>

@@ -57,6 +57,8 @@ namespace FeralCode
 
         // --- NEW: Tracks if the main UI is in fullscreen mode ---
         private bool _isFullscreen = false;
+		private System.Windows.Forms.NotifyIcon? _notifyIcon;
+        private bool _forceExit = false;
 
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int X, int Y);
@@ -158,6 +160,18 @@ namespace FeralCode
                     }
                 }, System.Windows.Threading.DispatcherPriority.Input);
             };
+			// --- NEW: System Tray Icon Setup ---
+            _notifyIcon = new System.Windows.Forms.NotifyIcon();
+            _notifyIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            _notifyIcon.Text = "Feral HTPC";
+            _notifyIcon.Visible = false;
+
+            _notifyIcon.DoubleClick += (s, args) => RestoreWindow();
+
+            var contextMenu = new System.Windows.Forms.ContextMenuStrip();
+            contextMenu.Items.Add("Open Feral HTPC", null, (s, args) => RestoreWindow());
+            contextMenu.Items.Add("Exit", null, (s, args) => { _forceExit = true; this.Close(); });
+            _notifyIcon.ContextMenuStrip = contextMenu;
         }
 		
 		// --- NEW: Universal helper to launch browser apps ---
@@ -180,6 +194,37 @@ namespace FeralCode
                 }
             }
             catch { }
+        }
+		
+		private void RestoreWindow()
+        {
+            this.Show();
+            if (this.WindowState == WindowState.Minimized) this.WindowState = WindowState.Normal;
+            this.Activate();
+            if (_notifyIcon != null) _notifyIcon.Visible = false;
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            var settings = SettingsManager.Load();
+            
+            // Intercept the close and hide to the tray if the setting is enabled
+            if (settings.RunInBackground && !_forceExit)
+            {
+                e.Cancel = true; 
+                this.Hide();
+                if (_notifyIcon != null) _notifyIcon.Visible = true;
+            }
+            else
+            {
+                // Truly exiting the application
+                if (_notifyIcon != null)
+                {
+                    _notifyIcon.Visible = false;
+                    _notifyIcon.Dispose();
+                }
+            }
+            base.OnClosing(e);
         }
 
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)

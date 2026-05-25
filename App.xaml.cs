@@ -2,13 +2,29 @@
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Threading;
+
 
 namespace FeralCode
 {
     public partial class App : Application
     {
+		private static Mutex? _mutex;
+		
         public App()
         {
+            // Try to create a global mutex
+            bool createdNew;
+            _mutex = new Mutex(true, "FeralHTPC_Unique_App_ID", out createdNew);
+
+            if (!createdNew)
+            {
+                // App is already running!
+                // We could use P/Invoke here to send a message to the existing window to restore,
+                // but for now, simply shutting down prevents the port conflict.
+                Application.Current.Shutdown();
+                return;
+            }
             // 1. Catch unhandled exceptions on the main UI thread
             this.DispatcherUnhandledException += (s, e) =>
             {

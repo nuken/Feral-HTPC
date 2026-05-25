@@ -11,6 +11,7 @@
     <Description>A Feral Windows HTPC client.</Description>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
     
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>

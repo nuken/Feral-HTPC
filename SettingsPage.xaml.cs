@@ -38,7 +38,7 @@ namespace FeralCode
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
             else if (_settings.GuideDurationHours == 12) GuideDurationBox.SelectedIndex = 2;
             else GuideDurationBox.SelectedIndex = 0; // Default to 4
-            
+            RunInBackgroundCheckBox.IsChecked = _settings.RunInBackground;
             StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
             VirtualChannelsCheckBox.IsChecked = _settings.EnableVirtualChannels;
             // --- FIX: Formatted Mobile Remote URL Display ---
@@ -368,6 +368,7 @@ namespace FeralCode
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
             _settings.SimplifiedGuide = SimplifiedGuideCheckBox.IsChecked ?? false;
             _settings.UiScale = UiScaleSlider.Value;
+			_settings.RunInBackground = RunInBackgroundCheckBox.IsChecked ?? false;
             _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? false;
             _settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
             _settings.ForceLocalRemux = ForceLocalRemuxCheckBox.IsChecked ?? false;
