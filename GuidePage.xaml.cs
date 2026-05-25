@@ -1155,14 +1155,19 @@ if (!string.IsNullOrWhiteSpace(query))
                 {
                     ModalOverlay.Visibility = Visibility.Collapsed;
 
-                    // --- FIX: Pass the filtered list to the player so ChUp/ChDn matches the current view! ---
-                    int channelIndex = _currentFilteredList.FindIndex(c => c.Number == _selectedAiring.ChannelNumber);
+                    // --- FIX: Filter out hidden channels BEFORE sending to player ---
+                    var filteredList = _masterChannelList
+                        .Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!))
+                        .ToList();
+
+                    int channelIndex = filteredList.FindIndex(c => c.Number == _selectedAiring.ChannelNumber);
                     if (channelIndex == -1) channelIndex = 0;
 
                     var mainWindow = (MainWindow)Application.Current.MainWindow;
+
                     if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
 
-                    mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _currentFilteredList, channelIndex);
+                    mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, filteredList, channelIndex);
                     
                     mainWindow.ActivePlayerWindow.Closed += (s, args) => 
                     {
@@ -1264,17 +1269,20 @@ if (!string.IsNullOrWhiteSpace(query))
             string baseUrl = GetActiveBaseUrl();
             if (string.IsNullOrWhiteSpace(baseUrl)) return;
 
-            // --- FIX: Attempt to use the actively filtered list first ---
-            var targetList = _currentFilteredList.Any(c => c.Number == channelNumber) ? _currentFilteredList : _masterChannelList;
-            
-            int channelIndex = targetList.FindIndex(c => c.Number == channelNumber);
+            // --- FIX: Filter out hidden channels BEFORE sending to player ---
+            var filteredList = _masterChannelList
+                .Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!))
+                .ToList();
+
+            int channelIndex = filteredList.FindIndex(c => c.Number == channelNumber);
             if (channelIndex == -1) return; 
 
             var mainWindow = (MainWindow)Application.Current.MainWindow;
 
             if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
 
-            mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, targetList, channelIndex);
+            // Pass the filtered list so Channel Up/Down in the player respects your hidden settings!
+            mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, filteredList, channelIndex);
             mainWindow.ActivePlayerWindow.Closed += (s, args) => mainWindow.ActivePlayerWindow = null; 
             mainWindow.ActivePlayerWindow.Show();
         }

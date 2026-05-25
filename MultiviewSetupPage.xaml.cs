@@ -145,11 +145,13 @@ namespace FeralCode
             var query = SearchTextBox.Text?.Trim() ?? string.Empty;
             var selectedCollectionName = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
             
-            string baseUrl = _settings.LastServerAddress?.TrimEnd('/') ?? "";
+            // --- FIX: Grab the current server IP to create the keys ---
+            string safeBaseUrl = _baseUrl.TrimEnd('/');
             
-            IEnumerable<Channel> filtered = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains($"{baseUrl}_{c.Number}"));
-            
-			if (selectedCollectionName == "Favorites")
+            // --- FIX 1: Exclude hidden channels using IP-Specific Key ---
+            IEnumerable<Channel> filtered = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains($"{safeBaseUrl}_{c.Number!}"));
+
+            if (selectedCollectionName == "Favorites")
             {
                 filtered = filtered.Where(c => c.Favorite);
             }
@@ -215,10 +217,12 @@ namespace FeralCode
                 filtered = filtered.Where(c => c.HasIdentifier(query));
             }
 
-            string sortKey = $"{baseUrl}_{selectedCollectionName}";
+            // --- FIX 2: Apply Custom Sorting Order using IP-Specific Key ---
+            string sortKey = $"{safeBaseUrl}_{selectedCollectionName}";
+            
             if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(sortKey))
             {
-                var orderList = _settings.CustomChannelOrders[selectedCollectionName];
+                var orderList = _settings.CustomChannelOrders[sortKey];
                 filtered = filtered.OrderBy(c => {
                     int idx = orderList.IndexOf(c.Number!);
                     return idx != -1 ? idx : 999999;

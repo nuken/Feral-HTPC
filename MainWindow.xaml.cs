@@ -389,6 +389,13 @@ namespace FeralCode
                         try {
                             var api = new ChannelsApi();
                             var channels = await api.GetChannelsAsync(settings.LastServerAddress);
+                            
+                            // --- FIX 1: Create the IP-Specific Key ---
+                            string safeBaseUrl = settings.LastServerAddress.TrimEnd('/');
+                            
+                            // --- FIX 2: Exclude Hidden Channels ---
+                            channels = channels.Where(c => settings.HiddenChannels == null || !settings.HiddenChannels.Contains($"{safeBaseUrl}_{c.Number}")).ToList();
+
                             if (!settings.EnableVirtualChannels)
                             {
                                channels = channels.Where(c => !(c.Id != null && c.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))).ToList();
@@ -412,17 +419,19 @@ namespace FeralCode
                                 if (!string.IsNullOrWhiteSpace(c.ImageUrl))
                                 {
                                     if (c.ImageUrl.StartsWith("/")) 
-                                        c.ImageUrl = $"{settings.LastServerAddress.TrimEnd('/')}{c.ImageUrl}";
+                                        c.ImageUrl = $"{safeBaseUrl}{c.ImageUrl}";
                                     else if (c.ImageUrl.StartsWith("tmsimg://", StringComparison.OrdinalIgnoreCase))
-                                        c.ImageUrl = c.ImageUrl.Replace("tmsimg://", $"{settings.LastServerAddress.TrimEnd('/')}/tmsimg/", StringComparison.OrdinalIgnoreCase);
+                                        c.ImageUrl = c.ImageUrl.Replace("tmsimg://", $"{safeBaseUrl}/tmsimg/", StringComparison.OrdinalIgnoreCase);
                                 }
 
                                 var match = guide.FirstOrDefault(g => g.ChannelNumber == c.Number);
                                 if (match != null && match.Airings != null) c.CurrentAirings = match.Airings;
                             }
                             
+                            string activeCollection = "All Channels";
                             if (!string.IsNullOrEmpty(collection) && collection != "All Channels")
                             {
+                                activeCollection = collection;
                                 var collections = await api.GetChannelCollectionsAsync(settings.LastServerAddress);
                                 var selected = collections.FirstOrDefault(c => c.name == collection);
                                 if (selected != null && selected.items != null)
@@ -434,6 +443,21 @@ namespace FeralCode
                             if (!string.IsNullOrWhiteSpace(search))
                             {
                                 channels = channels.Where(c => c.HasIdentifier(search)).ToList();
+                            }
+
+                            // --- FIX 3: Apply Custom Sorting Order using IP-Specific Key ---
+                            string sortKey = $"{safeBaseUrl}_{activeCollection}";
+                            if (settings.CustomChannelOrders != null && settings.CustomChannelOrders.ContainsKey(sortKey))
+                            {
+                                var orderList = settings.CustomChannelOrders[sortKey];
+                                channels = channels.OrderBy(c => {
+                                    int idx = orderList.IndexOf(c.Number!);
+                                    return idx != -1 ? idx : 999999;
+                                }).ThenBy(c => double.TryParse(c.Number, out double n) ? n : 999999).ToList();
+                            }
+                            else
+                            {
+                                channels = channels.OrderBy(c => double.TryParse(c.Number, out double n) ? n : 999999).ToList();
                             }
 
                             return Results.Ok(channels);
