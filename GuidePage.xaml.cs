@@ -75,6 +75,11 @@ namespace FeralCode
             }
             return null;
         }
+		
+		private void ShowHidden_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyFilters();
+        }
 
         private void PageUp_Click(object sender, RoutedEventArgs e)
         {
@@ -124,8 +129,13 @@ namespace FeralCode
 
         public object GetMobileGuideData(string? collection, string? search)
         {
-            // 1. Exclude Hidden Channels
-            IEnumerable<Channel> targetList = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!));
+            // --- FIX: Grab the current server IP to create the key ---
+            string baseUrl = GetActiveBaseUrl().TrimEnd('/');
+
+            // 1. Exclude Hidden Channels (Using IP-Specific Key)
+            IEnumerable<Channel> targetList = _masterChannelList.Where(c => 
+                _settings.HiddenChannels == null || 
+                !_settings.HiddenChannels.Contains($"{baseUrl}_{c.Number}"));
 
             string activeCollection = "All Channels";
             if (!string.IsNullOrWhiteSpace(collection) && collection != "All Channels")
@@ -137,10 +147,11 @@ namespace FeralCode
 
             if (!string.IsNullOrWhiteSpace(search)) targetList = targetList.Where(c => c.HasIdentifier(search));
 
-            // 2. Sort Mobile List 
-            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(activeCollection))
+            // 2. Sort Mobile List (Using IP-Specific Key)
+            string sortKey = $"{baseUrl}_{activeCollection}";
+            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(sortKey))
             {
-                var orderList = _settings.CustomChannelOrders[activeCollection];
+                var orderList = _settings.CustomChannelOrders[sortKey];
                 targetList = targetList.OrderBy(c => {
                     int idx = orderList.IndexOf(c.Number!);
                     return idx != -1 ? idx : 999999;
@@ -440,10 +451,14 @@ var cleanChannels = rawChannels
         {
             if (_masterChannelList == null) return;
 
-            // --- FIXED: Single declaration of 'filtered' ---
-            // Start with the full list and apply the 'hidden' filter immediately
-            IEnumerable<Channel> filtered = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!));
+            string baseUrl = GetActiveBaseUrl().TrimEnd('/'); // --- NEW: Get the IP ---
             
+            // --- FIX: Filter Hidden Channels using IP Key AND respect the Checkbox ---
+            IEnumerable<Channel> filtered = _masterChannelList.Where(c => 
+                ShowHiddenCheckBox.IsChecked == true || 
+                _settings.HiddenChannels == null || 
+                !_settings.HiddenChannels.Contains($"{baseUrl}_{c.Number}"));
+
             var query = SearchTextBox.Text?.Trim() ?? string.Empty;
             var selectedCollectionName = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
             
@@ -541,12 +556,13 @@ if (!string.IsNullOrWhiteSpace(query))
     );
 }
 
-            // --- FIX: Custom Sorting Logic ---
+            // --- FIX: Custom Sorting Logic using IP Key ---
             string selectedCollectionNameForSort = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
+            string sortKey = $"{baseUrl}_{selectedCollectionNameForSort}";
 
-            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(selectedCollectionNameForSort))
+            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(sortKey))
             {
-                var orderList = _settings.CustomChannelOrders[selectedCollectionNameForSort];
+                var orderList = _settings.CustomChannelOrders[sortKey];
                 
                 if (_activeTag != "All Channels")
                 {
@@ -617,61 +633,57 @@ if (!string.IsNullOrWhiteSpace(query))
             if (sender is MenuItem item && item.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
             {
                 if (_settings.HiddenChannels == null) _settings.HiddenChannels = new List<string>();
-                if (!_settings.HiddenChannels.Contains(channel.Number!))
+                
+                string serverKey = $"{GetActiveBaseUrl().TrimEnd('/')}_{channel.Number}";
+
+                if (_settings.HiddenChannels.Contains(serverKey))
                 {
-                    _settings.HiddenChannels.Add(channel.Number!);
-                    SettingsManager.Save(_settings);
-                    ApplyFilters();
+                    _settings.HiddenChannels.Remove(serverKey);
+                    ShowStatus($"Unhidden Channel {channel.Number}", "StatusSuccess", true);
+                }
+                else
+                {
+                    _settings.HiddenChannels.Add(serverKey);
                     ShowStatus($"Hidden Channel {channel.Number}", "StatusSuccess", true);
                 }
+                
+                SettingsManager.Save(_settings);
+                ApplyFilters();
             }
         }
 
         private void MoveChannel(Channel channel, int direction)
         {
             string activeCollection = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
+            string collectionKey = $"{GetActiveBaseUrl().TrimEnd('/')}_{activeCollection}";
             
-            if (_settings.CustomChannelOrders == null) 
-                _settings.CustomChannelOrders = new Dictionary<string, List<string>>();
+            if (_settings.CustomChannelOrders == null) _settings.CustomChannelOrders = new Dictionary<string, List<string>>();
             
-            // Safety Rail: Only allow reordering if viewing the raw collection
             if (_activeTag != "All Channels" || !string.IsNullOrWhiteSpace(SearchTextBox.Text))
             {
                 ShowStatus("Please clear Search and Tags before reordering.", "StatusError", true);
                 return;
             }
 
-            // Sync Check: Ensure orderList matches the current filtered view
-            if (!_settings.CustomChannelOrders.ContainsKey(activeCollection))
-            {
-                _settings.CustomChannelOrders[activeCollection] = _currentFilteredList.Select(c => c.Number!).ToList();
-            }
+            if (!_settings.CustomChannelOrders.ContainsKey(collectionKey))
+                _settings.CustomChannelOrders[collectionKey] = _currentFilteredList.Select(c => c.Number!).ToList();
             
-            var orderList = _settings.CustomChannelOrders[activeCollection];
-
-            // Ensure every channel in the current list is in the orderList
-            foreach (var ch in _currentFilteredList)
-            {
-                if (!orderList.Contains(ch.Number!)) orderList.Add(ch.Number!);
-            }
+            var orderList = _settings.CustomChannelOrders[collectionKey];
+            foreach (var ch in _currentFilteredList) if (!orderList.Contains(ch.Number!)) orderList.Add(ch.Number!);
 
             int currentIndex = orderList.IndexOf(channel.Number!);
             int newIndex;
 
-            // Handle Top/Bottom/Up/Down logic
-            if (direction == -9999) newIndex = 0; // Move to Top
-            else if (direction == 9999) newIndex = orderList.Count - 1; // Move to Bottom
+            if (direction == -9999) newIndex = 0; 
+            else if (direction == 9999) newIndex = orderList.Count - 1; 
             else newIndex = currentIndex + direction;
 
             if (newIndex < 0 || newIndex >= orderList.Count) return;
             
-            // Perform the swap/move
             orderList.RemoveAt(currentIndex);
             orderList.Insert(newIndex, channel.Number!);
             
             SettingsManager.Save(_settings);
-            
-            // Apply the new visual order immediately
             ApplyFilters();
         }
 
@@ -1317,18 +1329,27 @@ if (!string.IsNullOrWhiteSpace(query))
         {
             if (sender is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
             {
-                // Safely find the specific menu items by their text, no matter where they are in the list!
+                string serverKey = $"{GetActiveBaseUrl().TrimEnd('/')}_{channel.Number}";
+
                 var transcodeItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header?.ToString() == "Force FFmpeg Transcode");
                 var remuxItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header?.ToString() == "Force FFmpeg Remux");
-                var hlsItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header?.ToString() == "Force HLS Stream"); // NEW
+                var hlsItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Header?.ToString() == "Force HLS Stream");
+                var hideItem = menu.Items.OfType<MenuItem>().FirstOrDefault(m => m.Name == "HideMenuItem");
                 
                 if (_settings.ForcedFfmpegChannels == null) _settings.ForcedFfmpegChannels = new List<string>();
                 if (_settings.ForcedFfmpegRemuxChannels == null) _settings.ForcedFfmpegRemuxChannels = new List<string>();
-                if (_settings.ForcedHlsChannels == null) _settings.ForcedHlsChannels = new List<string>(); // NEW
+                if (_settings.ForcedHlsChannels == null) _settings.ForcedHlsChannels = new List<string>();
+                if (_settings.HiddenChannels == null) _settings.HiddenChannels = new List<string>();
 
-                if (transcodeItem != null) transcodeItem.IsChecked = _settings.ForcedFfmpegChannels.Contains(channel.Number!);
-                if (remuxItem != null) remuxItem.IsChecked = _settings.ForcedFfmpegRemuxChannels.Contains(channel.Number!);
-                if (hlsItem != null) hlsItem.IsChecked = _settings.ForcedHlsChannels.Contains(channel.Number!); // NEW
+                if (transcodeItem != null) transcodeItem.IsChecked = _settings.ForcedFfmpegChannels.Contains(serverKey);
+                if (remuxItem != null) remuxItem.IsChecked = _settings.ForcedFfmpegRemuxChannels.Contains(serverKey);
+                if (hlsItem != null) hlsItem.IsChecked = _settings.ForcedHlsChannels.Contains(serverKey);
+                
+                // Toggle text based on hidden state
+                if (hideItem != null) 
+                {
+                    hideItem.Header = _settings.HiddenChannels.Contains(serverKey) ? "Unhide Channel" : "Hide Channel";
+                }
             }
         }
 
@@ -1336,27 +1357,20 @@ if (!string.IsNullOrWhiteSpace(query))
         {
             if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
             {
-                if (_settings.ForcedFfmpegChannels == null) 
-                    _settings.ForcedFfmpegChannels = new List<string>();
+                if (_settings.ForcedFfmpegChannels == null) _settings.ForcedFfmpegChannels = new List<string>();
+                string serverKey = $"{GetActiveBaseUrl().TrimEnd('/')}_{channel.Number}";
 
-                // Toggle the setting
-                if (_settings.ForcedFfmpegChannels.Contains(channel.Number!))
+                if (_settings.ForcedFfmpegChannels.Contains(serverKey))
                 {
-                    _settings.ForcedFfmpegChannels.Remove(channel.Number!);
-                    StatusText.Text = $"Removed FFmpeg Transcode for CH {channel.Number}";
+                    _settings.ForcedFfmpegChannels.Remove(serverKey);
+                    StatusText.Text = $"Removed Transcode for CH {channel.Number}";
                 }
                 else
                 {
-                    _settings.ForcedFfmpegChannels.Add(channel.Number!);
-                    StatusText.Text = $"Forced FFmpeg Transcode for CH {channel.Number}";
+                    _settings.ForcedFfmpegChannels.Add(serverKey);
+                    StatusText.Text = $"Forced Transcode for CH {channel.Number}";
                 }
-
-                // Save to disk immediately
                 SettingsManager.Save(_settings);
-                
-                // Optional: Fade out the status text after a few seconds
-                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation { From = 1.0, To = 0.0, Duration = new Duration(TimeSpan.FromSeconds(1)), BeginTime = TimeSpan.FromSeconds(3) };
-                StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             }
         }
 		
@@ -1364,25 +1378,20 @@ if (!string.IsNullOrWhiteSpace(query))
         {
             if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
             {
-                if (_settings.ForcedFfmpegRemuxChannels == null) 
-                    _settings.ForcedFfmpegRemuxChannels = new List<string>();
+                if (_settings.ForcedFfmpegRemuxChannels == null) _settings.ForcedFfmpegRemuxChannels = new List<string>();
+                string serverKey = $"{GetActiveBaseUrl().TrimEnd('/')}_{channel.Number}";
 
-                // Toggle the setting
-                if (_settings.ForcedFfmpegRemuxChannels.Contains(channel.Number!))
+                if (_settings.ForcedFfmpegRemuxChannels.Contains(serverKey))
                 {
-                    _settings.ForcedFfmpegRemuxChannels.Remove(channel.Number!);
-                    StatusText.Text = $"Removed FFmpeg Remux for CH {channel.Number}";
+                    _settings.ForcedFfmpegRemuxChannels.Remove(serverKey);
+                    StatusText.Text = $"Removed Remux for CH {channel.Number}";
                 }
                 else
                 {
-                    _settings.ForcedFfmpegRemuxChannels.Add(channel.Number!);
-                    StatusText.Text = $"Forced FFmpeg Remux for CH {channel.Number}";
+                    _settings.ForcedFfmpegRemuxChannels.Add(serverKey);
+                    StatusText.Text = $"Forced Remux for CH {channel.Number}";
                 }
-
                 SettingsManager.Save(_settings);
-                
-                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation { From = 1.0, To = 0.0, Duration = new Duration(TimeSpan.FromSeconds(1)), BeginTime = TimeSpan.FromSeconds(3) };
-                StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             }
         }
 		
@@ -1390,25 +1399,20 @@ if (!string.IsNullOrWhiteSpace(query))
         {
             if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
             {
-                if (_settings.ForcedHlsChannels == null) 
-                    _settings.ForcedHlsChannels = new List<string>();
+                if (_settings.ForcedHlsChannels == null) _settings.ForcedHlsChannels = new List<string>();
+                string serverKey = $"{GetActiveBaseUrl().TrimEnd('/')}_{channel.Number}";
 
-                // Toggle the setting
-                if (_settings.ForcedHlsChannels.Contains(channel.Number!))
+                if (_settings.ForcedHlsChannels.Contains(serverKey))
                 {
-                    _settings.ForcedHlsChannels.Remove(channel.Number!);
+                    _settings.ForcedHlsChannels.Remove(serverKey);
                     StatusText.Text = $"Removed Forced HLS for CH {channel.Number}";
                 }
                 else
                 {
-                    _settings.ForcedHlsChannels.Add(channel.Number!);
+                    _settings.ForcedHlsChannels.Add(serverKey);
                     StatusText.Text = $"Forced HLS for CH {channel.Number}";
                 }
-
                 SettingsManager.Save(_settings);
-                
-                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation { From = 1.0, To = 0.0, Duration = new Duration(TimeSpan.FromSeconds(1)), BeginTime = TimeSpan.FromSeconds(3) };
-                StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             }
         }
 		

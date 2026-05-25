@@ -145,10 +145,11 @@ namespace FeralCode
             var query = SearchTextBox.Text?.Trim() ?? string.Empty;
             var selectedCollectionName = CollectionComboBox.SelectedItem?.ToString() ?? "All Channels";
             
-            // --- FIX 1: Exclude hidden channels immediately ---
-            IEnumerable<Channel> filtered = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!));
-
-            if (selectedCollectionName == "Favorites")
+            string baseUrl = _settings.LastServerAddress?.TrimEnd('/') ?? "";
+            
+            IEnumerable<Channel> filtered = _masterChannelList.Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains($"{baseUrl}_{c.Number}"));
+            
+			if (selectedCollectionName == "Favorites")
             {
                 filtered = filtered.Where(c => c.Favorite);
             }
@@ -214,8 +215,8 @@ namespace FeralCode
                 filtered = filtered.Where(c => c.HasIdentifier(query));
             }
 
-            // --- FIX 2: Apply Custom Sorting Order ---
-            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(selectedCollectionName))
+            string sortKey = $"{baseUrl}_{selectedCollectionName}";
+            if (_settings.CustomChannelOrders != null && _settings.CustomChannelOrders.ContainsKey(sortKey))
             {
                 var orderList = _settings.CustomChannelOrders[selectedCollectionName];
                 filtered = filtered.OrderBy(c => {

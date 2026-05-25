@@ -138,7 +138,7 @@
              TextChanged="SearchTextBox_TextChanged" FontSize="14" 
              FocusVisualStyle="{StaticResource TvGuideFocusStyle}"/>
 </Border>
-
+               
                 <Button Content="☀ / 🌙" Margin="20,0,0,0" Padding="10,5" Click="ToggleTheme_Click" Style="{StaticResource ModernButton}" ToolTip="Toggle Light/Dark Theme"/>
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="13" FontWeight="SemiBold"/>
             </StackPanel>
@@ -188,7 +188,7 @@
                 <Button Content="Reality" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
                 <Button Content="Mystery" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
                 <Button Content="Live" Style="{StaticResource TagChipStyle}" Click="TagChip_Click"/>
-                
+                 <CheckBox x:Name="ShowHiddenCheckBox" Content="👁 Show Hidden Channels" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="15,0,0,0" Click="ShowHidden_Click"/>
             </StackPanel>
         </ScrollViewer>
         <Grid Grid.Row="2" Margin="0,0,0,5">
