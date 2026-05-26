@@ -98,7 +98,18 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CollectionComboBox" Grid.Column="0" Width="200" FontSize="18" Margin="0,0,10,0" SelectionChanged="CollectionComboBox_SelectionChanged" FocusVisualStyle="{StaticResource GlowFocusStyle}"/>
+                        <ComboBox x:Name="CollectionComboBox" 
+          Grid.Column="0" Width="200" FontSize="18" Margin="0,0,10,0" 
+          VerticalContentAlignment="Center"
+          SelectionChanged="CollectionComboBox_SelectionChanged" 
+          FocusVisualStyle="{StaticResource GlowFocusStyle}">
+    <ComboBox.ItemContainerStyle>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,4"/>
+        </Style>
+    </ComboBox.ItemContainerStyle>
+</ComboBox>
                         <TextBox x:Name="SearchTextBox" Grid.Column="1" FontSize="16" Padding="8" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2" TextChanged="SearchTextBox_TextChanged" FocusVisualStyle="{StaticResource GlowFocusStyle}"/>
                     </Grid>
 
