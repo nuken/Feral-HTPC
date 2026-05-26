@@ -72,7 +72,19 @@ namespace FeralCode
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
         
-        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        [DllImport("user32.dll")]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        [DllImport("user32.dll")]
+        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        // Unique ID for our Wakeup Hotkey
+        private const int WAKE_HOTKEY_ID = 9000;
+        
+        // 0xAC is the Virtual Key code for the standard remote control "Home" button (Browser Home)
+        private const uint VK_BROWSER_HOME = 0xAC;
+		
+		private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const uint MOUSEEVENTF_LEFTUP = 0x0004;
         private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
         private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
@@ -203,6 +215,42 @@ namespace FeralCode
             this.Activate();
             if (_notifyIcon != null) _notifyIcon.Visible = false;
         }
+		
+		protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            
+            // Get the low-level Windows handle for Feral HTPC
+            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            var source = System.Windows.Interop.HwndSource.FromHwnd(handle);
+            
+            // Add a hook to listen to raw Windows messages
+            source.AddHook(HwndHook);
+
+            // Tell Windows OS: "Always listen for the Home button (0xAC) and send it to me"
+            // 0x0000 means no modifier keys (like Shift or Ctrl) are required
+            RegisterHotKey(handle, WAKE_HOTKEY_ID, 0x0000, VK_BROWSER_HOME);
+        }
+
+        private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            const int WM_HOTKEY = 0x0312; // The raw Windows message code for a Hotkey press
+
+            if (msg == WM_HOTKEY && wParam.ToInt32() == WAKE_HOTKEY_ID)
+            {
+                // The user pressed the Home button on the remote while the app was minimized!
+                RestoreWindow();
+                
+                // If they are on the StartPage, this will also ensure they navigate home correctly
+                if (MainFrame.Content is Page page && page is not StartPage)
+                {
+                    page.NavigationService?.Navigate(new StartPage());
+                }
+
+                handled = true;
+            }
+            return IntPtr.Zero;
+        }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
@@ -291,6 +339,10 @@ namespace FeralCode
 
         protected override async void OnClosed(EventArgs e)
         {
+            // --- NEW: Release the hotkey back to Windows ---
+            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            UnregisterHotKey(handle, WAKE_HOTKEY_ID);
+
             if (_webHost != null)
             {
                 await _webHost.StopAsync();
