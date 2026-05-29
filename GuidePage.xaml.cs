@@ -743,14 +743,35 @@ if (!string.IsNullOrWhiteSpace(query))
                 return; 
             }
             if (ModalOverlay.Visibility == Visibility.Visible)
-            {
-                if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
-                {
-                    CloseModal_Click(null!, null!);
-                    e.Handled = true;
-                    return;
-                }
-            }
+{
+    if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
+    {
+        CloseModal_Click(null!, null!);
+        e.Handled = true;
+        return;
+    }
+    
+    // --- FIX: Allow D-Pad and Arrow Keys to navigate the Modal buttons ---
+    if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right)
+    {
+        if (Keyboard.FocusedElement is UIElement focusedElement)
+        {
+            FocusNavigationDirection direction = FocusNavigationDirection.Next;
+            
+            if (e.Key == Key.Up) direction = FocusNavigationDirection.Up;
+            else if (e.Key == Key.Down) direction = FocusNavigationDirection.Down;
+            else if (e.Key == Key.Left) direction = FocusNavigationDirection.Left;
+            else if (e.Key == Key.Right) direction = FocusNavigationDirection.Right;
+
+            // Move focus to the next button in that physical direction
+            focusedElement.MoveFocus(new TraversalRequest(direction));
+        }
+        
+        // Stop the background guide from stealing the keypress!
+        e.Handled = true; 
+        return;
+    }
+}
             
             if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
             {

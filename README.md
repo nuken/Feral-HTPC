@@ -87,6 +87,7 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **HLS Stream Option:** Force a channel to use the HLS Stream to address channel freezing.
 * **Minimize to System Tray:** Settings option to keep Feral HTPC open in the background, minimized to System Tray. 
 * **Mini-Guide:** Added a Mini-Guide to the Live TV player. Use arrow keys to navigate. 
+* **Navigation Improvements:** Remote control and keyboard navigation improvements.
 
 ## [1.1.9]
 
