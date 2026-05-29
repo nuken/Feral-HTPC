@@ -72,7 +72,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
+       <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
             <Grid>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                     <Button Content="🏠 Home" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
@@ -80,22 +80,9 @@
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource StatusSuccess}"/>
                 </StackPanel>
 
-                <Button x:Name="ToggleFiltersButton" Content="⚙️ Filters" HorizontalAlignment="Right" Click="ToggleFilters_Click"
-                        Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" FontSize="16" FontWeight="Bold" Padding="15,8" BorderThickness="0" Cursor="Hand"/>
-            </Grid>
-        </Border>
-
-        <Border x:Name="FilterBar" Grid.Row="1" Background="{DynamicResource PanelBackground}" CornerRadius="12" Padding="20" Margin="0,0,0,20" Visibility="Collapsed" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
-            <StackPanel>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Grid Grid.Column="0" Margin="0,0,15,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    
+                    <Grid Margin="0,0,15,0" Width="300">
                         <TextBox x:Name="SearchBox" Padding="15,12" FontSize="18" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" 
                                  BorderThickness="2" BorderBrush="{DynamicResource BorderBrush}" VerticalContentAlignment="Center" TextChanged="Filter_Changed" />
                         <TextBlock IsHitTestVisible="False" Text="🔍 Search Movies..." VerticalAlignment="Center" HorizontalAlignment="Left" Margin="15,0,0,0" Foreground="{DynamicResource TextSecondary}" FontSize="18">
@@ -112,23 +99,40 @@
                         </TextBlock>
                     </Grid>
 
-                    <ComboBox x:Name="GenreBox" Grid.Column="1" Width="180" Height="50" Margin="0,0,15,0" FontSize="18" VerticalContentAlignment="Center" SelectionChanged="Filter_Changed"/>
-                    <ComboBox x:Name="WatchedBox" Grid.Column="2" Width="180" Height="50" Margin="0,0,15,0" FontSize="18" VerticalContentAlignment="Center" SelectionChanged="Filter_Changed">
+                    <Button x:Name="ToggleFiltersButton" Content="⚙️ Filters" Click="ToggleFilters_Click"
+                            Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" FontSize="16" FontWeight="Bold" Padding="15,8" BorderThickness="0" Cursor="Hand"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+       <Border x:Name="FilterBar" Grid.Row="1" Background="{DynamicResource PanelBackground}" CornerRadius="12" Padding="20" Margin="0,0,0,20" Visibility="Collapsed" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
+            <StackPanel>
+                <Grid HorizontalAlignment="Right">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <ComboBox x:Name="GenreBox" Grid.Column="0" Width="200" Height="50" Margin="0,0,15,0" FontSize="18" VerticalContentAlignment="Center" SelectionChanged="Filter_Changed"/>
+                    
+                    <ComboBox x:Name="WatchedBox" Grid.Column="1" Width="180" Height="50" Margin="0,0,15,0" FontSize="18" VerticalContentAlignment="Center" SelectionChanged="Filter_Changed">
                         <ComboBoxItem Content="All Statuses" IsSelected="True"/>
                         <ComboBoxItem Content="Unwatched Only"/>
                         <ComboBoxItem Content="Watched Only"/>
                     </ComboBox>
-                    <ComboBox x:Name="SortBox" Grid.Column="3" Width="180" Height="50" FontSize="18" VerticalContentAlignment="Center" SelectionChanged="Filter_Changed">
+                    
+                    <ComboBox x:Name="SortBox" Grid.Column="2" Width="180" Height="50" FontSize="18" VerticalContentAlignment="Center" SelectionChanged="Filter_Changed">
                         <ComboBoxItem Content="A-Z (Alphabetical)" IsSelected="True"/>
                         <ComboBoxItem Content="Newest Added"/>
                         <ComboBoxItem Content="Release Year"/>
                     </ComboBox>
                 </Grid>
+                
                 <Button Content="✅ Apply Filters" Click="ApplyAndClose_Click" HorizontalAlignment="Right" Margin="0,20,0,0"
                         Background="{DynamicResource LiveBorder}" Foreground="White" FontSize="18" FontWeight="Bold" Padding="25,12" BorderThickness="0" Cursor="Hand"/>
             </StackPanel>
         </Border>
-
         <ScrollViewer x:Name="MainScroller" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
             <ItemsControl x:Name="MoviesItemsControl" Focusable="False">
                 <ItemsControl.ItemsPanel>

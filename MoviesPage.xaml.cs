@@ -139,17 +139,17 @@ namespace FeralCode
         }
 
         private void ToggleFilters_Click(object sender, RoutedEventArgs e)
-        {
-            if (FilterBar.Visibility == Visibility.Visible)
-            {
-                FilterBar.Visibility = Visibility.Collapsed;
-            }
-            else
-            {
-                FilterBar.Visibility = Visibility.Visible;
-                SearchBox.Focus();
-            }
-        }
+{
+    if (FilterBar.Visibility == Visibility.Visible)
+    {
+        FilterBar.Visibility = Visibility.Collapsed;
+    }
+    else
+    {
+        FilterBar.Visibility = Visibility.Visible;
+        GenreBox.Focus(); // Shift focus to the first drop-down instead of Search
+    }
+}
 
         private void ApplyAndClose_Click(object sender, RoutedEventArgs e)
         {
