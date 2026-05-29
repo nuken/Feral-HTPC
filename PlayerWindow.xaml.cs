@@ -1764,37 +1764,81 @@ private void MiniGuideList_PreviewKeyDown(object sender, KeyEventArgs e)
         }
        
         public bool HandleRemoteKey(string key)
+{
+    // 1. If the Mini Guide is open, intercept the D-Pad to control the guide!
+    if (MiniGuideOverlay != null && MiniGuideOverlay.Visibility == Visibility.Visible)
+    {
+        if (key == "right")
         {
-            if (key == "right" && ControlBar.Visibility == Visibility.Collapsed)
+            if (MiniGuideList.SelectedIndex < MiniGuideList.Items.Count - 1)
             {
-                FastForward_Click(null!, null!);
-                return true;
+                MiniGuideList.SelectedIndex++;
+                MiniGuideList.ScrollIntoView(MiniGuideList.SelectedItem);
             }
-            if (key == "left" && ControlBar.Visibility == Visibility.Collapsed)
-            {
-                Rewind_Click(null!, null!);
-                return true;
-            }
-            if (key == "up" && !_isMovieMode && ControlBar.Visibility == Visibility.Collapsed)
-            {
-                ChUp_Click(null!, null!);
-                return true;
-            }
-            if (key == "down" && !_isMovieMode && ControlBar.Visibility == Visibility.Collapsed)
-            {
-                ChDn_Click(null!, null!);
-                return true;
-            }
-            if (key == "enter" && ControlBar.Visibility == Visibility.Collapsed)
-            {
-                PlayPause_Click(null!, null!);
-                Overlay_MouseMove(null!, null!);
-                return true;
-            }
-            
-            Overlay_MouseMove(null!, null!);
-            return false; 
+            return true;
         }
+        else if (key == "left")
+        {
+            if (MiniGuideList.SelectedIndex > 0)
+            {
+                MiniGuideList.SelectedIndex--;
+                MiniGuideList.ScrollIntoView(MiniGuideList.SelectedItem);
+            }
+            return true;
+        }
+        else if (key == "enter" || key == "ok")
+        {
+            // Play the selected channel and close the guide
+            if (MiniGuideList.SelectedIndex != -1 && MiniGuideList.SelectedIndex != _currentIndex)
+            {
+                _currentIndex = MiniGuideList.SelectedIndex;
+                PlayCurrentChannel();
+            }
+            ToggleMiniGuide();
+            return true;
+        }
+        else if (key == "up" || key == "down" || key == "back" || key == "escape")
+        {
+            // Any vertical movement or back button closes the mini guide
+            ToggleMiniGuide(); 
+            return true;
+        }
+        
+        return true; // Absorb any other keys so they don't break the background video
+    }
+
+    // 2. Standard Player Controls (When the Mini Guide is CLOSED)
+    if (key == "down" && !_isMovieMode && ControlBar.Visibility == Visibility.Collapsed)
+    {
+        // Open the Mini Guide instead of skipping down a channel!
+        ToggleMiniGuide();
+        return true;
+    }
+    if (key == "up" && !_isMovieMode && ControlBar.Visibility == Visibility.Collapsed)
+    {
+        ChUp_Click(null!, null!);
+        return true;
+    }
+    if (key == "right" && ControlBar.Visibility == Visibility.Collapsed)
+    {
+        FastForward_Click(null!, null!);
+        return true;
+    }
+    if (key == "left" && ControlBar.Visibility == Visibility.Collapsed)
+    {
+        Rewind_Click(null!, null!);
+        return true;
+    }
+    if (key == "enter" && ControlBar.Visibility == Visibility.Collapsed)
+    {
+        PlayPause_Click(null!, null!);
+        Overlay_MouseMove(null!, null!);
+        return true;
+    }
+    
+    Overlay_MouseMove(null!, null!);
+    return false; 
+}
         
         private void ToggleFullscreen()
         {
