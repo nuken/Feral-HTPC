@@ -73,6 +73,57 @@
                         <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="4"/>
                     </TextBlock.Effect>
                 </TextBlock>
+				
+				<Border x:Name="MiniGuideOverlay" VerticalAlignment="Bottom" Height="200" Margin="20" Background="{DynamicResource PanelBackground}" Opacity="0.95" CornerRadius="8" Visibility="Collapsed">
+    <ListView x:Name="MiniGuideList" Background="Transparent" BorderThickness="0" 
+              ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+              PreviewKeyDown="MiniGuideList_PreviewKeyDown">
+        <ListView.ItemsPanel>
+            <ItemsPanelTemplate>
+                <VirtualizingStackPanel Orientation="Horizontal"/>
+            </ItemsPanelTemplate>
+        </ListView.ItemsPanel>
+        
+        <ListView.ItemTemplate>
+            <DataTemplate>
+                <Border Width="380" Margin="5" Padding="15" Background="{DynamicResource CardBackground}" CornerRadius="6">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90"/> 
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0" Margin="0,0,15,0" VerticalAlignment="Center">
+                            <Image Source="{Binding ImageUrl}" Width="75" Height="75" Stretch="Uniform" Margin="0,0,0,10"/>
+                            <TextBlock Text="{Binding Number}" FontWeight="Bold" FontSize="20" Foreground="{DynamicResource TextPrimary}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding CurrentAirings[0].DisplayTitle, FallbackValue='Unknown Program'}" 
+                                       FontWeight="Bold" FontSize="18" Foreground="{DynamicResource TextPrimary}" 
+                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                            
+                            <TextBlock Text="{Binding CurrentAirings[0].EpisodeTitle}" 
+                                       FontSize="14" Foreground="{DynamicResource TextSecondary}" FontStyle="Italic"
+                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                       
+                            <TextBlock Text="{Binding CurrentAirings[0].Summary}" 
+                                       FontSize="13" Foreground="{DynamicResource TextSecondary}" 
+                                       TextWrapping="Wrap" MaxHeight="55" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </ListView.ItemTemplate>
+        
+        <ListView.ItemContainerStyle>
+            <Style TargetType="ListViewItem">
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Margin" Value="5,0"/>
+            </Style>
+        </ListView.ItemContainerStyle>
+    </ListView>
+</Border>
 
                 <Border x:Name="ControlBar" Grid.Row="1" Background="#CC000000" Padding="20">
                     <Grid>

@@ -1152,36 +1152,36 @@ if (!string.IsNullOrWhiteSpace(query))
             if (_selectedAiring != null && !string.IsNullOrWhiteSpace(baseUrl))
             {
                 try
-                {
-                    ModalOverlay.Visibility = Visibility.Collapsed;
+{
+    ModalOverlay.Visibility = Visibility.Collapsed;
 
-                    // --- FIX: Filter out hidden channels BEFORE sending to player ---
-                    var filteredList = _masterChannelList
-                        .Where(c => _settings.HiddenChannels == null || !_settings.HiddenChannels.Contains(c.Number!))
-                        .ToList();
+    // --- FIX: Use the list of channels currently visible in the Guide (respects Collections, Search, and Tags) ---
+    var activeList = _currentFilteredList.ToList();
 
-                    int channelIndex = filteredList.FindIndex(c => c.Number == _selectedAiring.ChannelNumber);
-                    if (channelIndex == -1) channelIndex = 0;
+    // Find the clicked channel's index within that specific list
+    int channelIndex = activeList.FindIndex(c => c.Number == _selectedAiring.ChannelNumber);
+    if (channelIndex == -1) channelIndex = 0;
 
-                    var mainWindow = (MainWindow)Application.Current.MainWindow;
+    var mainWindow = (MainWindow)Application.Current.MainWindow;
 
-                    if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
+    if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();
 
-                    mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, filteredList, channelIndex);
-                    
-                    mainWindow.ActivePlayerWindow.Closed += (s, args) => 
-                    {
-                        mainWindow.ActivePlayerWindow = null; 
-                        if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
-                        mainWindow.Show(); 
-                        Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedAiringButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
-                    }; 
-                    
-                    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
-                    else mainWindow.Hide(); 
-                    
-                    mainWindow.ActivePlayerWindow.Show();
-                }
+    // Pass the actively filtered list to the player
+    mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, activeList, channelIndex);
+    
+    mainWindow.ActivePlayerWindow.Closed += (s, args) => 
+    {
+        mainWindow.ActivePlayerWindow = null; 
+        if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Normal;
+        mainWindow.Show(); 
+        Application.Current.Dispatcher.InvokeAsync(() => _lastFocusedAiringButton?.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+    }; 
+    
+    if (_settings.MinimizeOnPlay) mainWindow.WindowState = WindowState.Minimized;
+    else mainWindow.Hide(); 
+    
+    mainWindow.ActivePlayerWindow.Show();
+}
                 catch (Exception ex)
                 {
                     MessageBox.Show($"Player failed to launch:\n{ex.Message}", "VLC Error", MessageBoxButton.OK, MessageBoxImage.Error);

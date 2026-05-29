@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using System.Threading.Tasks;
 using LibVLCSharp.Shared;
@@ -1478,10 +1479,21 @@ namespace FeralCode
         }
 
         private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+{
+    // --- FIX: Suspend global player shortcuts while the Mini Guide is open ---
+    if (MiniGuideOverlay != null && MiniGuideOverlay.Visibility == Visibility.Visible)
+    {
+        // Let the ListView handle navigation keys natively without scrubbing the video
+        if (e.Key == Key.Left || e.Key == Key.Right || e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Escape || e.Key == Key.Enter || e.Key == Key.Space)
         {
-            if (e.Key == System.Windows.Input.Key.Right || e.Key == System.Windows.Input.Key.Left)
-            {
-                if (ControlBar.Visibility == Visibility.Collapsed)
+            return; 
+        }
+    }
+
+    // ... Keep your existing Right/Left scrubbing logic directly below this ...
+    if (e.Key == System.Windows.Input.Key.Right || e.Key == System.Windows.Input.Key.Left)
+    {
+        if (ControlBar.Visibility == Visibility.Collapsed)
                 {
                     if (!_isScrubbing)
                     {
@@ -1524,7 +1536,14 @@ namespace FeralCode
             }
 
             if (e.Key == System.Windows.Input.Key.Up) { ChUp_Click(null!, null!); e.Handled = true; }
-            else if (e.Key == System.Windows.Input.Key.Down) { ChDn_Click(null!, null!); e.Handled = true; }
+           else if (e.Key == System.Windows.Input.Key.Down) 
+{ 
+    if (!_isMovieMode && ControlBar.Visibility == Visibility.Collapsed)
+    {
+        ToggleMiniGuide();
+    }
+    e.Handled = true; 
+}
             else if (e.Key == System.Windows.Input.Key.Space || e.Key == System.Windows.Input.Key.Enter)
             {
                 if (ControlBar.Visibility == Visibility.Collapsed)
@@ -1599,6 +1618,50 @@ namespace FeralCode
                 e.Handled = true;
             }
         }
+		
+		private void ToggleMiniGuide()
+{
+    if (MiniGuideOverlay.Visibility == Visibility.Collapsed)
+    {
+        MiniGuideOverlay.Visibility = Visibility.Visible;
+        MiniGuideList.ItemsSource = _channels;
+        MiniGuideList.SelectedIndex = _currentIndex;
+        MiniGuideList.ScrollIntoView(MiniGuideList.SelectedItem);
+        
+        // Give the list focus so the user can use Left/Right arrows
+        Dispatcher.BeginInvoke(new Action(() => 
+        {
+            if (MiniGuideList.ItemContainerGenerator.ContainerFromIndex(_currentIndex) is ListViewItem item)
+            {
+                item.Focus();
+            }
+        }), DispatcherPriority.Input);
+    }
+    else
+    {
+        MiniGuideOverlay.Visibility = Visibility.Collapsed;
+        this.Focus(); // Return focus to the player
+    }
+}
+
+private void MiniGuideList_PreviewKeyDown(object sender, KeyEventArgs e)
+{
+    if (e.Key == Key.Enter || e.Key == Key.Space)
+    {
+        if (MiniGuideList.SelectedIndex != -1 && MiniGuideList.SelectedIndex != _currentIndex)
+        {
+            _currentIndex = MiniGuideList.SelectedIndex;
+            PlayCurrentChannel();
+        }
+        ToggleMiniGuide(); // Close after selection
+        e.Handled = true;
+    }
+    else if (e.Key == Key.Escape || e.Key == Key.Up || e.Key == Key.Back)
+    {
+        ToggleMiniGuide(); // Close without selecting
+        e.Handled = true;
+    }
+}
 
         private void Window_PreviewKeyUp(object sender, System.Windows.Input.KeyEventArgs e)
         {
@@ -1752,6 +1815,8 @@ namespace FeralCode
                 
                 _isFullscreen = false;
             }
+			this.Activate();
+            this.Focus();
         }
 
         private void Overlay_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
