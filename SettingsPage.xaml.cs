@@ -42,9 +42,8 @@ namespace FeralCode
             StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
             VirtualChannelsCheckBox.IsChecked = _settings.EnableVirtualChannels;
             // --- FIX: Formatted Mobile Remote URL Display ---
-            // Grabs local network IP and pairs it with WebServerPort (fallback to 12345 if 0)
-            int currentPort = _settings.WebServerPort > 0 ? _settings.WebServerPort : 12345; 
-            LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{currentPort}";
+            // Grabs local network IP and pairs it with the ACTUALLY running port
+            LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{MainWindow.ActiveWebServerPort}";
             SimplifiedGuideCheckBox.IsChecked = _settings.SimplifiedGuide;
 			// --- NEW: Populate Padding Combo Boxes (0 to 30 mins) ---
             for (int i = 0; i <= 30; i++)

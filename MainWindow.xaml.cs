@@ -23,6 +23,7 @@ namespace FeralCode
     public partial class MainWindow : Window
     {
         public static LibVLC SharedLibVLC { get; private set; } = null!;
+        public static int ActiveWebServerPort { get; private set; } = 12345; 
         
         private WebApplication? _webHost;
 
@@ -360,10 +361,10 @@ namespace FeralCode
             {
                 try
                 {
-                    // FIX: Kestrel binds to IPv6Any with DualMode enabled by default. 
-                    // We must test the exact same dual-mode socket to prevent false positives!
                     using (var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.IPv6Any, port))
                     {
+                        // --- FIX: Stop TIME_WAIT from blocking Kestrel ---
+                        listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         listener.Server.DualMode = true; 
                         listener.Start();
                         listener.Stop();
@@ -372,7 +373,6 @@ namespace FeralCode
                 }
                 catch
                 {
-                    // Port is actually in use on either IPv4 or IPv6! Increment and try the next one.
                     AppLogger.Log($"Port {port} in use, trying {port + 1}...");
                     port++;
                 }
@@ -394,12 +394,9 @@ namespace FeralCode
                     // 2. Actively scan for the first truly available port (hops instantly if blocked)
                     int activePort = FindAvailablePort(targetPort);
 
-                    // 3. If we had to hop to a new port, save it permanently to user_settings.json!
-                    if (settings.WebServerPort != activePort)
-                    {
-                        settings.WebServerPort = activePort;
-                        SettingsManager.Save(settings);
-                    }
+                    // 3. Track the actual running port so the Settings page can display it!
+                    // DO NOT save it permanently to prevent port drift on restarts.
+                    ActiveWebServerPort = activePort;
 
                     var options = new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory };
                     var builder = WebApplication.CreateBuilder(options);

@@ -85,6 +85,7 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 
 * **UX Enhancments:** Display Search Bar on Movies and TV Shows pages.
 * **Multiview Improvements:** Guide data improvements. 
+* **Remote App Port Fix:** Added a global variable so the rest of the app knows what port is actually running, and update the port scanner to reuse the socket.
 
 ## [1.2.0]
 
