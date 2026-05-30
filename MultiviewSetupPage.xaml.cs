@@ -54,10 +54,37 @@ namespace FeralCode
     }
 
     var rawChannels = await api.GetChannelsAsync(_baseUrl);
-    var cleanChannels = rawChannels.Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)).ToList();
+            var cleanChannels = rawChannels.Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)).ToList();
 
-    // --- Fetch 1 hour of guide data to get the currently airing shows ---
-    try
+            // ====================================================================
+            // --- NEW: Fetch Stations for Logo Fallbacks (Copied from GuidePage) ---
+            // ====================================================================
+            var stations = await api.GetStationsAsync(_baseUrl);
+            var stationLogoDict = stations
+                .Where(s => !string.IsNullOrWhiteSpace(s.Id) && !string.IsNullOrWhiteSpace(s.Logo))
+                .GroupBy(s => s.Id!)
+                .ToDictionary(g => g.Key, g => g.First().Logo!);
+
+            foreach (var channel in cleanChannels)
+            {
+                string targetId = !string.IsNullOrWhiteSpace(channel.StationId) ? channel.StationId : channel.CallSign;
+
+                if (string.IsNullOrWhiteSpace(channel.ImageUrl) && !string.IsNullOrWhiteSpace(targetId))
+                {
+                    if (stationLogoDict.TryGetValue(targetId, out string? mappedLogo)) channel.ImageUrl = mappedLogo;
+                }
+
+                // Fix relative and tmsimg URLs so the WPF Image control can actually download them
+                if (!string.IsNullOrWhiteSpace(channel.ImageUrl))
+                {
+                    if (channel.ImageUrl.StartsWith("/")) channel.ImageUrl = $"{_baseUrl.TrimEnd('/')}{channel.ImageUrl}";
+                    else if (channel.ImageUrl.StartsWith("tmsimg://", StringComparison.OrdinalIgnoreCase))
+                        channel.ImageUrl = channel.ImageUrl.Replace("tmsimg://", $"{_baseUrl.TrimEnd('/')}/tmsimg/", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            // --- Fetch 1 hour of guide data to get the currently airing shows ---
+            try
             {
                 // We pass '1' to only grab a tiny, fast slice of the timeline
                 var guideBlocks = await api.GetGuideAsync(_baseUrl, 1);
@@ -70,7 +97,18 @@ namespace FeralCode
                 {
                     if (channel.Number != null && guideDict.TryGetValue(channel.Number.Trim(), out var guideData))
                     {
-                        // --- NEW: Inject the clean Favorite flag directly from the Guide payload! ---
+                        // ====================================================================
+                        // --- NEW: Secondary Logo Fallback from Guide Data ---
+                        // ====================================================================
+                        if (string.IsNullOrWhiteSpace(channel.ImageUrl) && !string.IsNullOrWhiteSpace(guideData.ChannelImageUrl))
+                        {
+                            channel.ImageUrl = guideData.ChannelImageUrl;
+                            if (channel.ImageUrl.StartsWith("/")) channel.ImageUrl = $"{_baseUrl.TrimEnd('/')}{channel.ImageUrl}";
+                            else if (channel.ImageUrl.StartsWith("tmsimg://", StringComparison.OrdinalIgnoreCase))
+                                channel.ImageUrl = channel.ImageUrl.Replace("tmsimg://", $"{_baseUrl.TrimEnd('/')}/tmsimg/", StringComparison.OrdinalIgnoreCase);
+                        }
+
+                        // Inject the clean Favorite flag directly from the Guide payload
                         channel.Favorite = guideData.IsFavorite;
 
                         // Filter the airings to strictly the show playing RIGHT NOW

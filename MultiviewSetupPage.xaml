@@ -120,17 +120,60 @@
                                     <Button Style="{StaticResource ChannelListItemStyle}" Click="Channel_Click" Tag="{Binding}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="60"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="110"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
                                             
-                                            <TextBlock Grid.Column="0" Text="{Binding Number}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}" Margin="0,0,10,0"/>
-                                            <TextBlock Grid.Column="2" Text="•" FontSize="18" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" Margin="0,0,10,0"/>
-                                            
-                                            <TextBlock Grid.Column="3" Text="{Binding CurrentShowTitle}" FontSize="16" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                            <Border Grid.Column="0" Background="#474747" CornerRadius="8" Margin="0,0,15,0" Width="100" Height="75" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Number}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="24" FontWeight="Bold" Foreground="#444444">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding ImageUrl}" Value="{x:Null}">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding ImageUrl}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    
+                                                    <Image Source="{Binding ImageUrl}" Stretch="Uniform" Margin="5"/>
+                                                </Grid>
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <Border Background="{DynamicResource LiveBorder}" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
+                                                        <TextBlock Text="{Binding Number}" FontWeight="Bold" FontSize="13" Foreground="White"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+                                                </StackPanel>
+                                                
+                                                <TextBlock Text="{Binding CurrentShowTitle}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+                                                
+                                                <TextBlock Text="{Binding CurrentAirings[0].EpisodeTitle}" FontSize="14" FontStyle="Italic" Foreground="{DynamicResource LiveBorder}" TextTrimming="CharacterEllipsis" Margin="0,0,0,4">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource Self}}" Value="">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                                <TextBlock Text="{Binding CurrentAirings[0].DisplaySummary}" FontSize="13" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis" MaxHeight="38" TextWrapping="Wrap" LineHeight="18"/>
+                                            </StackPanel>
                                         </Grid>
                                     </Button>
                                 </DataTemplate>
