@@ -136,7 +136,7 @@ namespace FeralCode
             else
             {
                 FilterBar.Visibility = Visibility.Visible;
-                SearchBox.Focus(); 
+                GenreBox.Focus(); 
             }
         }
 
