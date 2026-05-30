@@ -79,6 +79,13 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 
 # Changelog
 
+## [1.2.1]
+
+### New Features & Enhancements
+
+* **UX Enhancments:** Display Search Bar on Movies and TV Shows pages.
+* **Multiview Improvements:** Guide data improvements. 
+
 ## [1.2.0]
 
 ### New Features & Enhancements
