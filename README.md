@@ -84,7 +84,7 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 ### New Features & Enhancements
 
 * **UX Enhancments:** Display Search Bar on Movies and TV Shows pages.
-* **Multiview Improvements:** Guide data improvements. 
+* **Multiview Improvements:** Guide data improvements, added ability to remove individual selected channels.  
 
 ### Bug Fixes
 

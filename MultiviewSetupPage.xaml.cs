@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace FeralCode
 {
@@ -304,14 +305,39 @@ namespace FeralCode
             Slot3Text.Text = _selectedChannels.Count > 2 ? $"Slot 3: {_selectedChannels[2].Name}" : "Slot 3: Empty";
             Slot4Text.Text = _selectedChannels.Count > 3 ? $"Slot 4: {_selectedChannels[3].Name}" : "Slot 4: Empty";
 
-            // Enable launch if at least 2 channels are selected
-            LaunchButton.IsEnabled = _selectedChannels.Count > 1;
+            Slot1Text.Foreground = _selectedChannels.Count > 0 ? (Brush)FindResource("TextPrimary") : (Brush)FindResource("TextSecondary");
+            Slot2Text.Foreground = _selectedChannels.Count > 1 ? (Brush)FindResource("TextPrimary") : (Brush)FindResource("TextSecondary");
+            Slot3Text.Foreground = _selectedChannels.Count > 2 ? (Brush)FindResource("TextPrimary") : (Brush)FindResource("TextSecondary");
+            Slot4Text.Foreground = _selectedChannels.Count > 3 ? (Brush)FindResource("TextPrimary") : (Brush)FindResource("TextSecondary");
+
+            // --- NEW: Toggle the visibility of the Remove buttons ---
+            RemoveSlot1.Visibility = _selectedChannels.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            RemoveSlot2.Visibility = _selectedChannels.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            RemoveSlot3.Visibility = _selectedChannels.Count > 2 ? Visibility.Visible : Visibility.Collapsed;
+            RemoveSlot4.Visibility = _selectedChannels.Count > 3 ? Visibility.Visible : Visibility.Collapsed;
+
+            LaunchButton.IsEnabled = _selectedChannels.Count > 0;
         }
 
         private void Clear_Click(object sender, RoutedEventArgs e)
         {
             _selectedChannels.Clear();
             UpdateSlots();
+        }
+		
+		private void RemoveSlot_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && int.TryParse(btn.Tag?.ToString(), out int index))
+            {
+                // Ensure the index actually exists in our list before trying to remove it
+                if (index >= 0 && index < _selectedChannels.Count)
+                {
+                    _selectedChannels.RemoveAt(index);
+                    
+                    // Refresh the UI to cascade the remaining channels up
+                    UpdateSlots();
+                }
+            }
         }
 
         private void Launch_Click(object sender, RoutedEventArgs e)

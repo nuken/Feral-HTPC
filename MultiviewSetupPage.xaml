@@ -188,16 +188,31 @@
                     <TextBlock Text="2. Selected Screens" FontSize="24" FontWeight="Bold" Margin="0,0,0,15"/>
                     
                     <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,10">
-                        <TextBlock x:Name="Slot1Text" Text="Slot 1: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                        <Grid>
+                            <TextBlock x:Name="Slot1Text" Text="Slot 1: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                            <Button x:Name="RemoveSlot1" Content="❌" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource StatusError}" FontSize="14" Cursor="Hand" Visibility="Collapsed" Click="RemoveSlot_Click" Tag="0" ToolTip="Remove from Slot 1"/>
+                        </Grid>
                     </Border>
+                    
                     <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,10">
-                        <TextBlock x:Name="Slot2Text" Text="Slot 2: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                        <Grid>
+                            <TextBlock x:Name="Slot2Text" Text="Slot 2: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                            <Button x:Name="RemoveSlot2" Content="❌" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource StatusError}" FontSize="14" Cursor="Hand" Visibility="Collapsed" Click="RemoveSlot_Click" Tag="1" ToolTip="Remove from Slot 2"/>
+                        </Grid>
                     </Border>
+                    
                     <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,10">
-                        <TextBlock x:Name="Slot3Text" Text="Slot 3: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                        <Grid>
+                            <TextBlock x:Name="Slot3Text" Text="Slot 3: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                            <Button x:Name="RemoveSlot3" Content="❌" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource StatusError}" FontSize="14" Cursor="Hand" Visibility="Collapsed" Click="RemoveSlot_Click" Tag="2" ToolTip="Remove from Slot 3"/>
+                        </Grid>
                     </Border>
+                    
                     <Border Background="{DynamicResource AppBackground}" CornerRadius="6" Padding="15" Margin="0,0,0,30">
-                        <TextBlock x:Name="Slot4Text" Text="Slot 4: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                        <Grid>
+                            <TextBlock x:Name="Slot4Text" Text="Slot 4: Empty" FontSize="16" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                            <Button x:Name="RemoveSlot4" Content="❌" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource StatusError}" FontSize="14" Cursor="Hand" Visibility="Collapsed" Click="RemoveSlot_Click" Tag="3" ToolTip="Remove from Slot 4"/>
+                        </Grid>
                     </Border>
 
                     <Button x:Name="LaunchButton" Content="▶ LAUNCH MULTIVIEW" FontSize="20" FontWeight="Bold" Padding="20" Background="{DynamicResource StatusSuccess}" Foreground="Black" Cursor="Hand" Click="Launch_Click" IsEnabled="False" Style="{StaticResource ActionBtnStyle}"/>
