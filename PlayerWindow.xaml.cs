@@ -1975,7 +1975,17 @@ private void MiniGuideList_PreviewKeyDown(object sender, KeyEventArgs e)
             LogDebug("VLC CALLBACK: MediaPlayer_EndReached Fired!");
             if (_isMovieMode)
             {
-                Dispatcher.Invoke(() => this.Close());
+                // FIX: Escape the VLC thread before attempting to close the UI.
+                // This completely prevents the deadlock that causes the "Not Responding" freeze!
+                Task.Run(async () =>
+                {
+                    await Task.Delay(250); // Give VLC a tiny window to exit its 'EndReached' state
+                    
+                    Application.Current.Dispatcher.Invoke(() => 
+                    {
+                        this.Close();
+                    });
+                });
                 return;
             }
 
