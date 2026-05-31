@@ -29,6 +29,7 @@ namespace FeralCode
         private List<Channel>? _channels;
         private int _currentIndex;
         private DateTime _lastMouseMove = DateTime.MinValue;
+		private Point _lastMousePos = new Point(-1, -1);
         private System.Diagnostics.Process? _ffmpegProcess;
         
         // --- Movie Mode Variables ---
@@ -1449,20 +1450,28 @@ namespace FeralCode
             }
         }
 
-        private void Overlay_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
-{
-    if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
-    _lastMouseMove = DateTime.Now;
+       private void Overlay_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // --- FIX: Ignore fake WPF MouseMove events triggered by layout changes ---
+            if (e != null)
+            {
+                Point currentPos = e.GetPosition(this);
+                if (currentPos == _lastMousePos) return; 
+                _lastMousePos = currentPos;
+            }
 
-    if (ControlBar.Visibility != Visibility.Visible)
-    {
-        ControlBar.Visibility = Visibility.Visible;
-        System.Windows.Input.Mouse.OverrideCursor = null; // Restore globally
-    }
+            if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
+            _lastMouseMove = DateTime.Now;
 
-    _uiTimer.Stop();
-    _uiTimer.Start();
-}
+            if (ControlBar.Visibility != Visibility.Visible)
+            {
+                ControlBar.Visibility = Visibility.Visible;
+                System.Windows.Input.Mouse.OverrideCursor = null; // Restore globally
+            }
+
+            _uiTimer.Stop();
+            _uiTimer.Start();
+        }
 
         private void UiTimer_Tick(object? sender, EventArgs e)
         {

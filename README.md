@@ -85,7 +85,11 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 
 * **UX Enhancments:** Display Search Bar on Movies and TV Shows pages.
 * **Multiview Improvements:** Guide data improvements. 
+
+### Bug Fixes
+
 * **Remote App Port Fix:** Added a global variable so the rest of the app knows what port is actually running, and update the port scanner to reuse the socket.
+* **Controlbar Overlay Fix:** The cursor sitting on the Live TV controlbar would cause it to stay active. It now gracefully times out even if mouse cursor is on it. 
 
 ## [1.2.0]
 
